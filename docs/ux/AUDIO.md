@@ -9,6 +9,7 @@ and of `ltk_wwise`.
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
 | 2026-10-29 | Add ability sound                               |
+| 2026-10-29 | Add bank units and contextual event names       |
 | 2026-10-29 | Add the waveform column                         |
 | 2026-10-29 | Add the waveform                                |
 | 2026-10-29 | Add VFX sound                                   |
@@ -36,9 +37,46 @@ The head of the document is the file name, its kind, its media count and its siz
   no file name, so it shows no such notice.
 - A bank shows its version, bank type, alignment and header ID as field rows, and the ID of
   its file name where it has one.
+- A bank and a package list their bank units, as "Bank units" describes.
+
+The head's kebab holds Find references, which opens the References document on the game path
+that the bank units name the file by.
 
 A bank with a hierarchy has two tabs, Media and Events. Events holds the event tree, and it is
 the tab that opens in a bank without media.
+
+## Bank units
+
+The Bank units section lists every `BankUnit` that names the opened file in its `bankPath`, from
+the bins of the open project and then from the audio index of the game. An event bank, a media
+bank and a package each list it, so any file of a unit reaches the others.
+
+A unit that several bins declare with the same name, the same paths and the same voice-over flag
+is one row. A base voice-over bank that every skin bin of a champion declares is one row with a
+list of bins, not one row per bin.
+
+A row holds:
+
+- The unit's `name`, and a Voice-over badge if `voiceOver` is set.
+- Each `bankPath` file as a badge with its kind: event bank, media bank or package. The opened
+  file is marked. A found file opens its document on a press. A file that no layer and no game
+  archive holds is greyed and has no press.
+- A disclosure with the bins that declare the unit. A press on a bin opens the object and
+  reveals the `BankUnit` row.
+
+The declarations are ranked: the project's bins first, then the skin bin whose number matches
+the `Skins/SkinNN` segment of the opened path (`Base` is skin 0), then `skins/root.bin`, then the
+rest in the order of the index. A declaration whose holder links a `ContextualActionData` object
+also offers Open contextual actions, which opens that object.
+
+`SpellDataResource.AudioBankPaths` and `ClientStateAudioDataProperties.BankPaths` name banks
+without a unit, a name or events. The bins that list the opened file in one of them follow the
+units, each a press that opens the list row.
+
+The section reads before the audio index of the game is ready. It lists the project's units, says
+that the index builds, and fills in when the build finishes. A loose file outside a project names
+itself by its file name, so no unit names it. The links need a project, which owns the editor
+tabs. Outside one, the section is text.
 
 ## Media table
 
@@ -115,6 +153,18 @@ An event takes its name from the first of:
    `SoundEventData.mSoundName`, the four sound fields of `VfxSystemDefinitionData`,
    `VfxEmitterAudio.SoundOnCreate` and `SoundPersistent`, and the strings of
    `UiComboBoxSoundEvents` and `UiElementGroupButtonSoundEvents`.
+3. The contextual actions of the skins whose units name the bank. A skin's
+   `mContextualActionData` links a `ContextualActionData` object, whose rules name voice-over
+   events by a short name such as `cast3D`. For each tag of the skin's `tagEventList`, the name
+   `Play_vo_<tag>_<name>` is composed, and `Play_vo_<tag>_<spell>_<name>` for a rule with a
+   `ContextualConditionSpellName`, where `<spell>` is the last segment of the spell path. A
+   composition whose ID is an event of the bank names that event.
+
+The composition is observed in shipped data and not read from the client, so an event that a
+rule plays carries the rule as an inferred context: a dashed badge with the situation, the
+`mRuleName` and the audience (self, ally, enemy or spectator). If two tags compose two events of
+the bank for one rule, both keep the rule, and the badge's tooltip says that the match is
+ambiguous. `mRuleName` is not in the meta class, and the shipped rules carry it.
 
 The audio index is built on a background thread the first time an event bank opens, and again
 when the game build changes. It is cached beside the game index cache. While it builds, the tab
@@ -193,7 +243,9 @@ The tree is one tab stop. Focus selects the first row if no row is selected.
 ### Row actions
 
 An event's context menu holds Copy event name, which copies `#` and the ID for an unnamed
-event. An action's and an object's menu holds Copy object ID. A sound whose media is found also
+event. Inside a project it also holds Show contextual rule, which opens the `ContextualActionData`
+object at the first rule that plays the event, and Show in bank unit, which opens the bin at the
+`events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu holds Copy object ID. A sound whose media is found also
 holds Show media, which opens the document of the file that holds the media, switches it to the
 Media tab and selects the row of the source ID.
 

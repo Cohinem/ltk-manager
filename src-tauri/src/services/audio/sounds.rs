@@ -66,7 +66,7 @@ fn document_units(app: &AppHandle, document: BinDocumentId) -> AppResult<Vec<Ban
     let audio = BinAudio::of_objects(objects).map_err(|e| {
         AppError::Other(format!("The bank units of the document were not read: {e}"))
     })?;
-    Ok(audio.units)
+    Ok(audio.units.into_iter().map(|sited| sited.unit).collect())
 }
 
 /// Returns a bank unit that reads `bank_paths`, such as the `AudioBankPaths` of a spell.

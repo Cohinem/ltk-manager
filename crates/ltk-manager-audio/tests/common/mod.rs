@@ -2,12 +2,12 @@
 
 #![expect(dead_code, reason = "each test binary uses a different subset")]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Cursor};
 use std::path::Path;
 
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_audio::{AudioFile, AudioFiles, ReadSeek};
+use ltk_manager_audio::{AudioFile, AudioFiles, ReadSeek, SiteNames};
 use ltk_wwise::{Bank, Package, SourceId};
 
 /// Returns the bytes of the fixture `name` in `tests/fixtures`.
@@ -80,5 +80,58 @@ impl AudioFiles for FakeFiles {
             asset: Self::asset(path),
             contents: Box::new(Cursor::new(bytes.clone())) as Box<dyn ReadSeek>,
         }))
+    }
+}
+
+/// Site names from in-memory tables. A located path is a loose file at that path.
+#[derive(Debug, Default)]
+pub struct FakeNames {
+    assets: HashSet<String>,
+    fields: HashMap<u32, String>,
+    hashes: HashMap<u32, String>,
+}
+
+impl FakeNames {
+    /// Locates the game path `path`.
+    pub fn with_asset(mut self, path: &str) -> Self {
+        self.assets.insert(path.to_lowercase());
+        self
+    }
+
+    /// Names the field `hash`.
+    pub fn with_field(mut self, hash: u32, name: &str) -> Self {
+        self.fields.insert(hash, name.to_owned());
+        self
+    }
+
+    /// Names the hash value `hash`.
+    pub fn with_hash(mut self, hash: u32, name: &str) -> Self {
+        self.hashes.insert(hash, name.to_owned());
+        self
+    }
+}
+
+impl SiteNames for FakeNames {
+    fn locate(&self, path: &str) -> Option<AssetRef> {
+        let path = path.to_lowercase();
+        self.assets
+            .contains(&path)
+            .then_some(AssetRef::File { path })
+    }
+
+    fn object_name(&self, _hash: u32) -> Option<String> {
+        None
+    }
+
+    fn class_name(&self, _hash: u32) -> Option<String> {
+        None
+    }
+
+    fn field_name(&self, hash: u32) -> Option<String> {
+        self.fields.get(&hash).cloned()
+    }
+
+    fn hash_name(&self, hash: u32) -> Option<String> {
+        self.hashes.get(&hash).cloned()
     }
 }

@@ -107,8 +107,9 @@ fn base_index() -> AudioIndex {
     builder.add_bin(
         "data/characters/ahri/ahri.bin",
         BinAudio {
-            units: vec![unit("Ahri_Base_SFX", &[BASE_EVENTS, BASE_MEDIA], &[CAST])],
+            units: vec![unit("Ahri_Base_SFX", &[BASE_EVENTS, BASE_MEDIA], &[CAST]).into()],
             event_names: vec![CAST.to_owned()],
+            ..BinAudio::default()
         },
     );
     builder.build()
@@ -182,8 +183,8 @@ fn resolve_sounds_prefers_own_unit_over_index_unit_of_same_event() {
     builder.add_bin(
         "data/characters/ahri/ahri.bin",
         BinAudio {
-            units: vec![unit("Ahri_Base_SFX", &[BASE_EVENTS, BASE_MEDIA], &[STEP])],
-            event_names: Vec::new(),
+            units: vec![unit("Ahri_Base_SFX", &[BASE_EVENTS, BASE_MEDIA], &[STEP]).into()],
+            ..BinAudio::default()
         },
     );
     let index = builder.build();

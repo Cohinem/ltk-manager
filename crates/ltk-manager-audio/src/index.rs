@@ -1,13 +1,13 @@
 //! The audio index: the bank units, event names and media source IDs of the whole game.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek, SeekFrom};
 
 use ltk_wwise::{MountedPackage, ObjectId, SourceId};
 use serde::{Deserialize, Serialize};
 
 use crate::bank_set::BankUnit;
-use crate::bin_audio::BinAudio;
+use crate::bin_audio::{BankList, BankSite, BinAudio, ContextualRule, HolderAudio};
 use crate::names::EventNames;
 
 /// One `BankUnit` of the index, with the bin that declares it.
@@ -16,6 +16,24 @@ pub struct IndexedUnit {
     /// The game path of the bin.
     pub bin: String,
     pub unit: BankUnit,
+    pub site: BankSite,
+    pub holder: HolderAudio,
+}
+
+/// One list of bank paths of the index, with the bin that declares it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IndexedList {
+    /// The game path of the bin.
+    pub bin: String,
+    pub list: BankList,
+}
+
+/// The contextual rules of one `ContextualActionData` object, with the bin that declares it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IndexedRules {
+    /// The game path of the bin.
+    pub bin: String,
+    pub rules: Vec<ContextualRule>,
 }
 
 /// The bank units, the event names and the media source IDs of a set of bins and audio files.
@@ -26,8 +44,13 @@ pub struct IndexedUnit {
 #[serde(from = "Stored", into = "Stored")]
 pub struct AudioIndex {
     units: Vec<IndexedUnit>,
+    lists: Vec<IndexedList>,
+    /// The rules by the object's path hash. The first bin that declares an object wins.
+    contextual: HashMap<u32, IndexedRules>,
     names: EventNames,
     sources: HashSet<SourceId>,
+    /// The positions in `units` of the units that list each lowercased path.
+    by_path: HashMap<String, Vec<usize>>,
 }
 
 impl AudioIndex {
@@ -39,13 +62,34 @@ impl AudioIndex {
 
     /// Returns the bank units whose `bankPath` lists `path`, compared without ASCII case.
     pub fn units_naming<'a>(&'a self, path: &'a str) -> impl Iterator<Item = &'a IndexedUnit> {
-        self.units.iter().filter(move |indexed| {
+        self.by_path
+            .get(&path.to_ascii_lowercase())
+            .into_iter()
+            .flatten()
+            .map(|&at| &self.units[at])
+    }
+
+    /// Returns the bank lists that list `path`, compared without ASCII case.
+    pub fn lists_naming<'a>(&'a self, path: &'a str) -> impl Iterator<Item = &'a IndexedList> {
+        self.lists.iter().filter(move |indexed| {
             indexed
-                .unit
-                .bank_path
+                .list
+                .paths
                 .iter()
                 .any(|listed| listed.eq_ignore_ascii_case(path))
         })
+    }
+
+    /// Returns the contextual rules of the `ContextualActionData` object `object`, a path hash.
+    #[must_use]
+    pub fn contextual(&self, object: u32) -> Option<&IndexedRules> {
+        self.contextual.get(&object)
+    }
+
+    /// Returns the number of `ContextualActionData` objects.
+    #[must_use]
+    pub fn contextual_count(&self) -> usize {
+        self.contextual.len()
     }
 
     /// Returns the bank units whose `events` lists `event`, compared without ASCII case.
@@ -118,14 +162,31 @@ pub struct AudioIndexBuilder {
 }
 
 impl AudioIndexBuilder {
-    /// Adds the bank units and event names of the bin at the game path `bin`.
+    /// Adds the audio of the bin at the game path `bin`.
     pub fn add_bin(&mut self, bin: &str, audio: BinAudio) {
         self.index.names.extend(&audio.event_names);
         self.index
-            .units
-            .extend(audio.units.into_iter().map(|unit| IndexedUnit {
+            .lists
+            .extend(audio.lists.into_iter().map(|list| IndexedList {
                 bin: bin.to_owned(),
-                unit,
+                list,
+            }));
+        for rules in audio.contextual {
+            self.index
+                .contextual
+                .entry(rules.object)
+                .or_insert_with(|| IndexedRules {
+                    bin: bin.to_owned(),
+                    rules: rules.rules,
+                });
+        }
+        self.index
+            .units
+            .extend(audio.units.into_iter().map(|sited| IndexedUnit {
+                bin: bin.to_owned(),
+                unit: sited.unit,
+                site: sited.site,
+                holder: sited.holder,
             }));
     }
 
@@ -138,19 +199,41 @@ impl AudioIndexBuilder {
     pub fn append(&mut self, other: Self) {
         let AudioIndex {
             units,
+            lists,
+            contextual,
             names,
             sources,
+            by_path: _,
         } = other.index;
         self.index.units.extend(units);
+        self.index.lists.extend(lists);
+        for (object, rules) in contextual {
+            self.index.contextual.entry(object).or_insert(rules);
+        }
         self.index.names.extend(names.iter().map(|(_, name)| name));
         self.index.sources.extend(sources);
     }
 
     /// Returns the index.
     #[must_use]
-    pub fn build(self) -> AudioIndex {
+    pub fn build(mut self) -> AudioIndex {
+        self.index.by_path = paths_of(&self.index.units);
         self.index
     }
+}
+
+/// Returns the positions of `units` by each lowercased path that they list.
+fn paths_of(units: &[IndexedUnit]) -> HashMap<String, Vec<usize>> {
+    let mut paths: HashMap<String, Vec<usize>> = HashMap::new();
+    for (at, indexed) in units.iter().enumerate() {
+        for path in &indexed.unit.bank_path {
+            let positions = paths.entry(path.to_ascii_lowercase()).or_default();
+            if positions.last() != Some(&at) {
+                positions.push(at);
+            }
+        }
+    }
+    paths
 }
 
 /// Returns the media source IDs of the package or bank in `source`.
@@ -224,7 +307,7 @@ const DIDX_RECORD_LEN: usize = 12;
 
 /// The version of the file that [`AudioIndex::to_bytes`] writes. A file of another version is
 /// read as missing.
-const FILE_VERSION: u32 = 1;
+const FILE_VERSION: u32 = 2;
 
 /// The file that [`AudioIndex::to_bytes`] writes.
 #[derive(Serialize, Deserialize)]
@@ -238,6 +321,8 @@ struct IndexFile {
 #[derive(Serialize, Deserialize)]
 struct Stored {
     units: Vec<IndexedUnit>,
+    lists: Vec<IndexedList>,
+    contextual: Vec<(u32, IndexedRules)>,
     names: Vec<String>,
     sources: Vec<u32>,
 }
@@ -246,8 +331,12 @@ impl From<AudioIndex> for Stored {
     fn from(index: AudioIndex) -> Self {
         let mut sources: Vec<u32> = index.sources.iter().map(|source| source.0).collect();
         sources.sort_unstable();
+        let mut contextual: Vec<(u32, IndexedRules)> = index.contextual.into_iter().collect();
+        contextual.sort_unstable_by_key(|(object, _)| *object);
         Self {
             units: index.units,
+            lists: index.lists,
+            contextual,
             names: index
                 .names
                 .iter()
@@ -261,7 +350,10 @@ impl From<AudioIndex> for Stored {
 impl From<Stored> for AudioIndex {
     fn from(stored: Stored) -> Self {
         Self {
+            by_path: paths_of(&stored.units),
             units: stored.units,
+            lists: stored.lists,
+            contextual: stored.contextual.into_iter().collect(),
             names: stored.names.iter().collect(),
             sources: stored.sources.into_iter().map(SourceId).collect(),
         }

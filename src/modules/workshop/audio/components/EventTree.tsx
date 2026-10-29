@@ -9,10 +9,17 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type ReactNode, useCallback, useRef, useState } from "react";
 
-import { Code, ContextMenu, IconButton } from "@/components";
+import { Badge, Code, ContextMenu, IconButton, Tooltip } from "@/components";
 import { NO_OVERSCROLL, useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
-import type { AudioEvent, EventAction, EventNode, EventStatus } from "@/lib/tauri";
+import type {
+  Audience,
+  AudioEvent,
+  EventAction,
+  EventContext,
+  EventNode,
+  EventStatus,
+} from "@/lib/tauri";
 import { measureRow, twMerge } from "@/utils";
 
 import { instantScroll } from "../../shared/utils/instantScroll";
@@ -331,7 +338,46 @@ function EventContent({ event }: { event: AudioEvent }) {
         {m.audio_event_actions_label({ count: event.actionCount })}
       </span>
       <EventStatusMark status={event.status} />
+      {event.contexts.length > 0 && <EventContexts contexts={event.contexts} />}
     </>
+  );
+}
+
+const AUDIENCE_LABELS: Record<Audience, () => string> = {
+  owner: m.audio_event_audience_owner_label,
+  ally: m.audio_event_audience_ally_label,
+  enemy: m.audio_event_audience_enemy_label,
+  spectator: m.audio_event_audience_spectator_label,
+};
+
+/** Returns the situation, the rule and the audience of `context` on one line. */
+function contextLabel(context: EventContext): string {
+  return m.audio_event_context_label({
+    situation: context.situation,
+    rule: context.rule ?? m.audio_event_context_unnamed_rule_label(),
+    audience: AUDIENCE_LABELS[context.audience](),
+  });
+}
+
+/** The first contextual rule that plays an event, and how many more do, as an inferred badge. */
+function EventContexts({ contexts }: { contexts: readonly EventContext[] }) {
+  const [first] = contexts;
+  if (first === undefined) return null;
+
+  const hint = first.ambiguous
+    ? m.audio_event_context_ambiguous_hint()
+    : m.audio_event_context_inferred_hint();
+  const label =
+    contexts.length > 1
+      ? m.audio_event_contexts_label({ context: contextLabel(first), more: contexts.length - 1 })
+      : contextLabel(first);
+
+  return (
+    <Tooltip content={hint}>
+      <Badge size="sm" dashed>
+        {label}
+      </Badge>
+    </Tooltip>
   );
 }
 

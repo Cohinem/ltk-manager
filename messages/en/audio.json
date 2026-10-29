@@ -22,7 +22,16 @@
       }
     }
   ],
+  "audio_event_audience_ally_label": "Ally",
+  "audio_event_audience_enemy_label": "Enemy",
+  "audio_event_audience_owner_label": "Self",
+  "audio_event_audience_spectator_label": "Spectator",
   "audio_event_collapse_action": "Collapse",
+  "audio_event_context_ambiguous_hint": "Inferred from the contextual actions of the skin. Another tag of the skin names a second event of this bank for the same rule.",
+  "audio_event_context_inferred_hint": "Inferred from the contextual actions of the skin that names this bank",
+  "audio_event_context_label": "{situation} · {rule} · {audience}",
+  "audio_event_context_unnamed_rule_label": "Unnamed rule",
+  "audio_event_contexts_label": "{context} +{more}",
   "audio_event_copy_id_action": "Copy object ID",
   "audio_event_copy_name_action": "Copy event name",
   "audio_event_decode_error_label": "Object {object} cannot be decoded:",
@@ -35,7 +44,9 @@
   "audio_event_play_action": "Play",
   "audio_event_play_failed_label": "Cannot be played",
   "audio_event_playing_label": "Playing",
+  "audio_event_show_in_unit_action": "Show in bank unit",
   "audio_event_show_media_action": "Show media",
+  "audio_event_show_rule_action": "Show contextual rule",
   "audio_event_stop_action": "Stop",
   "audio_events_alone_description": "No bank unit names this bank, so its media is read from the bank alone.",
   "audio_events_empty": "This bank holds no events",
@@ -65,6 +76,8 @@
   "audio_fact_header_id_label": "Header ID",
   "audio_fact_name_id_label": "File name ID",
   "audio_fact_version_label": "Version",
+  "audio_file_actions_label": "File actions",
+  "audio_file_find_references_action": "Find references",
   "audio_filter_clear_label": "Clear filter",
   "audio_filter_label": "Filter source ID",
   "audio_id_mismatch_description": "The header ID {header} differs from the ID {name} of the file name. The client registers the bank under the ID of the file name.",
@@ -99,6 +112,37 @@
   "audio_tab_events_label": "Events",
   "audio_tab_media_label": "Media",
   "audio_table_label": "Media of the file",
+  "audio_units_declarations_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Declared in {count} bin",
+        "countPlural=other": "Declared in {count} bins"
+      }
+    }
+  ],
+  "audio_units_empty": "No bank unit names this file",
+  "audio_units_event_bank_label": "Event bank",
+  "audio_units_index_building_description": "The audio index of the game is building. The units of the game's bins appear when it is ready.",
+  "audio_units_lists_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Listed by {count} bank list",
+        "countPlural=other": "Listed by {count} bank lists"
+      }
+    }
+  ],
+  "audio_units_media_bank_label": "Media bank",
+  "audio_units_missing_file_label": "{file}, missing",
+  "audio_units_open_contextual_action": "Open contextual actions",
+  "audio_units_open_row_label": "Open {row} in {bin}",
+  "audio_units_opened_file_label": "{file}, this file",
+  "audio_units_package_label": "Package",
+  "audio_units_title": "Bank units",
+  "audio_units_voice_over_label": "Voice-over",
   "audio_unplayable_hint": "No decoder for this codec",
   "audio_unreadable_hint": "The media cannot be read: {reason}",
   "audio_viewport_sound_hint": "Plays an approximation of the game's mix, without buses, RTPCs, attenuation or 3D position.",

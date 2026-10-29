@@ -185,3 +185,103 @@ fn bank_path_of_loose_file_is_its_file_name() {
 
     assert_eq!(bank_path(&asset, &OneChunkName), "ahri_sfx_events.bnk");
 }
+
+/// Names one spell path in `binentries` and one situation in `binhashes`.
+struct ContextualNames;
+
+const SPELL_HASH: u32 = 0x5be1_1000;
+const SITUATION_HASH: u32 = 0x5ca5_7000;
+
+impl ltk_manager_bin::bin_document::RowNames for ContextualNames {
+    fn for_each_entry(&self, hashes: &[ltk_hash::BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        for (at, hash) in hashes.iter().enumerate() {
+            if hash.0 == SPELL_HASH {
+                visit(at, "Characters/Ahri/Spells/AhriBasicAttack");
+            }
+        }
+    }
+
+    fn for_each_class(&self, _: &[ltk_hash::BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn for_each_field(&self, _: &[ltk_hash::BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn for_each_value(&self, hashes: &[ltk_hash::BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        for (at, hash) in hashes.iter().enumerate() {
+            if hash.0 == SITUATION_HASH {
+                visit(at, "SpellCast");
+            }
+        }
+    }
+
+    fn for_each_chunk(&self, _: &[ltk_hash::WadHash], _: &mut dyn FnMut(usize, &str)) {}
+}
+
+#[test]
+fn sandbox_site_names_name_hash_from_values_then_entries() {
+    use ltk_manager_audio::SiteNames as _;
+
+    let lookup = OneFile {
+        path: "data/characters/ahri/skins/skin0.bin",
+        on_disk: "C:/mods/skin0.bin".to_owned(),
+    };
+    let names = references::SandboxSiteNames {
+        names: &ContextualNames,
+        assets: &lookup,
+    };
+
+    assert_eq!(
+        names.hash_name(SITUATION_HASH).as_deref(),
+        Some("SpellCast")
+    );
+    assert_eq!(
+        names.hash_name(SPELL_HASH).as_deref(),
+        Some("Characters/Ahri/Spells/AhriBasicAttack")
+    );
+    assert_eq!(names.hash_name(1), None);
+    assert_eq!(
+        names.locate("DATA/Characters/Ahri/Skins/Skin0.bin"),
+        Some(AssetRef::File {
+            path: "C:/mods/skin0.bin".to_owned()
+        })
+    );
+}
+
+#[test]
+fn bank_references_of_loose_fixture_name_no_unit() {
+    let dir = tempfile::tempdir().unwrap();
+    let asset = loose(&dir, "map22_sfx_audio.wpk", PACKAGE);
+    let mut builder = ltk_manager_audio::AudioIndex::builder();
+    builder.add_bin(
+        "data/maps/shipping/map22/map22.bin",
+        ltk_manager_audio::BinAudio {
+            units: vec![
+                ltk_manager_audio::BankUnit {
+                    name: "Map22_SFX".to_owned(),
+                    bank_path: vec![
+                        "assets/sounds/wwise2016/sfx/shared/map22_sfx_audio.wpk".to_owned()
+                    ],
+                    events: Vec::new(),
+                    voice_over: false,
+                }
+                .into(),
+            ],
+            ..ltk_manager_audio::BinAudio::default()
+        },
+    );
+    let index = builder.build();
+    let lookup = OneFile {
+        path: "unused",
+        on_disk: String::new(),
+    };
+    let names = references::SandboxSiteNames {
+        names: &OneChunkName,
+        assets: &lookup,
+    };
+
+    let path = bank_path(&asset, &OneChunkName);
+    let references = ltk_manager_audio::BankReferences::of(&path, &[&index], &names);
+
+    assert_eq!(path, "map22_sfx_audio.wpk");
+    assert!(references.units.is_empty());
+    assert!(references.lists.is_empty());
+}

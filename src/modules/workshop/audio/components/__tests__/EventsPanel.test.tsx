@@ -60,6 +60,8 @@ const EVENTS: AudioEventsResponse = {
         actionCount: 1,
         mediaCount: 1,
         status: { kind: "mediaMissing" },
+        contexts: [],
+        listed: null,
       },
       {
         id: NAMED,
@@ -67,6 +69,24 @@ const EVENTS: AudioEventsResponse = {
         actionCount: 1,
         mediaCount: 2,
         status: { kind: "resolved" },
+        contexts: [
+          {
+            situation: "SpellCast",
+            rule: "Basic 1",
+            audience: "owner",
+            ambiguous: false,
+            row: {
+              asset: { kind: "file", path: "C:/mods/ahri_multi_skins.bin" },
+              bin: "data/characters/ahri/ahri_multi_skins.bin",
+              objectHash: "0x22220000",
+              object: "Characters/Ahri/CAC/Ahri_Base",
+              classHash: "0xcf313c24",
+              class: "ContextualActionData",
+              property: { path: "6f5eb901{5ca57000}.1a116faf[0]", label: "mSituations" },
+            },
+          },
+        ],
+        listed: null,
       },
     ],
     files: [],
@@ -156,6 +176,12 @@ describe("EventsPanel", () => {
 
     expect(played[0]).toContain("source=13004521");
     expect(played[1]).toContain("source=13004522");
+  });
+
+  it("shows the contextual rule that plays an event", async () => {
+    renderWithProviders(<EventsPanel asset={ASSET} />);
+
+    expect(await screen.findByText("SpellCast \u00b7 Basic 1 \u00b7 Self")).toBeInTheDocument();
   });
 
   it("marks an event whose media no file holds", async () => {

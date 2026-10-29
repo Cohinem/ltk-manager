@@ -159,6 +159,7 @@ services! {
         export_audio_media,
         read_audio_events,
         read_audio_event,
+        read_bank_references,
         resolve_sounds,
     }
     preview("preview") {

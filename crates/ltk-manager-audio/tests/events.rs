@@ -2,12 +2,14 @@
 
 mod common;
 
-use common::{FakeFiles, fixture};
+use common::{FakeFiles, FakeNames, fixture};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    AudioEvent, AudioFile, AudioIndex, BankSetOrigin, BinAudio, EventBank, EventNode, EventStatus,
-    MediaContainer, ObjectId, OpenedBank, SoundStream,
+    Audience, AudienceName, AudioEvent, AudioFile, AudioIndex, BankSetOrigin, BankSite, BankUnit,
+    BinAudio, ContextualRule, ContextualRules, EventBank, EventNode, EventStatus, HolderAudio,
+    MediaContainer, ObjectId, OpenedBank, SiteStep, SitedUnit, SoundStream,
 };
+use ltk_manager_base::hashing::named;
 use ltk_wwise::bank::{BankHeader, BankVersion, Section};
 use ltk_wwise::hierarchy::{Action, Event, Hierarchy, Object, ObjectKind, Typed};
 use ltk_wwise::{Bank, BankId, Package, SourceId};
@@ -73,13 +75,16 @@ fn unit_index() -> AudioIndex {
     builder.add_bin(
         "data/maps/shipping/map22/map22.bin",
         BinAudio {
-            units: vec![ltk_manager_audio::BankUnit {
-                name: "Map22_SFX".to_owned(),
-                bank_path: vec![EVENTS.to_owned(), MEDIA.to_owned(), PACKAGE.to_owned()],
-                events: Vec::new(),
-                voice_over: false,
-            }],
-            event_names: Vec::new(),
+            units: vec![
+                ltk_manager_audio::BankUnit {
+                    name: "Map22_SFX".to_owned(),
+                    bank_path: vec![EVENTS.to_owned(), MEDIA.to_owned(), PACKAGE.to_owned()],
+                    events: Vec::new(),
+                    voice_over: false,
+                }
+                .into(),
+            ],
+            ..BinAudio::default()
         },
     );
     builder.build()
@@ -127,6 +132,7 @@ fn event_bank_resolves_every_fixture_event_with_its_bank_unit() {
         &[&index],
         &files,
         None,
+        &FakeNames::default(),
     );
     let list = bank.events();
 
@@ -150,6 +156,7 @@ fn event_bank_marks_data_bank_sounds_missing_without_media_bank() {
         &[&index],
         &files,
         None,
+        &FakeNames::default(),
     );
     let list = bank.events();
 
@@ -173,6 +180,7 @@ fn event_bank_falls_back_to_sibling_media_bank() {
         &[&AudioIndex::default()],
         &files,
         None,
+        &FakeNames::default(),
     );
     let list = bank.events();
 
@@ -193,6 +201,7 @@ fn event_bank_without_events_stem_opens_alone() {
         &[],
         &FakeFiles::default(),
         None,
+        &FakeNames::default(),
     );
 
     assert_eq!(bank.events().origin, BankSetOrigin::Alone);
@@ -243,8 +252,8 @@ fn event_bank_marks_target_that_no_bank_holds() {
     names.add_bin(
         "data/ahri.bin",
         BinAudio {
-            units: Vec::new(),
             event_names: vec![name.to_owned()],
+            ..BinAudio::default()
         },
     );
     let names = names.build();
@@ -254,6 +263,7 @@ fn event_bank_marks_target_that_no_bank_holds() {
         &[&names],
         &FakeFiles::default(),
         None,
+        &FakeNames::default(),
     );
     let list = bank.events();
     let tree = bank.event(ObjectId(id)).unwrap().unwrap();
@@ -283,6 +293,7 @@ fn event_bank_reports_stream_of_each_sound() {
         &[&index],
         &files,
         None,
+        &FakeNames::default(),
     );
 
     let tree = bank.event(ObjectId(BANKED_EVENT)).unwrap().unwrap();
@@ -309,4 +320,137 @@ fn event_bank_reports_stream_of_each_sound() {
 
     assert!(streams.contains(&(BANKED_SOURCE, SoundStream::DataBank)));
     assert!(streams.contains(&(6_126_505, SoundStream::Streaming)));
+}
+
+const SKIN_BIN: &str = "data/characters/ahri/skins/skin0.bin";
+const CAC_BIN: &str = "data/characters/ahri/ahri_multi_skins.bin";
+const CAC_OBJECT: u32 = 0x2222_0000;
+
+/// A unit at `skinAudioProperties.bankUnits[0]` that names `EVENTS` and lists `events`.
+fn listing_unit(events: &[&str], contextual: Option<u32>) -> SitedUnit {
+    SitedUnit {
+        unit: BankUnit {
+            name: "Ahri_Base_VO".to_owned(),
+            bank_path: vec![EVENTS.to_owned()],
+            events: events.iter().map(|event| (*event).to_owned()).collect(),
+            voice_over: true,
+        },
+        site: BankSite {
+            object: 0x1111_0000,
+            class: named("SkinCharacterDataProperties").0,
+            steps: vec![
+                SiteStep::Field(named("skinAudioProperties").0),
+                SiteStep::Field(named("bankUnits").0),
+                SiteStep::Index(0),
+            ],
+        },
+        holder: HolderAudio {
+            contextual,
+            tags: vec!["Ahri".to_owned()],
+        },
+    }
+}
+
+#[test]
+fn event_bank_names_events_from_contextual_rules_with_their_rule() {
+    const SPELL: u32 = 0x5be1_1000;
+    const SPELL_CAST: u32 = 0x5ca5_7000;
+    let name = "Play_vo_Ahri_AhriBasicAttack_cast3D";
+    let id = ObjectId::from_name(name).0;
+    let mut builder = AudioIndex::builder();
+    builder.add_bin(
+        SKIN_BIN,
+        BinAudio {
+            units: vec![listing_unit(&[], Some(CAC_OBJECT))],
+            ..BinAudio::default()
+        },
+    );
+    builder.add_bin(
+        CAC_BIN,
+        BinAudio {
+            contextual: vec![ContextualRules {
+                object: CAC_OBJECT,
+                rules: vec![ContextualRule {
+                    situation: SPELL_CAST,
+                    name: Some("Basic 1".to_owned()),
+                    steps: vec![
+                        SiteStep::Field(named("mSituations").0),
+                        SiteStep::Key("5ca57000".to_owned()),
+                        SiteStep::Field(named("mRules").0),
+                        SiteStep::Index(0),
+                    ],
+                    spells: vec![SPELL],
+                    names: vec![AudienceName::new(Audience::Owner, "cast3D")],
+                }],
+            }],
+            ..BinAudio::default()
+        },
+    );
+    let index = builder.build();
+    let names = FakeNames::default()
+        .with_asset(CAC_BIN)
+        .with_hash(SPELL, "Characters/Ahri/Spells/AhriBasicAttack")
+        .with_hash(SPELL_CAST, "SpellCast");
+
+    let bank = EventBank::open(
+        opened(EVENTS, hierarchy_bank([event(id, &[])])),
+        &[&index],
+        &FakeFiles::default(),
+        None,
+        &names,
+    );
+    let list = bank.events();
+
+    assert_eq!(list.events[0].name.as_deref(), Some(name));
+    let contexts = &list.events[0].contexts;
+    assert_eq!(contexts.len(), 1);
+    assert_eq!(contexts[0].situation, "SpellCast");
+    assert_eq!(contexts[0].rule.as_deref(), Some("Basic 1"));
+    assert_eq!(contexts[0].audience, Audience::Owner);
+    assert!(!contexts[0].ambiguous);
+    assert_eq!(contexts[0].row.object_hash, "0x22220000");
+    assert_eq!(
+        contexts[0]
+            .row
+            .property
+            .as_ref()
+            .map(|row| row.path.as_str()),
+        Some("6f5eb901{5ca57000}.1a116faf[0]")
+    );
+}
+
+#[test]
+fn event_bank_reveals_events_row_of_unit_that_lists_event() {
+    let name = "Play_vo_Ahri_Joke";
+    let id = ObjectId::from_name(name).0;
+    let mut builder = AudioIndex::builder();
+    builder.add_bin(
+        SKIN_BIN,
+        BinAudio {
+            units: vec![listing_unit(&["Play_vo_Ahri_Taunt", name], None)],
+            event_names: vec!["Play_vo_Ahri_Taunt".to_owned(), name.to_owned()],
+            ..BinAudio::default()
+        },
+    );
+    let index = builder.build();
+
+    let bank = EventBank::open(
+        opened(EVENTS, hierarchy_bank([event(id, &[])])),
+        &[&index],
+        &FakeFiles::default(),
+        None,
+        &FakeNames::default(),
+    );
+    let list = bank.events();
+
+    let listed = list.events[0]
+        .listed
+        .as_ref()
+        .expect("a unit lists the event");
+    assert_eq!(listed.bin, SKIN_BIN);
+    assert_eq!(
+        listed.property.as_ref().map(|row| row.path.as_str()),
+        Some("8f7b194f.f8f29f92[0].12d8e384[1]")
+    );
+    assert!(list.events[0].contexts.is_empty());
 }

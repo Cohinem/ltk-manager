@@ -1,28 +1,189 @@
-//! The audio that one bin names: its bank units and the event names of its sound fields.
+//! The audio that one bin names: its bank units with their sites, its bank lists, its
+//! contextual voice-over rules and the event names of its sound fields.
 
+use std::fmt::Write as _;
 use std::io::Cursor;
 
+use ltk_hash::BinHash;
 use ltk_manager_assets::bin_source::BinSource;
+use ltk_manager_base::hashing::named;
 use ltk_meta::BinObject;
 use ltk_meta::property::Kind;
-use ltk_meta::walk::{Leaf, Node, TreeNode as _, TreeValue, Visit, Visitor};
+use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, Visitor};
+use serde::{Deserialize, Serialize};
 
 use crate::bank_set::{
-    BANK_EVENTS, BANK_PATH, BANK_UNIT, BANK_UNIT_NAME, BANK_VOICE_OVER, BankUnit, EVENT_FIELDS,
+    BANK_EVENTS, BANK_LISTS, BANK_PATH, BANK_UNIT, BANK_UNIT_NAME, BANK_VOICE_OVER, BankUnit,
+    CONDITION_SPELL, CONDITION_SPELL_NAME, CONTEXTUAL_ACTION_DATA, CONTEXTUAL_ACTION_LINK,
+    CONTEXTUAL_RULE, EVENT_FIELDS, RULE_AUDIO_ACTION, RULE_CONDITIONS, RULE_NAME,
+    SKIN_AUDIO_PROPERTIES, TAG_EVENT_LIST,
 };
 
-/// The bank units and the event names of one bin.
+/// The bank units, bank lists, contextual rules and event names of one bin.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BinAudio {
     /// Every `BankUnit` node of the bin, in walk order.
-    pub units: Vec<BankUnit>,
+    pub units: Vec<SitedUnit>,
+    /// Every list of bank paths of a field in [`BANK_LISTS`], in walk order.
+    pub lists: Vec<BankList>,
+    /// The audio rules of every `ContextualActionData` object of the bin.
+    pub contextual: Vec<ContextualRules>,
     /// Every non-empty string of a field in [`EVENT_FIELDS`], and every `BankUnit.events`
     /// entry.
     pub event_names: Vec<String>,
 }
 
+/// A list of bank paths without a `BankUnit`, such as `SpellDataResource.AudioBankPaths`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BankList {
+    pub paths: Vec<String>,
+    pub site: BankSite,
+}
+
+/// The rules of one `ContextualActionData` object that play a voice-over event.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextualRules {
+    /// The path hash of the object.
+    pub object: u32,
+    pub rules: Vec<ContextualRule>,
+}
+
+/// One `ContextualRule` of a `ContextualActionData` object.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextualRule {
+    /// The hash of the `mSituations` key, such as `SpellCast`.
+    pub situation: u32,
+    /// `mRuleName`, such as `Basic 1`.
+    pub name: Option<String>,
+    /// The steps from the object's root to the rule.
+    pub steps: Vec<SiteStep>,
+    /// The `mSpell` hash of each `ContextualConditionSpellName` condition.
+    pub spells: Vec<u32>,
+    /// The non-empty event names of `mAudioAction`, in field order.
+    pub names: Vec<AudienceName>,
+}
+
+/// Who hears the event that a contextual rule plays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum Audience {
+    /// `mSelfEventName`: the champion that the skin is on.
+    Owner,
+    /// `mAllyEventName`.
+    Ally,
+    /// `mEnemyEventName`.
+    Enemy,
+    /// `mSpectatorEventName`.
+    Spectator,
+}
+
+/// The short event name of one audience of a contextual rule, such as `cast3D`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AudienceName {
+    pub audience: Audience,
+    pub name: String,
+}
+
+impl AudienceName {
+    /// Returns the name `name` of `audience`.
+    #[must_use]
+    pub fn new(audience: Audience, name: impl Into<String>) -> Self {
+        Self {
+            audience,
+            name: name.into(),
+        }
+    }
+}
+
+/// The fields of `ContextualActionPlayAudio` that hold a short event name, by audience.
+const AUDIENCE_FIELDS: [(Audience, BinHash); 4] = [
+    (Audience::Owner, named("mSelfEventName")),
+    (Audience::Ally, named("mAllyEventName")),
+    (Audience::Enemy, named("mEnemyEventName")),
+    (Audience::Spectator, named("mSpectatorEventName")),
+];
+
+/// One step from an object's root to a node of it, in the grammar of a hash path.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SiteStep {
+    /// A property, by its field hash.
+    Field(u32),
+    /// An item of a list.
+    Index(usize),
+    /// A map entry, by its key as a hash path writes it.
+    Key(String),
+}
+
+/// Where a bank unit, a bank list or a rule sits in its bin.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BankSite {
+    /// The path hash of the object that holds it.
+    pub object: u32,
+    /// The class hash of that object.
+    pub class: u32,
+    /// The steps from the object's root.
+    pub steps: Vec<SiteStep>,
+}
+
+impl BankSite {
+    /// Returns the hash path of the site: eight hex digits per field, `[i]` and `{key}`.
+    #[must_use]
+    pub fn hash_path(&self) -> String {
+        hash_path(&self.steps)
+    }
+}
+
+/// Returns the hash path that `steps` write.
+pub(crate) fn hash_path(steps: &[SiteStep]) -> String {
+    let mut path = String::new();
+    for step in steps {
+        match step {
+            SiteStep::Field(field) => {
+                if !path.is_empty() {
+                    path.push('.');
+                }
+                let _ = write!(path, "{field:08x}");
+            }
+            SiteStep::Index(index) => {
+                let _ = write!(path, "[{index}]");
+            }
+            SiteStep::Key(key) => {
+                let _ = write!(path, "{{{key}}}");
+            }
+        }
+    }
+    path
+}
+
+/// The audio fields of the object that holds a bank unit.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct HolderAudio {
+    /// The path hash of the `ContextualActionData` object that `mContextualActionData` links.
+    pub contextual: Option<u32>,
+    /// `skinAudioProperties.tagEventList`.
+    pub tags: Vec<String>,
+}
+
+/// One `BankUnit` with its site and the audio fields of its holder.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SitedUnit {
+    pub unit: BankUnit,
+    pub site: BankSite,
+    pub holder: HolderAudio,
+}
+
+impl From<BankUnit> for SitedUnit {
+    fn from(unit: BankUnit) -> Self {
+        Self {
+            unit,
+            ..Self::default()
+        }
+    }
+}
+
 impl BinAudio {
-    /// Reads the bank units and event names of the bin `bytes`, a `PROP` or a `PTCH`.
+    /// Reads the audio of the bin `bytes`, a `PROP` or a `PTCH`.
     ///
     /// # Errors
     ///
@@ -37,10 +198,10 @@ impl BinAudio {
                 patch.walk(&mut found)?;
             }
         }
-        Ok(found.0)
+        Ok(found.audio)
     }
 
-    /// Reads the bank units and event names of `objects`, an open bin's objects in file order.
+    /// Reads the audio of `objects`, an open bin's objects in file order.
     ///
     /// # Errors
     ///
@@ -52,13 +213,17 @@ impl BinAudio {
         for object in objects {
             object.walk(&mut found)?;
         }
-        Ok(found.0)
+        Ok(found.audio)
     }
 }
 
 /// The visitor that collects a [`BinAudio`].
 #[derive(Default)]
-struct Found(BinAudio);
+struct Found {
+    audio: BinAudio,
+    /// The holder fields of the object that the walk is in.
+    holder: HolderAudio,
+}
 
 impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Found {
     type Error = ltk_meta::Error;
@@ -66,6 +231,23 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Found {
     fn enter_node(&mut self, node: &Node<'_, 'a, V>) -> Result<Visit, ltk_meta::Error> {
         let class = node.class_hash();
         let inner = node.inner();
+
+        if node.is_root() {
+            self.holder = holder_of::<V>(inner)?;
+        }
+
+        if class == CONTEXTUAL_RULE && root_class(node) == CONTEXTUAL_ACTION_DATA {
+            let rule = rule_of(node)?;
+            let object = node.object_hash().0;
+            match self.audio.contextual.last_mut() {
+                Some(rules) if rules.object == object => rules.rules.push(rule),
+                _ => self.audio.contextual.push(ContextualRules {
+                    object,
+                    rules: vec![rule],
+                }),
+            }
+            return Ok(Visit::Skip);
+        }
 
         if class == BANK_UNIT {
             let unit = BankUnit {
@@ -77,8 +259,12 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Found {
                     Some(Leaf::Bool(true) | Leaf::Flag(true))
                 ),
             };
-            self.0.event_names.extend(unit.events.iter().cloned());
-            self.0.units.push(unit);
+            self.audio.event_names.extend(unit.events.iter().cloned());
+            self.audio.units.push(SitedUnit {
+                unit,
+                site: site_of(node, &[])?,
+                holder: self.holder.clone(),
+            });
             return Ok(Visit::Continue);
         }
 
@@ -89,11 +275,173 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Found {
             if let Some(name) = text(inner.get(field)?)?
                 && !name.is_empty()
             {
-                self.0.event_names.push(name);
+                self.audio.event_names.push(name);
             }
         }
         Ok(Visit::Continue)
     }
+
+    fn enter_property(
+        &mut self,
+        field: BinHash,
+        value: V,
+        node: &Node<'_, 'a, V>,
+    ) -> Result<Visit, ltk_meta::Error> {
+        let class = node.class_hash();
+        if BANK_LISTS.contains(&(class, field)) {
+            self.audio.lists.push(BankList {
+                paths: texts(Some(value))?,
+                site: site_of(node, &[SiteStep::Field(field.0)])?,
+            });
+        }
+        Ok(Visit::Continue)
+    }
+}
+
+/// Returns the class hash of the object that `node` is in.
+fn root_class<'a, V: TreeValue<'a>>(node: &Node<'_, 'a, V>) -> BinHash {
+    node.trail()
+        .classes()
+        .first()
+        .copied()
+        .unwrap_or_else(|| node.class_hash())
+}
+
+/// Reads the `ContextualRule` at `node`.
+fn rule_of<'a, V: TreeValue<'a>>(
+    node: &Node<'_, 'a, V>,
+) -> Result<ContextualRule, ltk_meta::Error> {
+    let inner = node.inner();
+
+    let mut situation = 0;
+    for segment in node.trail().segments() {
+        if let TrailSegment::Key(key) = segment {
+            if let Some(Leaf::Hash(hash)) = key.as_leaf()? {
+                situation = hash.as_u32();
+            }
+            break;
+        }
+    }
+
+    let mut spells = Vec::new();
+    if let Some(conditions) = inner.get(RULE_CONDITIONS)?
+        && matches!(
+            conditions.kind(),
+            Kind::Container | Kind::UnorderedContainer
+        )
+    {
+        for item in conditions.children()? {
+            let (_, item) = item?;
+            let Some(condition) = item.as_node()? else {
+                continue;
+            };
+            if condition.class_hash() != CONDITION_SPELL_NAME {
+                continue;
+            }
+            if let Some(Leaf::Hash(spell)) = leaf(condition.get(CONDITION_SPELL)?)? {
+                spells.push(spell.as_u32());
+            }
+        }
+    }
+
+    let mut names = Vec::new();
+    let action = match inner.get(RULE_AUDIO_ACTION)? {
+        Some(action) => action.as_node()?,
+        None => None,
+    };
+    if let Some(action) = action {
+        for (audience, field) in AUDIENCE_FIELDS {
+            if let Some(name) = text(action.get(field)?)?
+                && !name.is_empty()
+            {
+                names.push(AudienceName { audience, name });
+            }
+        }
+    }
+
+    Ok(ContextualRule {
+        situation,
+        name: text(inner.get(RULE_NAME)?)?.filter(|name| !name.is_empty()),
+        steps: site_of(node, &[])?.steps,
+        spells,
+        names,
+    })
+}
+
+/// Reads the holder fields of the object root `root`. Both are empty on a class without them.
+fn holder_of<'a, V: TreeValue<'a>>(root: V::Node) -> Result<HolderAudio, ltk_meta::Error> {
+    let contextual = match leaf(root.get(CONTEXTUAL_ACTION_LINK)?)? {
+        Some(Leaf::Link(link)) if link.0 != 0 => Some(link.0),
+        _ => None,
+    };
+
+    let skin_audio = match root.get(SKIN_AUDIO_PROPERTIES)? {
+        Some(value) => value.as_node()?,
+        None => None,
+    };
+    let tags = match skin_audio {
+        Some(skin_audio) => texts(skin_audio.get(TAG_EVENT_LIST)?)?,
+        None => Vec::new(),
+    };
+
+    Ok(HolderAudio { contextual, tags })
+}
+
+/// Returns the site of `node`, with `extra` after the steps of its trail.
+fn site_of<'a, V: TreeValue<'a>>(
+    node: &Node<'_, 'a, V>,
+    extra: &[SiteStep],
+) -> Result<BankSite, ltk_meta::Error> {
+    let trail = node.trail();
+    let mut steps = Vec::with_capacity(trail.len() + extra.len());
+    for segment in trail.segments() {
+        steps.push(match segment {
+            TrailSegment::Field(field) => SiteStep::Field(field.0),
+            TrailSegment::Index(index) => SiteStep::Index(*index),
+            TrailSegment::Key(key) => SiteStep::Key(key_text(key.as_leaf()?)),
+        });
+    }
+    steps.extend_from_slice(extra);
+
+    Ok(BankSite {
+        object: node.object_hash().0,
+        class: root_class(node).0,
+        steps,
+    })
+}
+
+/// Returns the text of a map key as a hash path writes it. A key of another kind is `?`.
+fn key_text(key: Option<Leaf<'_>>) -> String {
+    match key {
+        Some(Leaf::Hash(hash)) => hash.to_string(),
+        Some(Leaf::String(text)) => json_string(text),
+        Some(Leaf::U32(value)) => value.to_string(),
+        Some(Leaf::U8(value)) => value.to_string(),
+        Some(Leaf::I32(value)) => value.to_string(),
+        Some(Leaf::Link(link)) => format!("{:08x}", link.0),
+        _ => "?".to_owned(),
+    }
+}
+
+/// Returns `text` as a JSON string, the form a hash path writes a string key in.
+pub(crate) fn json_string(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 2);
+    out.push('"');
+    for character in text.chars() {
+        match character {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            character if (character as u32) < 0x20 => {
+                let _ = write!(out, "\\u{:04x}", character as u32);
+            }
+            character => out.push(character),
+        }
+    }
+    out.push('"');
+    out
 }
 
 fn leaf<'a, V: TreeValue<'a>>(value: Option<V>) -> Result<Option<Leaf<'a>>, ltk_meta::Error> {
