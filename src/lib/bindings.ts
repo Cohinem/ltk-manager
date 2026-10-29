@@ -8313,6 +8313,8 @@ export type SpellPreview = {
 	effectKey: string | null,
 	/**  The written fallback effect name, retained for inspection. */
 	effectName: string | null,
+	/**  The written `AudioBankPaths`, which the spell loads beside its owner's bank units. */
+	audioBankPaths: string[],
 	/**  Fields requiring correction or an explicit preview approximation. */
 	issues: SpellIssue[],
 };

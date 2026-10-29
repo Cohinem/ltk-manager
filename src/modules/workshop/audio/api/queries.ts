@@ -26,8 +26,8 @@ export const audioKeys = {
   event: (sandbox: SandboxRef, asset: AssetRef, version: number, event: number) =>
     [...audioKeys.events(sandbox, asset, version), event] as const,
   sounds: () => [...audioKeys.all, "sounds"] as const,
-  soundsOf: (document: BinDocumentId, names: readonly string[]) =>
-    [...audioKeys.sounds(), document, names] as const,
+  soundsOf: (document: BinDocumentId, names: readonly string[], bankPaths: readonly string[]) =>
+    [...audioKeys.sounds(), document, names, bankPaths] as const,
 };
 
 /** The reads of an audio file document. */
@@ -58,11 +58,13 @@ export const audioQueries = {
     }),
   /* Asked once per view for every name its cues hold. A layer file write invalidates every
      answer, and the answer polls while the game's audio index builds. */
-  sounds: (document: BinDocumentId, names: readonly string[]) =>
+  sounds: (document: BinDocumentId, names: readonly string[], bankPaths: readonly string[] = []) =>
     queryOptions<ResolvedSounds, AppError>({
-      queryKey: audioKeys.soundsOf(document, names),
+      queryKey: audioKeys.soundsOf(document, names, bankPaths),
       queryFn:
-        names.length === 0 ? skipToken : queryFnWithArgs(api.resolveSounds, document, [...names]),
+        names.length === 0
+          ? skipToken
+          : queryFnWithArgs(api.resolveSounds, document, [...names], [...bankPaths]),
       staleTime: Infinity,
       retry: false,
       refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),

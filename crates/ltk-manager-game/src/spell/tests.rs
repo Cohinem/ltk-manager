@@ -332,3 +332,36 @@ fn malformed_suggestions_do_not_create_valid_defaults() {
     );
     assert_eq!(read(vec![]), SpellPreview::default());
 }
+
+fn strings(values: &[&str]) -> PropertyValueEnum {
+    values::Container::new(
+        ltk_meta::PropertyKind::String,
+        values
+            .iter()
+            .map(|value| values::String::from(*value).into())
+            .collect(),
+    )
+    .unwrap()
+    .into()
+}
+
+#[test]
+fn audio_bank_paths_read_in_written_order() {
+    let paths = [
+        "ASSETS/Sounds/Wwise2016/SFX/Characters/Galio/Skins/Base/Galio_Base_SFX_audio.bnk",
+        "ASSETS/Sounds/Wwise2016/SFX/Characters/Galio/Skins/Base/Galio_Base_SFX_events.bnk",
+    ];
+    let spell = read(vec![("AudioBankPaths", strings(&paths))]);
+
+    assert_eq!(spell.audio_bank_paths, paths);
+    assert!(spell.issues.is_empty());
+}
+
+#[test]
+fn audio_bank_paths_of_another_kind_are_invalid() {
+    let spell = read(vec![("AudioBankPaths", ranks(&[1.0]))]);
+
+    assert!(spell.audio_bank_paths.is_empty());
+    assert_eq!(spell.issues[0].path, "mSpell.AudioBankPaths");
+    assert_eq!(spell.issues[0].kind, SpellIssueKind::Invalid);
+}

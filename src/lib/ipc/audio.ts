@@ -26,11 +26,11 @@ export const commands = {
 	/**
 	 *  Resolve each of `names` into the play tree of its event, for a viewport of `document`.
 	 * 
-	 *  The bank set is every `BankUnit` of the open document, then the bank units that the project's
-	 *  bins and the game's audio index register each missing name in. "Viewport sound" in
-	 *  `docs/ux/AUDIO.md`.
+	 *  The bank set is every `BankUnit` of the open document and one unit of `bank_paths`, then the
+	 *  bank units that the project's bins and the game's audio index register each missing name in.
+	 *  "Viewport sound" in `docs/ux/AUDIO.md`.
 	 */
-	resolveSounds: (document: BinDocumentId, names: string[]) => __TAURI_INVOKE<({ ok: true; value: ResolvedSounds }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:audio|resolve_sounds", { document, names }),
+	resolveSounds: (document: BinDocumentId, names: string[], bankPaths: string[]) => __TAURI_INVOKE<({ ok: true; value: ResolvedSounds }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:audio|resolve_sounds", { document, names, bankPaths }),
 };
 
 /* Constants */

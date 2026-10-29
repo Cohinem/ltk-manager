@@ -24,7 +24,8 @@ export interface ViewportSound {
 /**
  * Returns the sound of a viewport of `document` that fires `cues` while `playing`.
  *
- * The names are resolved once per view while the switch is on. The channel pauses with the
+ * The names are resolved once per view while the switch is on, over the document's bank units
+ * and one unit of `bankPaths`. The channel pauses with the
  * transport and stops when the switch turns off, when the viewport's tab is hidden and when the
  * viewport unmounts. Per "Viewport sound" in docs/ux/AUDIO.md.
  */
@@ -32,6 +33,7 @@ export function useViewportSound(
   document: BinDocumentId,
   cues: readonly SoundCue[],
   playing: boolean,
+  bankPaths: readonly string[] = [],
 ): ViewportSound {
   const switched = usePreviewSound();
   const volume = usePreviewSoundVolume();
@@ -40,7 +42,7 @@ export function useViewportSound(
   const channel = useSoundChannel(volume);
 
   const names = useMemo(() => [...new Set(cues.map((cue) => cue.name))].sort(), [cues]);
-  const resolved = useQuery({ ...audioQueries.sounds(document, names), enabled: on });
+  const resolved = useQuery({ ...audioQueries.sounds(document, names, bankPaths), enabled: on });
   const trees = useMemo(() => treesOf(resolved.data?.sounds ?? []), [resolved.data]);
   const unresolved = resolved.data === undefined ? 0 : names.length - trees.size;
 

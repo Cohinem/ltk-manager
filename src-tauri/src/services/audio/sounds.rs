@@ -24,18 +24,22 @@ pub struct ResolvedSounds {
 
 /// Resolve each of `names` into the play tree of its event, for a viewport of `document`.
 ///
-/// The bank set is every `BankUnit` of the open document, then the bank units that the project's
-/// bins and the game's audio index register each missing name in. "Viewport sound" in
-/// `docs/ux/AUDIO.md`.
+/// The bank set is every `BankUnit` of the open document and one unit of `bank_paths`, then the
+/// bank units that the project's bins and the game's audio index register each missing name in.
+/// "Viewport sound" in `docs/ux/AUDIO.md`.
 #[tauri::command]
 #[specta::specta]
 pub async fn resolve_sounds(
     document: BinDocumentId,
     names: Vec<String>,
+    bank_paths: Vec<String>,
     app_handle: AppHandle,
 ) -> IpcResult<ResolvedSounds> {
     off_thread(move || {
-        let own = document_units(&app_handle, document)?;
+        let mut own = document_units(&app_handle, document)?;
+        if !bank_paths.is_empty() {
+            own.push(paths_unit(bank_paths));
+        }
         let sandbox = sandbox_of(&app_handle, Some(document));
         let (game, index) = game_audio_index(&app_handle);
         let project = sandbox.project().map(project_audio_index);
@@ -63,4 +67,16 @@ fn document_units(app: &AppHandle, document: BinDocumentId) -> AppResult<Vec<Ban
         AppError::Other(format!("The bank units of the document were not read: {e}"))
     })?;
     Ok(audio.units)
+}
+
+/// Returns a bank unit that reads `bank_paths`, such as the `AudioBankPaths` of a spell.
+///
+/// The unit is read as voice-over, so a path with an `en_US` segment reads under the client's
+/// locale first. A path without one reads as written.
+fn paths_unit(bank_paths: Vec<String>) -> BankUnit {
+    BankUnit {
+        bank_path: bank_paths,
+        voice_over: true,
+        ..BankUnit::default()
+    }
 }
