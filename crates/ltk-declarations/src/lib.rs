@@ -21,6 +21,11 @@
 //!   `target` module of the chunk, else of a new trailing `target` module. It
 //!   drops the chunk's opposite item of the same path instead where one exists.
 //!
+//! - An edit of an object that a `source` module creates is applied to that
+//!   source document, unless a later module of the manifest declares the path.
+//!   A set of a path that a set value holds, a list item or a struct field
+//!   under the value's key, replaces that node of the value where it stands.
+//!
 //! A module holds at least one entry, so a new module is made by the edit that
 //! fills it, [`ModuleChoice::New`]. The module actions rename, remove and
 //! reorder modules, and move an entry's keys from one module to another.
@@ -71,6 +76,7 @@ mod syntax;
 #[cfg(test)]
 mod tests;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use fs_err as fs;
@@ -80,6 +86,7 @@ use ltk_game_data::{
     load_declarations,
 };
 use ltk_meta::path::PropertyPath;
+use rowan::ast::AstNode as _;
 
 pub use self::layout::{Binding, BodyAt, KeyLayout, Layout};
 
@@ -411,6 +418,34 @@ pub struct Manifest {
     /// The text with every edit applied.
     text: DocumentText,
     ending: LineEnding,
+    /// The source documents an edit or a replace read, in the order they were read.
+    sources: Vec<HeldSource>,
+}
+
+/// A source document that a manifest names, held as text once an edit reads it.
+#[derive(Debug)]
+struct HeldSource {
+    /// The source as the manifest names it.
+    name: String,
+    /// The file, resolved inside the layer.
+    path: PathBuf,
+    /// The bytes read from disk, or last written.
+    read: Vec<u8>,
+    /// The text with every edit applied.
+    text: DocumentText,
+    ending: LineEnding,
+}
+
+/// The texts of a manifest and of the source documents it holds, lines ending in `\n`.
+///
+/// An undo keeps the texts from before and after an edit, and [`Manifest::replace`] puts
+/// one back.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ManifestTexts {
+    /// The manifest's text. Empty for a layer with no manifest.
+    pub manifest: String,
+    /// The text of each held source document, keyed by the source as the manifest names it.
+    pub sources: BTreeMap<String, String>,
 }
 
 impl Manifest {
@@ -439,6 +474,7 @@ impl Manifest {
                     read: None,
                     text: DocumentText::default(),
                     ending: LineEnding::Lf,
+                    sources: Vec::new(),
                 });
             }
             [path] => path.clone(),
@@ -469,6 +505,7 @@ impl Manifest {
             path,
             layer_dir,
             read: Some(bytes),
+            sources: Vec::new(),
         })
     }
 
@@ -496,8 +533,38 @@ impl Manifest {
         })
     }
 
+    /// The held texts of the manifest and of each source document an edit or a replace read.
+    #[must_use]
+    pub fn texts(&self) -> ManifestTexts {
+        ManifestTexts {
+            manifest: self.text.as_str().to_owned(),
+            sources: self
+                .sources
+                .iter()
+                .map(|held| (held.name.clone(), held.text.as_str().to_owned()))
+                .collect(),
+        }
+    }
+
+    /// The texts of the files [`Manifest::texts`] covers, as they were read or last written.
+    #[must_use]
+    pub fn texts_on_disk(&self) -> ManifestTexts {
+        let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).replace("\r\n", "\n");
+        ManifestTexts {
+            manifest: self.read.as_deref().map(text).unwrap_or_default(),
+            sources: self
+                .sources
+                .iter()
+                .map(|held| (held.name.clone(), text(&held.read)))
+                .collect(),
+        }
+    }
+
     /// Apply one edit to the held text, answering the index of the module that holds the
     /// key it wrote. `None` for a drop, which writes no key.
+    ///
+    /// If a `source` module creates the edited object after every module that declares the
+    /// path, the edit is applied to that source document, and the index is that module's.
     ///
     /// # Errors
     ///
@@ -505,7 +572,103 @@ impl Manifest {
     /// and [`Error::Uneditable`] for an edit the text cannot take. Either
     /// leaves the text as it was.
     pub fn edit(&mut self, edit: &Edit) -> Result<Option<usize>, Error> {
-        self.change(|text| text.apply(edit))
+        let Some((module, source)) = self.creating_source(edit)? else {
+            return self.change(|text| text.apply(edit));
+        };
+
+        self.declarations()?;
+        let index = self.hold_source(&source)?;
+        let held = &self.sources[index];
+        let text = held
+            .text
+            .apply_in_source(edit)
+            .map_err(|reason| Error::Uneditable {
+                path: held.path.clone(),
+                reason,
+            })?;
+
+        let previous = std::mem::replace(&mut self.sources[index].text, text);
+        if let Err(error) = self.load(&self.text) {
+            let held = &mut self.sources[index];
+            held.text = previous;
+            return Err(Error::Uneditable {
+                path: held.path.clone(),
+                reason: Refusal::DoesNotLoad(error.to_string()),
+            });
+        }
+        Ok(edit.operation.value().map(|_| module))
+    }
+
+    /// Returns the index of the `source` module that creates the object of `edit` and the
+    /// source it names. Returns `None` if no `source` module creates the object, or if a
+    /// later module of the manifest declares the path.
+    fn creating_source(&self, edit: &Edit) -> Result<Option<(usize, String)>, Error> {
+        if self.text.is_blank() {
+            return Ok(None);
+        }
+
+        let doc = self
+            .text
+            .parse()
+            .map_err(|reason| self.uneditable(reason))?;
+        let entry = edit.entry.object_hash();
+        let creation = locate::last_creation(&doc, edit.chunk_hash, entry, |source| {
+            self.source_text(source)
+                .ok()
+                .and_then(|text| DocumentText::new(text).parse().ok())
+                .is_some_and(|source| locate::last_source_creation(&source, entry).is_some())
+        });
+        let Some((module, Some(source))) = creation else {
+            return Ok(None);
+        };
+
+        let site = locate::Site::of(edit, locate::DocumentKind::Manifest);
+        let declared = locate::last_within(&doc, &site)
+            .or_else(|| locate::last_key(&doc, &site).map(|key| key.syntax().clone()))
+            .and_then(|node| locate::module_of(&doc, &node));
+        if declared.is_some_and(|declared| declared > module) {
+            return Ok(None);
+        }
+        Ok(Some((module, source)))
+    }
+
+    /// Returns the text of the source document `source`: the held text, else the file's.
+    fn source_text(&self, source: &str) -> Result<String, GameDataError> {
+        let path = resolve_source(&self.layer_dir, source)?;
+        if let Some(held) = self.sources.iter().find(|held| held.path == path) {
+            return Ok(held.text.as_str().to_owned());
+        }
+        fs::read_to_string(&path).map_err(|error| GameDataError::io(source, &error))
+    }
+
+    /// Returns the index of the held source document `source`, reading it first if it is not
+    /// held.
+    fn hold_source(&mut self, source: &str) -> Result<usize, Error> {
+        let invalid = |message: String| Error::Invalid {
+            path: self.path.clone(),
+            message,
+        };
+        let path =
+            resolve_source(&self.layer_dir, source).map_err(|error| invalid(error.to_string()))?;
+        if let Some(index) = self.sources.iter().position(|held| held.path == path) {
+            return Ok(index);
+        }
+
+        let read = fs::read(&path)?;
+        let Ok(text) = std::str::from_utf8(&read) else {
+            return Err(Error::Invalid {
+                path,
+                message: "the file is not UTF-8".to_owned(),
+            });
+        };
+        self.sources.push(HeldSource {
+            name: source.to_owned(),
+            text: DocumentText::new(text.replace("\r\n", "\n")),
+            ending: LineEnding::of(&read),
+            path,
+            read,
+        });
+        Ok(self.sources.len() - 1)
     }
 
     /// Give the module at `module` the name `name`, or take its name away.
@@ -641,12 +804,56 @@ impl Manifest {
         Ok(())
     }
 
-    /// Write the held text over the manifest, in the line ending it was read
-    /// with. A blank text removes the manifest.
+    /// Replaces the held texts `from` with `to`, which an undo holds from before and after an
+    /// edit.
     ///
     /// # Errors
     ///
-    /// [`Error::ChangedOnDisk`] when the file on disk is not the one read,
+    /// [`Error::ChangedOnDisk`] if the manifest or a source document of `from` holds another
+    /// text, and [`Error::Uneditable`] if the texts of `to` do not load. Either leaves every
+    /// held text as it was.
+    pub fn replace(&mut self, from: &ManifestTexts, to: &ManifestTexts) -> Result<(), Error> {
+        if self.text.as_str() != from.manifest {
+            return Err(Error::ChangedOnDisk {
+                path: self.path.clone(),
+            });
+        }
+        for (source, text) in &from.sources {
+            let index = self.hold_source(source)?;
+            let held = &self.sources[index];
+            if held.text.as_str() != text {
+                return Err(Error::ChangedOnDisk {
+                    path: held.path.clone(),
+                });
+            }
+        }
+
+        let previous_text = self.text.clone();
+        let previous_sources: Vec<DocumentText> =
+            self.sources.iter().map(|held| held.text.clone()).collect();
+        self.text = DocumentText::new(to.manifest.replace("\r\n", "\n"));
+        for (source, text) in &to.sources {
+            let index = self.hold_source(source)?;
+            self.sources[index].text = DocumentText::new(text.replace("\r\n", "\n"));
+        }
+
+        if let Err(error) = self.load(&self.text) {
+            self.text = previous_text;
+            self.sources.truncate(previous_sources.len());
+            for (held, text) in self.sources.iter_mut().zip(previous_sources) {
+                held.text = text;
+            }
+            return Err(self.uneditable(Refusal::DoesNotLoad(error.to_string())));
+        }
+        Ok(())
+    }
+
+    /// Write the held text over the manifest, and each held source document over its file,
+    /// in the line ending each was read with. A blank manifest text removes the manifest.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::ChangedOnDisk`] when a file on disk is not the one read,
     /// which writes nothing, and [`Error::Io`] when the write fails.
     pub fn write(&mut self) -> Result<(), Error> {
         let on_disk = match fs::read(&self.path) {
@@ -658,6 +865,21 @@ impl Manifest {
             return Err(Error::ChangedOnDisk {
                 path: self.path.clone(),
             });
+        }
+        for held in &self.sources {
+            if fs::read(&held.path)? != held.read {
+                return Err(Error::ChangedOnDisk {
+                    path: held.path.clone(),
+                });
+            }
+        }
+
+        for held in &mut self.sources {
+            let bytes = held.ending.apply(held.text.as_str()).into_bytes();
+            if bytes != held.read {
+                write_file(&held.path, &bytes)?;
+                held.read = bytes;
+            }
         }
 
         if self.text.is_blank() {
@@ -671,14 +893,13 @@ impl Manifest {
             return Ok(());
         }
         fs::create_dir_all(&self.layer_dir)?;
-        let temporary = self.path.with_extension("ltk-tmp");
-        fs::write(&temporary, &bytes)?;
-        fs::rename(&temporary, &self.path)?;
+        write_file(&self.path, &bytes)?;
         self.read = Some(bytes);
         Ok(())
     }
 
-    /// The declarations `text` loads to, its sources read from the layer.
+    /// The declarations `text` loads to, its sources read from the held ones, else from the
+    /// layer.
     fn load(&self, text: &DocumentText) -> Result<Option<Declarations>, GameDataError> {
         if text.is_blank() {
             return Ok(None);
@@ -687,10 +908,7 @@ impl Manifest {
             .path
             .file_name()
             .map_or_else(|| FILE_NAME.into(), |name| name.to_string_lossy());
-        load_declarations(&name, text.as_str(), |source| {
-            read_source(&self.layer_dir, source)
-        })
-        .map(Some)
+        load_declarations(&name, text.as_str(), |source| self.source_text(source)).map(Some)
     }
 
     fn uneditable(&self, reason: Refusal) -> Error {
@@ -701,8 +919,16 @@ impl Manifest {
     }
 }
 
-/// A source file a manifest names, read from inside the layer.
-fn read_source(layer_dir: &Path, source: &str) -> Result<String, GameDataError> {
+/// Writes `bytes` over `path` through a temporary file beside it.
+fn write_file(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    let temporary = path.with_extension("ltk-tmp");
+    fs::write(&temporary, bytes)?;
+    fs::rename(&temporary, path)?;
+    Ok(())
+}
+
+/// Resolves the source file a manifest names inside the layer.
+fn resolve_source(layer_dir: &Path, source: &str) -> Result<PathBuf, GameDataError> {
     let relative = Path::new(source);
     if relative.is_absolute() || source.contains('\\') {
         return Err(GameDataError::in_document(
@@ -725,5 +951,5 @@ fn read_source(layer_dir: &Path, source: &str) -> Result<String, GameDataError> 
             source,
         ));
     }
-    fs::read_to_string(resolved).map_err(missing)
+    Ok(resolved)
 }

@@ -9,7 +9,7 @@ use rowan::ast::AstNode as _;
 use yaml_edit::{Document, Mapping, MappingEntry, Sequence, SyntaxKind, YamlNode};
 
 use crate::document_text::DocumentText;
-use crate::locate::{self, Site};
+use crate::locate::{self, DocumentKind, Site};
 use crate::syntax::{self, Node};
 use crate::{Edit, ModuleChoice, Operation, Refusal, ValueText};
 
@@ -17,12 +17,7 @@ impl DocumentText {
     /// The text with `edit` applied, and the index of the module holding the key it wrote.
     /// `None` for a drop, which writes no key.
     pub(crate) fn apply(&self, edit: &Edit) -> Result<(Self, Option<usize>), Refusal> {
-        let site = Site {
-            chunk_hash: edit.chunk_hash,
-            entry: edit.entry.object_hash(),
-            sign: edit.operation.sign(),
-            segments: edit.path.segments().collect(),
-        };
+        let site = Site::of(edit, DocumentKind::Manifest);
         let value = edit.operation.value().map(ValueText::as_str);
 
         if self.is_blank() {
@@ -49,23 +44,73 @@ impl DocumentText {
         }
 
         let doc = self.parse()?;
-        let key = locate::last_key(&doc, &site);
+        self.apply_parsed(&doc, &site, &edit.operation, |value| {
+            self.insert(&doc, &site, &edit.entry, value, &edit.module)
+                .map(|(text, module)| (text, Some(module)))
+        })
+    }
+
+    /// Returns the text of a source document with `edit` applied.
+    ///
+    /// A new key joins the `set` of the object's last creation in the document. Fails with
+    /// [`Refusal::NoKey`] if a new key meets a document that does not create the object.
+    pub(crate) fn apply_in_source(&self, edit: &Edit) -> Result<Self, Refusal> {
+        let site = Site::of(edit, DocumentKind::Source);
+        let doc = self.parse()?;
+
+        let (text, _) = self.apply_parsed(&doc, &site, &edit.operation, |value| {
+            let object = locate::last_source_creation(&doc, site.entry)
+                .as_ref()
+                .and_then(locate::creation)
+                .ok_or(Refusal::NoKey)?;
+            Ok((self.insert_set(&object, &site, value)?, None))
+        })?;
+        Ok(text)
+    }
+
+    /// Applies `operation` at `site` of the parsed text `doc`, calling `insert` with the value
+    /// of a key that no declaration holds yet. Returns the text and the module that holds the
+    /// written value.
+    fn apply_parsed(
+        &self,
+        doc: &Document,
+        site: &Site<'_>,
+        operation: &Operation,
+        insert: impl FnOnce(&str) -> Result<(Self, Option<usize>), Refusal>,
+    ) -> Result<(Self, Option<usize>), Refusal> {
+        let value = operation.value().map(ValueText::as_str);
+        if let (Some(value), Some(node)) = (value, locate::last_within(doc, site)) {
+            return match self.replace_node(&node, value) {
+                Some(text) => Ok((text, locate::module_of(doc, &node))),
+                None => insert(value),
+            };
+        }
+
+        let key = locate::last_key(doc, site);
         let holder = key
             .as_ref()
-            .and_then(|key| locate::module_of(&doc, key.syntax()));
-        match (&edit.operation, key, value) {
+            .and_then(|key| locate::module_of(doc, key.syntax()));
+        match (operation, key, value) {
             (Operation::Set(_), Some(key), Some(value)) => {
                 Ok((self.replace_value(&key, value)?, holder))
             }
             (Operation::Add(_) | Operation::Remove(_), Some(_), Some(value)) => {
-                Ok((self.merge(&site, value)?, holder))
+                Ok((self.merge(site, value)?, holder))
             }
-            (Operation::Drop(_), Some(key), _) => Ok((self.drop_key(&doc, &key), None)),
-            (_, None, Some(value)) => self
-                .insert(&doc, &site, &edit.entry, value, &edit.module)
-                .map(|(text, module)| (text, Some(module))),
+            (Operation::Drop(_), Some(key), _) => Ok((self.drop_key(doc, &key), None)),
+            (_, None, Some(value)) => insert(value),
             (_, _, None) => Ok((self.clone(), None)),
         }
+    }
+
+    /// Returns the text with the one-line value node `node` replaced by the inline `value`.
+    /// Returns `None` if `node` spans lines or `value` is not inline.
+    fn replace_node(&self, node: &Node, value: &str) -> Option<Self> {
+        let start = syntax::start(node);
+        let old = self.as_str()[start..syntax::end(node)].trim_end();
+
+        (syntax::is_inline(value) && !old.contains('\n'))
+            .then(|| self.splice(start, start + old.len(), value))
     }
 
     /// The text with a key for `site` added in the module `choice` names, and that module's
@@ -571,3 +616,6 @@ fn items(value: &DocumentText) -> Result<(Option<String>, Vec<Item>), Refusal> {
     };
     Ok((tag, items))
 }
+
+#[cfg(test)]
+mod tests;
