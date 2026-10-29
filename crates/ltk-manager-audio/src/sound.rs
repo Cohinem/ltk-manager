@@ -1,10 +1,13 @@
-//! One media of an audio file, decoded: the answer of the `sound` preview form.
+//! One media of an audio file, as its WEM bytes or decoded: the answer of the `sound` preview
+//! form and of a media export.
 
+use std::borrow::Cow;
 use std::io::Cursor;
 
 use ltk_wwise::package::PackageKey;
 use ltk_wwise::{Bank, MountedPackage, SourceId};
 
+use crate::container::{AudioKind, kind_of_bytes};
 use crate::decode::{DecodeError, Decoded, decode};
 
 /// Why an audio file gives no sound for a source ID.
@@ -35,19 +38,27 @@ pub enum SoundError {
 ///
 /// # Errors
 ///
+/// - The errors of [`media`].
+/// - [`SoundError::Decode`] if the media cannot be decoded.
+pub fn sound(file: &[u8], source_id: SourceId) -> Result<Decoded, SoundError> {
+    Ok(decode(source_id, &media(file, source_id)?)?)
+}
+
+/// Returns the WEM bytes of the media `source_id` of the package, bank or WEM `file`.
+///
+/// The kind of file is read from its magic. A WEM is its own media and ignores `source_id`.
+///
+/// # Errors
+///
 /// - [`SoundError::NoMedia`] if a package or bank holds no media `source_id`.
 /// - [`SoundError::NotAudio`] if `file` is not a package, a bank or a WEM.
 /// - [`SoundError::Read`] if the package or bank cannot be read.
-/// - [`SoundError::Decode`] if the media cannot be decoded.
-pub fn sound(file: &[u8], source_id: SourceId) -> Result<Decoded, SoundError> {
-    let media = match file.get(..4) {
-        Some(PACKAGE_MAGIC) => packaged_media(file, source_id)?,
-        Some(BANK_MAGIC) => banked_media(file, source_id)?,
-        Some(WEM_MAGIC) => return Ok(decode(source_id, file)?),
-        _ => return Err(SoundError::NotAudio),
-    };
-
-    Ok(decode(source_id, &media)?)
+pub fn media(file: &[u8], source_id: SourceId) -> Result<Cow<'_, [u8]>, SoundError> {
+    match kind_of_bytes(file).ok_or(SoundError::NotAudio)? {
+        AudioKind::Package => packaged_media(file, source_id).map(Cow::Borrowed),
+        AudioKind::Bank => banked_media(file, source_id).map(Cow::Owned),
+        AudioKind::Media => Ok(Cow::Borrowed(file)),
+    }
 }
 
 /// Returns the entry name key of the media `source_id` in a package.
@@ -55,14 +66,15 @@ pub(crate) fn package_key(source_id: SourceId) -> PackageKey {
     PackageKey::from_name(&format!("{source_id}.wem"))
 }
 
-fn packaged_media(file: &[u8], source_id: SourceId) -> Result<Vec<u8>, SoundError> {
-    let mut package = MountedPackage::mount(Cursor::new(file))?;
+fn packaged_media(file: &[u8], source_id: SourceId) -> Result<&[u8], SoundError> {
+    let package = MountedPackage::mount(Cursor::new(file))?;
     let entry = package
         .get(package_key(source_id))
-        .cloned()
         .ok_or(SoundError::NoMedia { source_id })?;
 
-    Ok(package.read(&entry)?)
+    let start = entry.offset() as usize;
+    file.get(start..start + entry.size() as usize)
+        .ok_or(SoundError::NoMedia { source_id })
 }
 
 fn banked_media(file: &[u8], source_id: SourceId) -> Result<Vec<u8>, SoundError> {
@@ -72,12 +84,3 @@ fn banked_media(file: &[u8], source_id: SourceId) -> Result<Vec<u8>, SoundError>
         .map(<[u8]>::to_vec)
         .ok_or(SoundError::NoMedia { source_id })
 }
-
-/// The magic of a package: `r3d2`.
-const PACKAGE_MAGIC: &[u8] = b"r3d2";
-
-/// The magic of a bank: its first chunk, `BKHD`.
-const BANK_MAGIC: &[u8] = b"BKHD";
-
-/// The magic of a WEM, a RIFF file.
-const WEM_MAGIC: &[u8] = b"RIFF";

@@ -7,6 +7,10 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
 publish = false
 
+[features]
+# Derive `specta::Type` on the types that cross IPC, so the Tauri shell can export bindings.
+ts = ["dep:specta", "ltk-manager-assets/ts"]
+
 [dependencies]
 ltk-manager-assets = { workspace = true }
 
@@ -14,6 +18,8 @@ lewton = { workspace = true }
 lru = { workspace = true }
 ltk_wwise = { workspace = true }
 parking_lot = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true, optional = true }
 thiserror = { workspace = true }
 ww2ogg = { workspace = true }
 

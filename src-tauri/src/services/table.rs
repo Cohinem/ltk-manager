@@ -153,6 +153,10 @@ services! {
         find_references,
         cancel_reference_walk,
     }
+    audio("audio") {
+        read_audio_media,
+        export_audio_media,
+    }
     preview("preview") {
         // Asset preview
         read_asset_info,

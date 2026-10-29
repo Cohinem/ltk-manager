@@ -1,7 +1,11 @@
-//! The `audio` service: bank sets over the sandbox and the cache of decoded media.
+//! The `audio` service: the media table of an audio file, the export of one media, bank sets
+//! over the sandbox and the cache of decoded media.
 //!
-//! The service has no command yet. The `sound` form of the `ltk-asset` protocol reads through
-//! [`decoded_sound`].
+//! The `sound` form of the `ltk-asset` protocol reads through [`decoded_sound`].
+
+mod media;
+
+pub use media::*;
 
 use std::io::{self, Cursor};
 use std::sync::Arc;
@@ -14,11 +18,20 @@ use ltk_manager_base::config::Config;
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_bin::bin_document::AssetLookup;
 use ltk_manager_bin::sandbox::SandboxRef;
-use tauri::{AppHandle, Manager};
+use tauri::plugin::TauriPlugin;
+use tauri::{AppHandle, Manager, Wry};
 
 use crate::error::AppResult;
 use crate::services::shared::document_assets::with_assets_in;
 use crate::state::SettingsState;
+
+/// The audio service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the audio commands.
+pub fn plugin() -> TauriPlugin<Wry> {
+    super::plugin::<Table>().build()
+}
 
 /// [`AudioFiles`] over the asset lookup of a sandbox: project layer files first, then the game.
 pub(crate) struct SandboxAudioFiles<'a> {
@@ -60,7 +73,10 @@ impl AudioFiles for SandboxAudioFiles<'_> {
 /// # Errors
 ///
 /// Fails if the install's game index cannot be built.
-#[expect(dead_code, reason = "the bank viewer of #951 is the first caller")]
+#[expect(
+    dead_code,
+    reason = "the event bank viewer of #952 is the first caller"
+)]
 pub(crate) fn with_audio_files<T>(
     app: &AppHandle,
     reference: &SandboxRef,

@@ -223,6 +223,10 @@ export type AssetInfo =
  *  the `<img>` reports.
  */
 ({ kind: "web"; format: WebImage; sizeBytes: number }) & { fileKind?: never; height?: never; width?: never } | 
+/**  A Wwise package, bank or WEM, which the audio file document lists. */
+{
+	kind: "audio",
+} & AudioInfo | 
 /**  Nothing here has a viewer. */
 ({ kind: "unsupported"; fileKind: WorkshopFileKind }) & { format?: never; height?: never; sizeBytes?: never; width?: never };
 
@@ -273,11 +277,55 @@ export type Attribute = {
 	mask: number,
 };
 
+/**  The kind of Wwise file. */
+export type AudioContainer = 
+/**  A package (`.wpk`) of streamed media. */
+"package" | 
+/**  A media bank or an event bank (`.bnk`). */
+"bank" | 
+/**  One WEM media file (`.wem`). */
+"media";
+
+/**  The header facts of a Wwise package, bank or WEM. */
+export type AudioInfo = {
+	container: AudioContainer,
+	/**  The size of the file itself. */
+	sizeBytes: number,
+	/**  The number of media in the file, 0 if the file cannot be read. */
+	mediaCount: number,
+	/**  The `BKHD` facts of a bank that reads. */
+	bank: BankFacts | null,
+	/**
+	 *  The reader's error if the file cannot be read. It names the offset where the reader
+	 *  knows one.
+	 */
+	failure: string | null,
+};
+
 /**  A saved author profile that can be reused across workshop projects. */
 export type AuthorProfile = {
 	id: string,
 	name: string,
 	role: string | null,
+};
+
+/**  The `BKHD` header of a bank, and whether the client loads the bank. */
+export type BankFacts = {
+	version: number,
+	bankType: number,
+	/**  The `uAlignment` field as written. */
+	alignment: number,
+	/**  The bank ID of the header, which the client does not read. */
+	headerId: number,
+	/**
+	 *  The bank ID of the file name, which the client registers the bank under. `None` if the
+	 *  asset has no `.bnk` file name, as a game chunk has.
+	 */
+	nameId: number | null,
+	/**  The reason the client rejects the bank, in the words of `Bank::check`. */
+	rejection: string | null,
+	/**  The number of events of the hierarchy, or `None` if the bank has no hierarchy. */
+	eventCount: number | null,
 };
 
 /**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
@@ -4686,6 +4734,38 @@ export type MaterialWarning =
  */
 { kind: "nearestPermutation"; set: string[]; unset: string[] };
 
+/**  What a media export writes. */
+export type MediaExport = 
+/**  The decoded media: Ogg Vorbis for Vorbis, WAV for PCM. */
+"decoded" | 
+/**  The WEM bytes as the file holds them. */
+"original";
+
+/**  The format facts of one WEM media, from its `fmt ` and `data` chunk headers. */
+export type MediaFormat = {
+	/**  The `wFormatTag` of the media. */
+	codec: number,
+	channels: number,
+	/**  Samples per second. */
+	sampleRate: number,
+	averageBytesPerSecond: number,
+	/**  The size of the `data` chunk in bytes. */
+	dataSize: number,
+	/**  The length in seconds, or `None` if the byte rate is 0. An estimate for Vorbis. */
+	durationSeconds: number | null,
+};
+
+/**  One media of a package, a media bank or a WEM. */
+export type MediaRow = {
+	/**  The source ID of the media, which is 0 for a WEM file. */
+	sourceId: number,
+	/**  The bytes that the media takes in the file. */
+	sizeBytes: number,
+	/**  The `fmt ` and `data` facts, or `None` if the media is not a readable WEM. */
+	format: MediaFormat | null,
+	playback: Playback,
+};
+
 /**  Which typed view writes a member. */
 export type MemberScalar = "float" | "int" | "uint" | "bool";
 
@@ -5995,6 +6075,15 @@ export type PlatformSupport = {
 	patcherAvailable: boolean,
 	hotkeysAvailable: boolean,
 };
+
+/**  Whether the decoder of the crate plays a media. */
+export type Playback = 
+/**  The codec is Vorbis or PCM. */
+{ kind: "playable" } | 
+/**  The codec has no decoder in the crate. */
+{ kind: "unsupportedCodec" } | 
+/**  The media is not a readable WEM. */
+{ kind: "unreadable"; message: string };
 
 /**  One entry of `rigPoseModifierData`, of any kind of `BaseRigPoseModifierData`. */
 export type PoseModifier = 

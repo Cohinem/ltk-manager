@@ -19,13 +19,16 @@ use tauri::{AppHandle, Manager};
 ///
 /// A file kind with no viewer comes back as [`AssetInfo::Unsupported`] rather
 /// than an error, because a modder clicking through a tree meets one constantly
-/// and the viewer draws it as a state.
+/// and the viewer draws it as a state. The audio service answers a Wwise file.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_asset_info(asset: AssetRef, app_handle: AppHandle) -> IpcResult<AssetInfo> {
     let config = app_handle.state::<SettingsState>().config();
 
-    off_thread(move || asset.info(&config, &app_handle.state::<WadCache>())).await
+    off_thread(move || {
+        crate::services::audio::asset_info(&asset, &config, &app_handle.state::<WadCache>())
+    })
+    .await
 }
 
 /// Write one previewed asset to a path the user picked.
