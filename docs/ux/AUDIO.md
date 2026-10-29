@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
+| 2026-10-29 | Add the waveform column                         |
 | 2026-10-29 | Add the waveform                                |
 | 2026-10-29 | Add viewport sound                              |
 | 2026-10-29 | Add the event tree                              |
@@ -51,6 +52,7 @@ index in ascending source ID order, and a WEM is one row of source ID 0.
 | Rate      | The sample rate in samples per second                                     |
 | Duration  | `m:ss.cc`, from the `data` size and the byte rate. An estimate for Vorbis |
 | Size      | The bytes the media takes in the file, in binary units                    |
+| Waveform  | The shape of the media, per "Waveform column"                             |
 
 Listing a file reads the `fmt ` chunk of each media and decodes no audio, so a package of
 thousands of media lists at once. The table is windowed.
@@ -228,6 +230,18 @@ The waveform is one tab stop, a slider of the playhead.
 | Page Down  | Move the playhead back a quarter of the media   |
 | Home, End  | Move the playhead to the start or the end       |
 | Space      | Play or pause                                   |
+
+### Waveform column
+
+Each row of the media table and of the event tree ends in a small waveform of its media. A row
+of the event tree draws the first media that a press on it plays, with the first child of each
+random container. An event row reads its event first. A row that plays no media draws none.
+
+- A row decodes when it scrolls into view, three rows at a time. A row that leaves the view
+  before its turn does not decode.
+- The column decodes outside the cache that playback reads, so it evicts nothing that plays.
+- The bars are scaled to the loudest bar of the media, so a quiet media still shows its shape.
+- The row that plays draws its waveform in the accent.
 
 ## Viewport sound
 

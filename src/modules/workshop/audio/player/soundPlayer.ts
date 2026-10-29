@@ -75,17 +75,21 @@ export function decodeMedia(url: string): Promise<AudioBuffer> {
   return decoded(audioGraph().context, url);
 }
 
+/**
+ * Returns the decoded media at `url`, from the cache if it holds it, without adding it.
+ *
+ * The waveform column decodes every row it draws, which would evict what plays.
+ */
+export function decodeUncachedMedia(url: string, signal?: AbortSignal): Promise<AudioBuffer> {
+  return buffers.get(url) ?? fetchDecoded(audioGraph().context, url, signal);
+}
+
 /** Returns the decoded media at `url`, from the cache or fetched once. */
 function decoded(context: AudioContext, url: string): Promise<AudioBuffer> {
   const cached = buffers.get(url);
   if (cached !== undefined) return cached;
 
-  const loading = fetch(url)
-    .then((response) => {
-      if (!response.ok) throw new Error(`The media at ${url} answered ${response.status}`);
-      return response.arrayBuffer();
-    })
-    .then((bytes) => context.decodeAudioData(bytes));
+  const loading = fetchDecoded(context, url);
   loading.catch(() => buffers.delete(url));
 
   buffers.set(url, loading);
@@ -94,6 +98,18 @@ function decoded(context: AudioContext, url: string): Promise<AudioBuffer> {
     if (oldest !== undefined) buffers.delete(oldest);
   }
   return loading;
+}
+
+/** Fetches the media at `url` and decodes it. */
+async function fetchDecoded(
+  context: AudioContext,
+  url: string,
+  signal?: AbortSignal,
+): Promise<AudioBuffer> {
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error(`The media at ${url} answered ${response.status}`);
+
+  return context.decodeAudioData(await response.arrayBuffer());
 }
 
 interface Voice {

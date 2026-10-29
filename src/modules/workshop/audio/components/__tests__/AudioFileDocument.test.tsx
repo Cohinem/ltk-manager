@@ -13,7 +13,11 @@ import { AudioFileDocument } from "../AudioFileDocument";
 
 vi.mock("../../player/soundPlayer", async () => {
   const fake = await import("../../player/__tests__/fakeChannel");
-  return { openChannel: fake.openFakeChannel, decodeMedia: fake.decodeFakeMedia };
+  return {
+    openChannel: fake.openFakeChannel,
+    decodeMedia: fake.decodeFakeMedia,
+    decodeUncachedMedia: fake.decodeFakeMedia,
+  };
 });
 
 vi.mock("@tanstack/react-virtual", async (importOriginal) => {

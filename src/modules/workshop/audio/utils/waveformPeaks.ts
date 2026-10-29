@@ -14,6 +14,23 @@ export function waveformPeaks(channels: readonly ArrayLike<number>[], bins: numb
   return channels.slice(0, DRAWN_CHANNELS).map((samples) => channelPeaks(samples, bins));
 }
 
+/**
+ * Reduces a media to at most `count` bar heights from 0 to 1, for the waveform column.
+ *
+ * A bar is the largest magnitude of the first two channels in its bin. The loudest bar is 1, so
+ * a quiet media still draws. A silent media draws flat bars.
+ */
+export function thumbnailBars(channels: readonly ArrayLike<number>[], count: number): number[] {
+  const [first, ...rest] = waveformPeaks(channels, count);
+  if (first === undefined) return [];
+
+  const bars = first.map((peak, at) =>
+    Math.max(Math.abs(peak), ...rest.map((other) => Math.abs(other[at] ?? 0))),
+  );
+  const loudest = Math.max(0, ...bars);
+  return loudest === 0 ? bars : bars.map((bar) => bar / loudest);
+}
+
 function channelPeaks(samples: ArrayLike<number>, bins: number): number[] {
   const count = Math.min(bins, samples.length);
   const width = samples.length / count;
