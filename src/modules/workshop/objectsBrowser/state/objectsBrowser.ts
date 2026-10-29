@@ -11,7 +11,14 @@ interface ObjectsBrowserStore extends IndexBrowserSlice {
   selected: { path: string; type: "object" | "prefix" } | null;
   selectNode: (node: Pick<ObjectTreeNode, "id" | "type">) => void;
   setView: (view: "tree" | "grid") => void;
-  display: { view: "tree" | "grid"; thumbnails: boolean; location: string; tileSize: number };
+  display: {
+    view: "tree" | "grid";
+    thumbnails: boolean;
+    location: string;
+    tileSize: number;
+    /** List the objects that the project's game data declarations create, remove or edit. */
+    declaredObjects: boolean;
+  };
   setDisplay: (display: Partial<ObjectsBrowserStore["display"]>) => void;
   /** Collapse every one of `paths` in the search results tree. */
   collapseFindPrefixes: (paths: readonly string[]) => void;
@@ -75,7 +82,7 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
         reveal: { id: selected.path, token },
       };
     }),
-  display: { view: "tree", thumbnails: true, location: "", tileSize: 128 },
+  display: { view: "tree", thumbnails: true, location: "", tileSize: 128, declaredObjects: true },
   setDisplay: (display) => set((state) => ({ display: { ...state.display, ...display } })),
   collapseFindPrefixes: (paths) =>
     set((state) => ({ shutFind: new Set([...state.shutFind, ...paths]) })),

@@ -3059,7 +3059,7 @@ uses. What the reader sees is what the build makes.
 | The mark            | Stands on each row a declaration of the chosen layer touches             |
 | The hover           | Names the layer and spells the game's value as a declaration writes it   |
 | A leaf edit         | Writes one key under an `entries` module of the layer's `game_data.yaml` |
-| Undo and redo       | Restore the manifest text from before and after the edit                 |
+| Undo and redo       | Restore the manifest and source texts from before and after the edit     |
 
 The options open on the layer last used for the project, else `base`, and switch among the
 project's layers in build order. A declaration another layer holds draws applied, and its row
@@ -3107,6 +3107,10 @@ layer already sets joins that set. A row whose declaration sets a whole list or 
 on its mark, because a later change of the game's no longer reaches it. An edit that neither
 form reproduces is refused, and the manifest is left as it was. Where a later layer declares
 the value, the refusal names that layer, because the build keeps its value over the edit's.
+
+An edit of an object that a module's `source` document creates lands in that document, in the
+object's `set`, unless a later module of the manifest declares the same path. A set of a list
+item or a struct field that a set value holds replaces that node of the value where it stands.
 
 A map is compared by its entries in any order, because an addition lands at the end of one.
 

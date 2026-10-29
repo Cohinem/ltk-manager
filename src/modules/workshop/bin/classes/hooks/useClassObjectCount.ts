@@ -4,6 +4,8 @@ import { api, type AppError, type HexBinHash, type IndexResponse } from "@/lib/t
 import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaf rather than the browser's barrel, which reaches this module back mid-evaluation. */
+import { useModuleObjects } from "../../../objectsBrowser/hooks/useModuleObjects";
+import { createdOfClass } from "../../../objectsBrowser/utils/moduleObjects";
 import { pollWhileBuilding, readyValue } from "../../../shared/api/indexQueries";
 
 const classObjectCountQuery = (classHash: HexBinHash) =>
@@ -14,8 +16,15 @@ const classObjectCountQuery = (classHash: HexBinHash) =>
     retry: false,
   });
 
-/** How many objects of the install declare the class, or null while the index cannot say. */
+/**
+ * How many objects of the install declare the class, and how many the project's game data
+ * declarations create. Null while the index cannot say.
+ */
 export function useClassObjectCount(classHash: HexBinHash): number | null {
   const { data } = useQuery(classObjectCountQuery(classHash));
-  return readyValue(data) ?? null;
+  const modules = useModuleObjects();
+  const installed = readyValue(data);
+  if (installed === undefined) return null;
+
+  return installed + createdOfClass(modules, classHash);
 }

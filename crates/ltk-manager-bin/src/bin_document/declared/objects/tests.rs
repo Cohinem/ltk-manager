@@ -130,6 +130,48 @@ fn a_key_of_a_created_object_lands_in_its_set_and_applies() {
 }
 
 #[test]
+fn key_of_source_created_object_lands_in_source_and_undoes() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let layer = dir.path().join("content/base");
+    let manifest_text = format!(
+        "version: 1\nmodules:\n  - target: {}\n    source: copy.yaml\n",
+        target()
+    );
+    let source_text = format!(
+        "version: 1\nobjects:\n  {COPY}:\n    clone: {SKIN}\n    set:\n      skinMeshProperties.selfIllumination: 0.25\n"
+    );
+    fs::write(layer.join(ltk_declarations::FILE_NAME), &manifest_text).unwrap();
+    fs::write(layer.join("copy.yaml"), &source_text).unwrap();
+    let mut document = declared(project);
+    let glow = |document: &BinDocument| {
+        let path = ltk_meta::path::PropertyPath::new("skinMeshProperties.selfIllumination");
+        match document.object_at(h(COPY))?.resolve(&path.ok()?).ok()? {
+            ltk_meta::PropertyValueEnum::F32(value) => Some(value.value),
+            _ => None,
+        }
+    };
+
+    document
+        .set_leaf(h(COPY), &glow_path(), LeafValue::Float { value: 0.5 })
+        .unwrap();
+
+    assert_eq!(manifest(dir.path(), "base"), manifest_text);
+    assert_eq!(
+        fs::read_to_string(layer.join("copy.yaml")).unwrap(),
+        source_text.replace("0.25", "0.5")
+    );
+    assert_eq!(glow(&document), Some(0.5));
+
+    assert!(document.undo().unwrap());
+    assert_eq!(
+        fs::read_to_string(layer.join("copy.yaml")).unwrap(),
+        source_text
+    );
+    assert_eq!(glow(&document), Some(0.25));
+}
+
+#[test]
 fn a_removal_declares_remove_and_undo_puts_the_object_back() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared(project(dir.path()));

@@ -19,6 +19,9 @@ it("groups thumbnail and size preferences inside view options", async () => {
       onThumbnailsChange={change}
       size={128}
       onSizeChange={vi.fn()}
+      declaredObjects
+      onDeclaredObjectsChange={vi.fn()}
+      declaring={null}
     />,
   );
   expect(screen.queryByRole("switch")).toBeNull();

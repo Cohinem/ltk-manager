@@ -103,10 +103,7 @@ impl BinDocument {
                 break;
             };
             written = Some(match written {
-                Some(first) => TextEdit {
-                    before: first.before,
-                    ..wrote
-                },
+                Some(first) => first.then(wrote),
                 None => wrote,
             });
 

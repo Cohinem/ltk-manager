@@ -421,6 +421,7 @@ export const api = {
     dir: objects.objectDir,
     spells: objects.characterSpells,
     classCount: objects.classObjectCount,
+    moduleObjects: objects.moduleObjects,
     find: objects.findObjects,
     references: objects.findReferences,
     cancelWalk: objects.cancelReferenceWalk,

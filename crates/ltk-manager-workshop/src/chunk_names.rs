@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 
 use camino::Utf8Path;
 use fs_err as fs;
+use ltk_game_data::{Declarations, EntryName, ObjectEdit, Selector};
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_hashtable::{Category, Hashtable};
+use ltk_mod_project::game_data::load_layer;
 use ltk_mod_project::{
     CONTENT_DIR_NAME, HASHES_DIR_NAME, ModProject, ModProjectHashtable, ModProjectLayer,
 };
@@ -36,7 +38,8 @@ pub struct LayerChunks {
     /// The layer file an unpack named by its chunk's hash, which no table had a path for.
     /// The hash is all such a file says of where the game reads it.
     by_chunk: HashMap<WadHash, AssetRef>,
-    /// The object paths a declared `binentries` table lists, by entry hash.
+    /// The object paths a declared `binentries` table lists, then the ones the walked layers'
+    /// game data declarations spell, by entry hash.
     entries: HashMap<BinHash, String>,
     /// The strings a declared `binhashes` table lists, by the hash a `Hash` value carries.
     values: HashMap<BinHash, String>,
@@ -67,6 +70,7 @@ impl LayerChunks {
         let mut chunks = Self::default();
         chunks.read_layers(project_dir, project.as_ref(), walks);
         chunks.read_declared_tables(project_dir, project.as_ref());
+        chunks.read_declaration_names(project_dir);
         chunks
     }
 
@@ -76,7 +80,8 @@ impl LayerChunks {
         self.by_hash.get(&hash).map(String::as_str)
     }
 
-    /// The object path `hash` names, or `None` for one no declared table lists.
+    /// The object path `hash` names, or `None` for one that no declared table lists and no
+    /// declaration spells.
     #[must_use]
     pub fn entry(&self, hash: BinHash) -> Option<&str> {
         self.entries.get(&hash).map(String::as_str)
@@ -242,6 +247,28 @@ impl LayerChunks {
         }
     }
 
+    /// Learns the object paths that the walked layers' game data declarations spell.
+    ///
+    /// A name a declared table lists keeps that spelling. A layer whose declarations do not load
+    /// adds nothing.
+    fn read_declaration_names(&mut self, project_dir: &Path) {
+        let Some(root) = Utf8Path::from_path(project_dir) else {
+            return;
+        };
+        let Ok(ignore) = ProjectDir::open(project_dir).and_then(|dir| dir.ignore_filter()) else {
+            return;
+        };
+
+        let layers = self.stack.clone();
+        for layer in &layers {
+            if let Ok(Some(declarations)) = load_layer(root, layer, &ignore).declarations {
+                for name in spelled_entries(&declarations) {
+                    self.insert_entry(name.as_str());
+                }
+            }
+        }
+    }
+
     /// Hashing is `ltk_hash`'s own, which is the function a `file` value was written by.
     fn insert_chunk(&mut self, path: &str) {
         self.by_hash
@@ -282,6 +309,31 @@ fn read_table(project_dir: &Path, path: &str) -> Option<Hashtable> {
 }
 
 /// The path of the `binentries` table that is created if the manifest declares none.
+/// Every object path that `declarations` spells: a created, cloned, removed or edited object.
+fn spelled_entries(declarations: &Declarations) -> Vec<&EntryName> {
+    let mut names = Vec::new();
+    for module in &declarations.modules {
+        match &module.selector {
+            Selector::Target { edits, .. } => {
+                for edit in edits {
+                    for (name, object) in &edit.objects {
+                        names.push(name);
+                        if let ObjectEdit::Clone { source, .. } = object {
+                            names.push(source);
+                        }
+                    }
+                    names.extend(edit.entries.keys());
+                }
+            }
+            Selector::Entries(entries) => names.extend(entries.keys()),
+            _ => {}
+        }
+    }
+
+    names.retain(|name| !name.is_hash());
+    names
+}
+
 const ENTRIES_TABLE: &str = "binentries.hashes.txt";
 
 impl ProjectDir {

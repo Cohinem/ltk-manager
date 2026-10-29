@@ -10,7 +10,7 @@ use std::fmt;
 use std::io::Cursor;
 use std::sync::Arc;
 
-use ltk_declarations::{Edit as ManifestEdit, Manifest, ModuleChoice};
+use ltk_declarations::{Edit as ManifestEdit, Manifest, ManifestTexts, ModuleChoice};
 use ltk_game_data::{
     Edit, EntryName, Module, ModuleName, Names, ObjectEdit, PropertyEdit, Selector, Sign, Target,
     Value,
@@ -169,10 +169,29 @@ impl fmt::Debug for Declared {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TextEdit {
     layer: String,
-    before: String,
-    after: String,
+    before: ManifestTexts,
+    after: ManifestTexts,
     /// The module the last key written landed in. `None` for a module action.
     module: Option<usize>,
+}
+
+impl TextEdit {
+    /// Folds `later`, written after this edit, into one undo step.
+    fn then(self, later: Self) -> Self {
+        let mut before = later.before;
+        before.manifest = self.before.manifest;
+        before.sources.extend(self.before.sources);
+
+        let mut after = self.after;
+        after.manifest = later.after.manifest;
+        after.sources.extend(later.after.sources);
+
+        Self {
+            before,
+            after,
+            ..later
+        }
+    }
 }
 
 /// What a declared document says beside its rows.
@@ -476,8 +495,14 @@ impl BinDocument {
         if let Some(change) = change {
             declared.remember(TextEdit {
                 layer: layer.to_owned(),
-                before: change.before,
-                after: change.after,
+                before: ManifestTexts {
+                    manifest: change.before,
+                    ..ManifestTexts::default()
+                },
+                after: ManifestTexts {
+                    manifest: change.after,
+                    ..ManifestTexts::default()
+                },
                 module: None,
             });
         }
@@ -947,11 +972,11 @@ impl Declared {
         edit: impl FnOnce(&mut Manifest) -> Result<Option<usize>, ltk_declarations::Error>,
     ) -> AppResult<Option<TextEdit>> {
         let mut manifest = self.context.project.declarations_manifest(&self.layer)?;
-        let before = manifest.text().to_owned();
 
         let module = edit(&mut manifest).map_err(declarations_error)?;
+        let before = manifest.texts_on_disk();
         manifest.write().map_err(declarations_error)?;
-        let after = manifest.text().to_owned();
+        let after = manifest.texts();
         Ok((before != after).then(|| TextEdit {
             layer: self.layer.clone(),
             before,
@@ -970,9 +995,8 @@ impl Declared {
 
         match &mut self.group {
             Some(folded) => {
-                let before = folded.take().map(|first| first.before);
-                *folded = Some(match before {
-                    Some(before) => TextEdit { before, ..edit },
+                *folded = Some(match folded.take() {
+                    Some(first) => first.then(edit),
                     None => edit,
                 });
             }
@@ -988,18 +1012,13 @@ impl Declared {
         self.undo.push_back(edit);
     }
 
-    /// Replace the text `from` of `layer`'s manifest with `to`.
+    /// Replace the texts `from` of `layer`'s manifest and its source documents with `to`.
     ///
-    /// A manifest holding another text was edited since, by hand or by another document,
-    /// and is left as it is.
-    fn put(&self, layer: &str, from: &str, to: &str) -> AppResult<()> {
+    /// A file holding another text was edited since, by hand or by another document, and
+    /// every file is left as it is.
+    fn put(&self, layer: &str, from: &ManifestTexts, to: &ManifestTexts) -> AppResult<()> {
         let mut manifest = self.context.project.declarations_manifest(layer)?;
-        if manifest.text() != from {
-            return Err(declarations_error(ltk_declarations::Error::ChangedOnDisk {
-                path: manifest.path().to_owned(),
-            }));
-        }
-        manifest.restore(to).map_err(declarations_error)?;
+        manifest.replace(from, to).map_err(declarations_error)?;
         manifest.write().map_err(declarations_error)?;
         Ok(())
     }

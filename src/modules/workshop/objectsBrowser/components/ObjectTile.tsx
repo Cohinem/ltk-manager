@@ -163,6 +163,7 @@ function ObjectTileInner({
             "line-clamp-2 w-full font-medium wrap-anywhere",
             nameType.className,
             selected ? "text-accent-100" : "text-surface-200",
+            object && node.removed && "line-through",
           )}
         >
           {fitName(node.name, width, nameType, TILE_NAME_LINES)}
