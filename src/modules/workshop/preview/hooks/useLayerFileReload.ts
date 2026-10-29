@@ -26,6 +26,8 @@ const SANDBOX_READS: readonly (readonly string[])[] = [
   [...BACKDROP_ROOT, "model"],
   /* The sounds of a view, whose bank set a layer bank or a layer bin changes. */
   audioKeys.sounds(),
+  /* The events of every event bank and their trees, whose bank set a layer file changes. */
+  audioKeys.eventBanks(),
   /* The bank units that name an audio file, which a layer bin declares. */
   audioKeys.references(),
 ];

@@ -332,6 +332,14 @@ export type AudioEventList = {
 	origin: BankSetOrigin,
 };
 
+/**  The play tree of one event, and the slot of the game's audio index that resolved it. */
+export type AudioEventResponse = {
+	/**  The play tree of the event. */
+	tree: EventTree,
+	/**  Off `ready`, the tree has no media from the bank units of the game. */
+	index: AudioIndexStatus,
+};
+
 /**  The events of an event bank, and the slot of the game's audio index that named them. */
 export type AudioEventsResponse = {
 	list: AudioEventList,

@@ -23,8 +23,19 @@ use crate::state::SettingsState;
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioEventsResponse {
+    /// The events of the bank and the files of its bank set.
     pub list: AudioEventList,
     /// Off `ready`, the names and bank units of the game are missing from the list.
+    pub index: AudioIndexStatus,
+}
+
+/// The play tree of one event, and the slot of the game's audio index that resolved it.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEventResponse {
+    /// The play tree of the event.
+    pub tree: EventTree,
+    /// Off `ready`, the tree has no media from the bank units of the game.
     pub index: AudioIndexStatus,
 }
 
@@ -67,16 +78,17 @@ pub async fn read_audio_event(
     asset: AssetRef,
     event: u32,
     app_handle: AppHandle,
-) -> IpcResult<EventTree> {
+) -> IpcResult<AudioEventResponse> {
     off_thread(move || {
-        let (game, _) = game_audio_index(&app_handle);
-        with_event_bank(&app_handle, &sandbox, &asset, game.as_deref(), |bank| {
+        let (game, index) = game_audio_index(&app_handle);
+        let tree = with_event_bank(&app_handle, &sandbox, &asset, game.as_deref(), |bank| {
             bank.event(ObjectId(event))
                 .map_err(preview_error)?
                 .ok_or_else(|| {
-                    AppError::ValidationFailed(format!("The bank holds no event {event}"))
+                    AppError::ValidationFailed(format!("The bank contains no event {event}"))
                 })
-        })
+        })?;
+        Ok(AudioEventResponse { tree, index })
     })
     .await
 }
