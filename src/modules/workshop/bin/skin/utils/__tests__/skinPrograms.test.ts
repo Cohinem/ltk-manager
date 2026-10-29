@@ -81,6 +81,7 @@ function skin(): SkinModel {
     poseModifiers: [],
     sockets: [],
     outlines: [],
+    audio: [],
   };
 }
 

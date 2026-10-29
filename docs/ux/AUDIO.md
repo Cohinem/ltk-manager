@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
+| 2026-10-29 | Add viewport sound                              |
 | 2026-10-29 | Add the event tree                              |
 | 2026-10-29 | Add the audio file document and its media table |
 
@@ -69,7 +70,8 @@ the document closes. The play state of the row is the pressed state of its butto
 region announces the source ID that plays.
 
 The player plays every media at a volume of 0.2. The webview applies none of the game mixer gain,
-so shipped media at full volume is much louder than in a match.
+so shipped media at full volume is much louder than in a match. The player is a channel of the
+app's one Web Audio player, which the event tree and every viewport share.
 
 ### Keyboard
 
@@ -189,3 +191,50 @@ An event's context menu holds Copy event name, which copies `#` and the ID for a
 event. An action's and an object's menu holds Copy object ID. A sound whose media is found also
 holds Show media, which opens the document of the file that holds the media, switches it to the
 Media tab and selects the row of the source ID.
+
+## Viewport sound
+
+The skin viewport plays the `SoundEventData` events of the clip it plays. Sound is off by
+default. The speaker switch in the viewport's toolbar turns it on, and its caret opens the
+volume, which defaults to 0.2. Both are remembered, and the Project editor card of the settings
+holds them in its Viewport group.
+
+The playback approximates the game's mix. It applies no bus, no RTPC, no attenuation and no 3D
+position, and the switch's tooltip says so. The tooltip also counts the event names of the view
+that resolve to no event or to no media, so a missing sound reads apart from a muted one.
+
+### Firing
+
+An event fires when forward playback crosses its start frame.
+
+| Field                         | Effect                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| `mIsLoop` true                | The event fires on every loop of the clip                                       |
+| `mIsLoop` false               | The event fires on the first pass alone                                         |
+| `mIsKillEvent` true           | The sound stops when the clip loops or stops, and restarts when the event fires |
+| `mIsKillEvent` false          | The sound plays to its end                                                      |
+| `mSkipIfPastEndFrame` true    | A frame that lands past the end frame when it crosses the start fires nothing   |
+| `mEndFrame`                   | Does not stop the sound                                                         |
+| `ConditionClipTransitionType` | Read into the clip model. The viewport enters no condition clip past a start    |
+
+A scrub, a restart and a clip switch fire nothing and stop every kill sound. A seek that the
+viewport makes on its own, such as the fold of the clock when an effect model loads, changes
+nothing. Pause holds every sound and play resumes them. The playback speed does not change the
+pitch or the rate of a sound. Sound stops when the viewport's tab is hidden or closed.
+
+An edit of a clip event takes effect on the next pass.
+
+### Resolution
+
+The viewport asks once per view for every event name its cues hold. The bank set is every
+`BankUnit` of the open document, then the bank units that the project's bins and the game's audio
+index register a missing name in. The document's own units come first, and a project layer's copy
+of a file comes before the game's, so a replacement media plays. A voice-over unit reads its paths
+under the client's locale. A layer file write asks again.
+
+An event plays what one press of the event tree plays, per "What plays" above, with a random
+container picked again on every firing.
+
+### Voices
+
+A viewport plays at most 32 sounds at once. A new sound past the cap stops the oldest one.

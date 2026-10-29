@@ -227,6 +227,12 @@
   "settings_updates_auto_download_description": "A new version downloads in the background and installs when you quit LTK Manager. When off, it downloads only when you press Update Now.",
   "settings_updates_auto_download_title": "Download updates automatically",
   "settings_updates_title": "Updates",
+  "settings_viewport_sound_description": "The viewport plays the sound events of the clip that plays.",
+  "settings_viewport_sound_hint": "The mix is an approximation of the game's, without buses, RTPCs, attenuation or 3D position.",
+  "settings_viewport_sound_title": "Viewport sound",
+  "settings_viewport_sound_volume_description": "The gain of every viewport's sound.",
+  "settings_viewport_sound_volume_title": "Viewport volume",
+  "settings_viewport_title": "Viewport",
   "settings_welcome_description": "To get started, please configure your League of Legends installation path below. You can use auto-detection or browse to the folder manually.",
   "settings_welcome_title": "Welcome to LTK Manager!"
 }

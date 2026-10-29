@@ -8,7 +8,12 @@ import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
+import { playedUrls } from "../../player/__tests__/fakeChannel";
 import { EventsPanel } from "../EventsPanel";
+
+vi.mock("../../player/soundPlayer", async () => ({
+  openChannel: (await import("../../player/__tests__/fakeChannel")).openFakeChannel,
+}));
 
 vi.mock("@tanstack/react-virtual", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-virtual")>();
@@ -103,7 +108,7 @@ function seeded(values: number[]): () => number {
   return () => values[at++ % values.length] ?? 0;
 }
 
-const played: string[] = [];
+const played = playedUrls;
 
 describe("EventsPanel", () => {
   beforeEach(() => {
@@ -112,13 +117,6 @@ describe("EventsPanel", () => {
     mockInvoke.mockImplementation((command: string) =>
       Promise.resolve({ ok: true, value: answer(command) }),
     );
-    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(
-      function (this: HTMLMediaElement) {
-        played.push(this.src);
-        return Promise.resolve();
-      },
-    );
-    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   });
 
   afterEach(() => {

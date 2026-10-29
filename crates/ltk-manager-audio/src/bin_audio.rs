@@ -7,6 +7,7 @@ use std::io::Cursor;
 use ltk_hash::BinHash;
 use ltk_manager_assets::bin_source::BinSource;
 use ltk_manager_base::hashing::named;
+use ltk_meta::BinObject;
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, Visitor};
 use serde::{Deserialize, Serialize};
@@ -196,6 +197,21 @@ impl BinAudio {
             BinSource::Patch(patch) => {
                 patch.walk(&mut found)?;
             }
+        }
+        Ok(found.audio)
+    }
+
+    /// Reads the audio of `objects`, an open bin's objects in file order.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a node does not decode.
+    pub fn of_objects<'a>(
+        objects: impl IntoIterator<Item = &'a BinObject>,
+    ) -> Result<Self, ltk_meta::Error> {
+        let mut found = Found::default();
+        for object in objects {
+            object.walk(&mut found)?;
         }
         Ok(found.audio)
     }

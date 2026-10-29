@@ -8,7 +8,12 @@ import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
+import { playedUrls } from "../../player/__tests__/fakeChannel";
 import { AudioFileDocument } from "../AudioFileDocument";
+
+vi.mock("../../player/soundPlayer", async () => ({
+  openChannel: (await import("../../player/__tests__/fakeChannel")).openFakeChannel,
+}));
 
 vi.mock("@tanstack/react-virtual", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-virtual")>();
@@ -72,13 +77,6 @@ function answer(command: string): unknown {
   }
 }
 
-/** The `<audio>` element of the document. */
-function player(): HTMLAudioElement {
-  const element = document.querySelector("audio");
-  if (element === null) throw new Error("the document has no audio element");
-  return element;
-}
-
 describe("AudioFileDocument", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -87,8 +85,7 @@ describe("AudioFileDocument", () => {
     mockInvoke.mockImplementation((command: string) =>
       Promise.resolve({ ok: true, value: answer(command) }),
     );
-    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
-    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    playedUrls.length = 0;
   });
 
   afterEach(() => {
@@ -104,8 +101,8 @@ describe("AudioFileDocument", () => {
     fireEvent.keyDown(table, { key: "ArrowDown" });
     fireEvent.keyDown(table, { key: " " });
 
-    await waitFor(() => expect(player().src).toContain("source=10583207"));
-    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+    await waitFor(() => expect(playedUrls).toHaveLength(1));
+    expect(playedUrls[0]).toContain("source=10583207");
     expect(screen.getByRole("button", { name: "Stop 10583207" })).toBeInTheDocument();
   });
 
@@ -115,7 +112,8 @@ describe("AudioFileDocument", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Play 10322914" }));
     fireEvent.click(screen.getByRole("button", { name: "Play 11094382" }));
 
-    await waitFor(() => expect(player().src).toContain("source=11094382"));
+    await waitFor(() => expect(playedUrls).toHaveLength(2));
+    expect(playedUrls[1]).toContain("source=11094382");
     expect(screen.getByRole("button", { name: "Play 10322914" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Stop / })).toHaveLength(1);
   });

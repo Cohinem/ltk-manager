@@ -924,7 +924,17 @@ fn a_clip_reads_its_events_by_kind() {
     );
 
     let swing = &events[1];
-    assert_eq!(swing.kind, EventKind::Other);
+    assert_eq!(
+        swing.kind,
+        EventKind::Sound {
+            name: String::new(),
+            is_loop: true,
+            is_kill: true,
+            skip_if_past_end: false,
+            condition_transition: 1,
+        },
+        "a sound event that sets no field reads the class defaults"
+    );
     assert!(
         (swing.start_frame).abs() < f32::EPSILON,
         "the meta's default"
@@ -997,6 +1007,114 @@ fn unnamed_hash(name: &str) -> Option<HashRef> {
         name: hex(h(name)),
         hash: hex(h(name)),
     })
+}
+
+#[test]
+fn sound_event_reads_name_flags_and_transition() {
+    let events = key_map(vec![(
+        "Step",
+        pointer(
+            "SoundEventData",
+            vec![
+                (EVENT_START_FRAME, values::F32::new(4.0).into()),
+                (
+                    h("mSoundName"),
+                    values::String::from("Play_sfx_Step").into(),
+                ),
+                (EVENT_IS_LOOP, values::Bool::new(false).into()),
+                (EVENT_IS_KILL, values::Bool::new(false).into()),
+                (h("mSkipIfPastEndFrame"), values::Bool::new(true).into()),
+                (h("ConditionClipTransitionType"), values::U8::new(2).into()),
+            ],
+        ),
+    )]);
+
+    let graph = graph_of(vec![(
+        "Walk",
+        pointer("AtomicClipData", vec![(EVENT_DATA_MAP, events)]),
+    )]);
+
+    assert_eq!(
+        clip(&graph, "Walk").events[0].kind,
+        EventKind::Sound {
+            name: "Play_sfx_Step".to_owned(),
+            is_loop: false,
+            is_kill: false,
+            skip_if_past_end: true,
+            condition_transition: 2,
+        }
+    );
+}
+
+/// A `BankUnit` struct of `skinAudioProperties.bankUnits`.
+fn bank_unit(name: &str, paths: &[&str], events: &[&str], voice_over: bool) -> values::Embedded {
+    let strings = |items: &[&str]| -> PropertyValueEnum {
+        values::Container::from(
+            items
+                .iter()
+                .map(|item| values::String::from(*item))
+                .collect::<Vec<_>>(),
+        )
+        .into()
+    };
+    embedded(
+        "BankUnit",
+        vec![
+            (h("name"), values::String::from(name).into()),
+            (h("bankPath"), strings(paths)),
+            (h("events"), strings(events)),
+            (h("voiceOver"), values::Bool::new(voice_over).into()),
+        ],
+    )
+}
+
+#[test]
+fn resolve_skin_reads_bank_units_of_audio_properties() {
+    const SFX: &str =
+        "ASSETS/Sounds/Wwise2016/SFX/Characters/Ahri/Skins/Skin03/Ahri_Skin03_SFX_audio.bnk";
+    const VO: &str =
+        "ASSETS/Sounds/Wwise2016/VO/en_US/Characters/Ahri/Skins/Skin03/Ahri_Skin03_VO_audio.wpk";
+    let audio = embedded(
+        "SkinAudioProperties",
+        vec![(
+            h("bankUnits"),
+            values::Container::from(vec![
+                bank_unit("Ahri_Skin03_SFX", &[SFX], &["Play_sfx_Ahri_Q"], false),
+                bank_unit("Ahri_Skin03_VO", &[VO], &[], true),
+            ])
+            .into(),
+        )],
+    );
+    let skin = BinObject::builder(h(SKIN), h("SkinCharacterDataProperties"))
+        .property(h("skinAudioProperties"), audio)
+        .build();
+    let document = document_of(vec![skin]);
+
+    let model = ObjectLookup::single(&document, &Tables, &Placed, None)
+        .skin(h(SKIN))
+        .unwrap();
+
+    assert_eq!(
+        model.audio,
+        [
+            BankUnit {
+                name: "Ahri_Skin03_SFX".to_owned(),
+                bank_path: vec![SFX.to_owned()],
+                events: vec!["Play_sfx_Ahri_Q".to_owned()],
+                voice_over: false,
+            },
+            BankUnit {
+                name: "Ahri_Skin03_VO".to_owned(),
+                bank_path: vec![VO.to_owned()],
+                events: Vec::new(),
+                voice_over: true,
+            },
+        ]
+    );
+    assert!(
+        read_skin().audio.is_empty(),
+        "a skin without audio has no bank units"
+    );
 }
 
 #[test]

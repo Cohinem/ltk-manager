@@ -203,98 +203,106 @@ impl EventBank {
             return Ok(None);
         };
 
-        Ok(Some(EventTree {
-            event: tree.event.0,
-            name: tree.name,
-            actions: tree
-                .actions
-                .into_iter()
-                .map(|action| self.action(action))
-                .collect(),
-        }))
+        Ok(Some(event_tree(&self.set, tree)))
     }
+}
 
-    fn action(&self, action: ActionNode) -> EventAction {
-        EventAction {
-            id: action.id.0,
-            class: action.class,
-            label: action.class.map(action_label),
-            target: self.action_target(action.id),
-            node: action.target.map(|node| self.node(node)),
-        }
+/// Returns `tree` as the event tree draws it, with each media placed in a file of `set`.
+pub(crate) fn event_tree(set: &BankSet, tree: PlayTree) -> EventTree {
+    EventTree {
+        event: tree.event.0,
+        name: tree.name,
+        actions: tree
+            .actions
+            .into_iter()
+            .map(|action| event_action(set, action))
+            .collect(),
     }
+}
 
-    /// Returns the object ID that the action `id` targets, the `u32` after its type.
-    fn action_target(&self, id: ObjectId) -> Option<u32> {
-        let (_, _, object) = self.set.object(id)?;
-        if object.kind() != ObjectKind::ACTION {
-            return None;
-        }
-        let bytes = object
-            .payload()
-            .get(ACTION_TARGET_OFFSET..)?
-            .first_chunk()?;
-        Some(u32::from_le_bytes(*bytes))
+fn event_action(set: &BankSet, action: ActionNode) -> EventAction {
+    EventAction {
+        id: action.id.0,
+        class: action.class,
+        label: action.class.map(action_label),
+        target: action_target(set, action.id),
+        node: action.target.map(|node| event_node(set, node)),
     }
+}
 
-    fn node(&self, node: PlayNode) -> EventNode {
-        let nodes = |children: Vec<PlayNode>| -> Vec<EventNode> {
-            children.into_iter().map(|child| self.node(child)).collect()
-        };
-
-        match node {
-            PlayNode::Sound {
-                id,
-                source,
-                stream,
-                media,
-            } => EventNode::Sound {
-                id: id.0,
-                source: source.0,
-                stream: SoundStream::from(stream),
-                media: self.location(media, source),
-            },
-            PlayNode::Random { id, children } => EventNode::Random {
-                id: id.0,
-                children: nodes(children),
-            },
-            PlayNode::Switch { id, children } => EventNode::Switch {
-                id: id.0,
-                children: nodes(children),
-            },
-            PlayNode::Layer { id, children } => EventNode::Layer {
-                id: id.0,
-                children: nodes(children),
-            },
-            PlayNode::Mixer { id, children } => EventNode::Mixer {
-                id: id.0,
-                children: nodes(children),
-            },
-            PlayNode::Unsupported { id, kind } => EventNode::Unsupported {
-                id: id.0,
-                object_kind: kind.0,
-                kind_name: kind.to_string(),
-                music: MUSIC_KINDS.contains(&kind),
-            },
-            PlayNode::Missing { id } => EventNode::Missing { id: id.0 },
-        }
+/// Returns the object ID that the action `id` targets, the `u32` after its type.
+fn action_target(set: &BankSet, id: ObjectId) -> Option<u32> {
+    let (_, _, object) = set.object(id)?;
+    if object.kind() != ObjectKind::ACTION {
+        return None;
     }
+    let bytes = object
+        .payload()
+        .get(ACTION_TARGET_OFFSET..)?
+        .first_chunk()?;
+    Some(u32::from_le_bytes(*bytes))
+}
 
-    fn location(&self, site: MediaSite, source: SourceId) -> Option<MediaLocation> {
-        let (file, container) = match site {
-            MediaSite::InBank { file } => (file, MediaContainer::Bank),
-            MediaSite::InPackage { file } => (file, MediaContainer::Package),
-            MediaSite::Missing => return None,
-        };
-        let file = &self.set.files()[file];
+fn event_node(set: &BankSet, node: PlayNode) -> EventNode {
+    let nodes = |children: Vec<PlayNode>| -> Vec<EventNode> {
+        children
+            .into_iter()
+            .map(|child| event_node(set, child))
+            .collect()
+    };
 
-        Some(MediaLocation {
-            asset: file.asset()?.clone(),
-            path: file.path().to_owned(),
+    match node {
+        PlayNode::Sound {
+            id,
+            source,
+            stream,
+            media,
+        } => EventNode::Sound {
+            id: id.0,
             source: source.0,
-            container,
-        })
+            stream: SoundStream::from(stream),
+            media: media_location(set, media, source),
+        },
+        PlayNode::Random { id, children } => EventNode::Random {
+            id: id.0,
+            children: nodes(children),
+        },
+        PlayNode::Switch { id, children } => EventNode::Switch {
+            id: id.0,
+            children: nodes(children),
+        },
+        PlayNode::Layer { id, children } => EventNode::Layer {
+            id: id.0,
+            children: nodes(children),
+        },
+        PlayNode::Mixer { id, children } => EventNode::Mixer {
+            id: id.0,
+            children: nodes(children),
+        },
+        PlayNode::Unsupported { id, kind } => EventNode::Unsupported {
+            id: id.0,
+            object_kind: kind.0,
+            kind_name: kind.to_string(),
+            music: MUSIC_KINDS.contains(&kind),
+        },
+        PlayNode::Missing { id } => EventNode::Missing { id: id.0 },
     }
+}
+
+fn media_location(set: &BankSet, site: MediaSite, source: SourceId) -> Option<MediaLocation> {
+    let (file, container) = match site {
+        MediaSite::InBank { file } => (file, MediaContainer::Bank),
+        MediaSite::InPackage { file } => (file, MediaContainer::Package),
+        MediaSite::Missing => return None,
+    };
+    let file = &set.files()[file];
+
+    Some(MediaLocation {
+        asset: file.asset()?.clone(),
+        path: file.path().to_owned(),
+        source: source.0,
+        container,
+    })
 }
 
 /// Returns the bank units of the set of the bank at `path`, and where they come from.

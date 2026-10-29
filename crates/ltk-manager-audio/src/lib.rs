@@ -20,6 +20,7 @@ mod media;
 mod names;
 mod references;
 mod sound;
+mod sounds;
 
 /// Re-exported so a consumer names the `ltk_wwise` types of this crate's release.
 pub use ltk_wwise;
@@ -54,3 +55,4 @@ pub use media::{MediaError, MediaFormat, MediaRow, Playback, media_rows};
 pub use names::EventNames;
 pub use references::{BankDeclaration, BankReferences, BankUnitGroup, BinRow, RowPath, SiteNames};
 pub use sound::{SoundError, media, sound};
+pub use sounds::{ResolvedSound, SoundResolution, resolve_sounds};
