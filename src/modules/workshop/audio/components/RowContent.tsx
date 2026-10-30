@@ -1,16 +1,8 @@
 import { WarningIcon, XCircleIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { Badge, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type {
-  Audience,
-  AudioEvent,
-  EventAction,
-  EventContext,
-  EventNode,
-  EventStatus,
-} from "@/lib/tauri";
+import type { AudioEvent, EventAction, EventNode, EventStatus } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useNodeNames } from "../state/nodeNames";
@@ -40,7 +32,7 @@ export function RowContent({ row }: { row: EventRow }) {
   }
 }
 
-/** The name, the action count, the status and the contexts of an event row. */
+/** The name, the action count and the status of an event row. */
 export function EventContent({ event }: { event: AudioEvent }) {
   return (
     <>
@@ -56,46 +48,7 @@ export function EventContent({ event }: { event: AudioEvent }) {
         {m.audio_event_actions_label({ count: event.actionCount })}
       </span>
       <EventStatusMark status={event.status} />
-      {event.contexts.length > 0 && <EventContexts contexts={event.contexts} />}
     </>
-  );
-}
-
-const AUDIENCE_LABELS: Record<Audience, () => string> = {
-  owner: m.audio_event_audience_owner_label,
-  ally: m.audio_event_audience_ally_label,
-  enemy: m.audio_event_audience_enemy_label,
-  spectator: m.audio_event_audience_spectator_label,
-};
-
-/** Returns the situation, the rule and the audience of `context` on one line. */
-function contextLabel(context: EventContext): string {
-  return m.audio_event_context_label({
-    situation: context.situation,
-    rule: context.rule ?? m.audio_event_context_unnamed_rule_label(),
-    audience: AUDIENCE_LABELS[context.audience](),
-  });
-}
-
-/** The first contextual rule that plays an event, and how many more do, as an inferred badge. */
-function EventContexts({ contexts }: { contexts: readonly EventContext[] }) {
-  const [first] = contexts;
-  if (first === undefined) return null;
-
-  const hint = first.ambiguous
-    ? m.audio_event_context_ambiguous_hint()
-    : m.audio_event_context_inferred_hint();
-  const label =
-    contexts.length > 1
-      ? m.audio_event_contexts_label({ context: contextLabel(first), more: contexts.length - 1 })
-      : contextLabel(first);
-
-  return (
-    <Tooltip content={hint}>
-      <Badge size="sm" dashed>
-        {label}
-      </Badge>
-    </Tooltip>
   );
 }
 

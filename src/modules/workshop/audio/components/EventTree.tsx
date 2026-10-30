@@ -48,6 +48,7 @@ import {
 } from "./EventRowParts";
 import { ChildrenValue, FieldNameCell, FieldValue } from "./FieldRows";
 import { nodeKey } from "./nodeKeys";
+import { PlayedByCell } from "./PlayedBy";
 import { RowContent } from "./RowContent";
 
 interface EventTreeProps {
@@ -362,7 +363,10 @@ export function EventTree({
         {player.failed.has(row.key) && (
           <span className="text-meta text-danger-text">{m.audio_event_play_failed_label()}</span>
         )}
-        <span className="ml-auto w-24 shrink-0 pl-3">{thumbnail(row)}</span>
+        {row.kind === "event" && <PlayedByCell event={row.event} />}
+        <span className={twMerge("w-24 shrink-0 pl-3", row.kind !== "event" && "ml-auto")}>
+          {thumbnail(row)}
+        </span>
       </RowFrame>
     );
   }

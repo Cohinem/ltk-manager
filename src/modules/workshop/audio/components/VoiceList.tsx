@@ -46,6 +46,7 @@ import { AUDIO_LIST_GROUP } from "./audioRow";
 import type { NodeActions } from "./EventMenu";
 import { EditedMark, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
 import { nodeKey } from "./nodeKeys";
+import { PlayedByCell } from "./PlayedBy";
 import { EventContent, Status } from "./RowContent";
 import {
   GroupName,
@@ -90,6 +91,8 @@ interface VoiceListProps {
   readonly files: readonly SetFile[];
   /** Shows the Structure view. */
   readonly onStructure: () => void;
+  /** The row that a request from another view asks the list to scroll to, once per token. */
+  readonly reveal?: { readonly key: string; readonly token: number } | null;
 }
 
 /** The height of a row in px at 100% zoom: `min-h-6` is six spacing units of 4.5px. */
@@ -138,6 +141,7 @@ export function VoiceList({
   editing,
   files,
   onStructure,
+  reveal = null,
 }: VoiceListProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
@@ -176,6 +180,11 @@ export function VoiceList({
     measureElement: measureRow,
   });
   useRemeasure(virtualizer, rowHeight);
+
+  const revealIndex = reveal === null ? -1 : rows.findIndex((row) => row.key === reveal.key);
+  useEffect(() => {
+    if (revealIndex >= 0) virtualizer.scrollToIndex(revealIndex, { align: "center" });
+  }, [reveal?.token, revealIndex, virtualizer]);
 
   const selectedIndex = rows.findIndex((row) => row.key === selected);
   const selectedRow = rows[selectedIndex];
@@ -460,7 +469,8 @@ export function VoiceList({
               </>
             )}
             {failed}
-            <span className="ml-auto w-24 shrink-0 pl-3">{thumbnail(row)}</span>
+            <PlayedByCell event={row.event} />
+            <span className="w-24 shrink-0 pl-3">{thumbnail(row)}</span>
           </RowFrame>
         );
       }

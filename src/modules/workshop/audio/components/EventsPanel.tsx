@@ -1,7 +1,7 @@
 import { SidebarSimpleIcon } from "@phosphor-icons/react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertBox,
@@ -39,6 +39,7 @@ import type { BankDocument } from "../hooks/useBankDocument";
 import { useEventPlayer } from "../hooks/useEventPlayer";
 import { useTreePicks } from "../hooks/useTreePicks";
 import { NodeNamesContext } from "../state/nodeNames";
+import { useBankEventRequest, useBankEventStore } from "../state/voiceLines";
 import {
   addKey,
   type EventRow,
@@ -201,6 +202,33 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   }
   const picks = useTreePicks(targetByKey, selected, setSelected);
   pickedTargets.current = picks.targets;
+  /* "Show in bank" and "Create event..." of the Voice lines view, per "Linking the views" in
+     docs/ux/CONTEXTUAL_VOICE.md. A create waits for the document to take edits. */
+  const bankRequest = useBankEventRequest(asset);
+  const settleBankRequest = useBankEventStore((state) => state.settle);
+  const [reveal, setReveal] = useState<{ key: string; token: number } | null>(null);
+  const editable = editing !== null;
+  const listedEvents = events.data !== undefined;
+  useEffect(() => {
+    if (bankRequest === null) return;
+
+    const { intent, serial } = bankRequest;
+    if (intent.kind === "create") {
+      if (!editable) return;
+      settleBankRequest(serial);
+      setNaming({ copyOf: null, initial: intent.name });
+      return;
+    }
+    if (!listedEvents) return;
+
+    settleBankRequest(serial);
+    const key = eventKey(intent.event);
+    setView("voices");
+    setFilter("");
+    setSelected(key);
+    setReveal({ key, token: serial });
+  }, [bankRequest, editable, listedEvents, settleBankRequest]);
+
   const eventsById = useMemo(
     () => new Map((events.data?.list.events ?? []).map((event) => [event.id, event])),
     [events.data],
@@ -531,6 +559,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
               editing={editing}
               files={files}
               onStructure={() => setView("structure")}
+              reveal={reveal}
               menu={(row) => {
                 const shown = structureRow(row);
                 if (shown === null) return null;

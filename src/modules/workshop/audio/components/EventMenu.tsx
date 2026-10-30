@@ -22,7 +22,7 @@ import type { AudioEvent, ContainerKind, MediaLocation } from "@/lib/tauri";
 import { previewDocument } from "../../documents/utils/contentDocument";
 import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { useOpenDocumentAs } from "../../state";
-import { useOpenSiteRow } from "../hooks/useOpenSiteRow";
+import { useOpenSiteRow, useOpenVoiceLine } from "../hooks/useOpenSiteRow";
 import { useFocusMedia } from "../state/mediaFocus";
 import type { EventRow } from "../utils/eventTree";
 
@@ -181,20 +181,22 @@ function WrapItems({ wrap }: { wrap: (container: ContainerKind) => void }) {
 }
 
 /**
- * Show contextual rule, which opens the first rule that plays `event`, and Show in bank unit,
+ * Show contextual rule, which opens the Voice lines view at the first rule that plays `event`, and
+ * Show in bank unit,
  * which opens the `events[i]` row of the unit that lists its name.
  *
  * Rendered only inside a project, which owns the editor tabs.
  */
 function EventSiteItems({ event }: { event: AudioEvent }) {
   const openRow = useOpenSiteRow();
+  const openLine = useOpenVoiceLine();
   const rule = event.contexts[0]?.row ?? null;
   const listed = event.listed;
 
   return (
     <>
       {rule !== null && rule.asset !== null && (
-        <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openRow(rule)}>
+        <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openLine(rule)}>
           {m.audio_event_show_rule_action()}
         </ContextMenu.Item>
       )}
