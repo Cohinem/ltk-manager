@@ -12,11 +12,11 @@ import {
 } from "../utils/rowSelection";
 
 /** The picked rows of a tree, and the presses and keys that change them. */
-export interface TreePicks {
+export interface TreePicks<T = NodeTarget> {
   /** The picked row keys. */
   readonly picked: ReadonlySet<string>;
   /** The objects of the picked rows, in the order that the tree draws them. */
-  readonly targets: readonly NodeTarget[];
+  readonly targets: readonly T[];
   /** Moves the cursor to `key` and picks it under `mode`. */
   readonly pick: (key: string, mode: PickMode) => void;
   /** Picks every drawn row that stands for an object. */
@@ -29,11 +29,11 @@ export interface TreePicks {
  * A pick of a row that stands for no object, such as a field, moves the cursor and clears the
  * picks. A pick that the tree no longer draws drops out. Per "Selection" in docs/ux/AUDIO.md.
  */
-export function useTreePicks(
-  targets: ReadonlyMap<string, NodeTarget>,
+export function useTreePicks<T = NodeTarget>(
+  targets: ReadonlyMap<string, T>,
   cursor: string | null,
   setCursor: (key: string) => void,
-): TreePicks {
+): TreePicks<T> {
   const [selection, setSelection] = useState<RowSelection>(NO_SELECTION);
   const order = useMemo(() => [...targets.keys()], [targets]);
   const shown = keepDrawn(selection, order);

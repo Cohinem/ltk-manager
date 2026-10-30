@@ -13,7 +13,8 @@ import type {
 import { fnv1a32 } from "../../../bin/shared/utils/binHash";
 import { playedBy } from "../playedBy";
 import { conditionText, ruleChance } from "../voiceConditions";
-import { chanceEdits } from "../voiceEdits";
+import { chanceEdits, objectPath } from "../voiceEdits";
+import { topicEdits } from "../voiceFieldTopics";
 import { copyObjectName, voiceLineRows } from "../voiceLines";
 import { simulateTrigger, type TriggerContext } from "../voiceTrigger";
 
@@ -300,5 +301,38 @@ describe("voiceLineRows", () => {
     );
 
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("topicEdits", () => {
+  it("gives the cooldown modifications pointer a class before it sets a timer flag", () => {
+    const edits = topicEdits("{1}.r[0]", "ignoreTimer", true);
+
+    expect(edits[0]).toEqual({
+      type: "ensurePointer",
+      path: "{1}.r[0].98b66135",
+      class: "ContextualActionCooldownModifications",
+    });
+    expect(edits.at(-1)).toEqual({
+      type: "setLeaf",
+      path: "{1}.r[0].98b66135.59c20478",
+      value: { type: "bool", value: true },
+    });
+  });
+
+  it("clears the priority option with a null value", () => {
+    expect(topicEdits("{1}.r[0]", "priority", null)).toEqual([
+      { type: "removeItem", path: "{1}.r[0].0f717330[0]" },
+    ]);
+  });
+
+  it("sets the rule name where the rule writes it, without adding a field", () => {
+    expect(topicEdits("{1}.r[0]", "name", "Q")).toHaveLength(1);
+  });
+});
+
+describe("objectPath", () => {
+  it("writes a path under mSituations from the object's root", () => {
+    expect(objectPath("{5ca57000}.1a116faf[0]")).toBe("6f5eb901{5ca57000}.1a116faf[0]");
   });
 });

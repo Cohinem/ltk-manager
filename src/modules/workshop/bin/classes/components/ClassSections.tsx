@@ -7,6 +7,7 @@ import type { BinRow } from "@/lib/tauri";
 import { useSectionOpen, useToggleSection } from "@/stores";
 import { twMerge } from "@/utils";
 
+import { VoiceLinesSection } from "../../../audio/components/VoiceLinesView";
 import { MaterialMacros } from "../../material/components/MaterialMacros";
 import {
   MaterialParams,
@@ -173,6 +174,7 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   "shader-switches": ShaderSwitches,
   emitters: Emitters,
   clips: ClipsSection,
+  "voice-lines": VoiceLinesSection,
 };
 
 function SectionBody({ section, pages, view, title }: SectionProps & { title: string }) {

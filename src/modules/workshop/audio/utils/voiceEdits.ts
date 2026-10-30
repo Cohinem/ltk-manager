@@ -109,3 +109,21 @@ function itemIndex(path: string): number {
   const match = /\[(\d+)\]$/.exec(path);
   return match?.[1] === undefined ? -1 : Number(match[1]);
 }
+
+/** Returns the hash path from the object's root of `path`, a path under `mSituations`. */
+export function objectPath(path: string): string {
+  const field = fieldHex("mSituations");
+  if (path === "") return field;
+
+  return path.startsWith("[") || path.startsWith("{") ? `${field}${path}` : `${field}.${path}`;
+}
+
+/** Returns the edit that sets the `mCooldown` of the object `entry`, the shared cooldown. */
+export function cooldownEdit(entry: string, seconds: number): BinEdit {
+  return {
+    kind: "patch",
+    entry,
+    path: fieldHex("mCooldown"),
+    value: { type: "float", value: seconds },
+  };
+}
