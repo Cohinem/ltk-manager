@@ -125,7 +125,7 @@ fn assemble(
     for file in &report.files {
         // A file a rule read but did not change was never written. Its bytes
         // are the archive's, and re-encoding them would change the mod.
-        if file.applied == 0 {
+        if file.change == FileChange::Unchanged {
             continue;
         }
 
@@ -141,6 +141,7 @@ fn assemble(
                 DeltaTarget::Chunk { wad, hash } => delta.remove_chunk(&file.layer, &wad, hash),
                 DeltaTarget::Entry { path } => delta.remove_entry(&path),
             },
+            FileChange::Unchanged => continue,
             FileChange::Written => {
                 let bytes = bytes_of(file)?;
                 match target {

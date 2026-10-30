@@ -141,7 +141,7 @@ fn a_skipped_file_is_recorded_and_never_written() {
             path: SKIN.to_owned(),
             applied: 0,
             skipped: 3,
-            change: FileChange::Written,
+            change: FileChange::Unchanged,
         }]
     );
     assert_eq!(report.applied, 0);
