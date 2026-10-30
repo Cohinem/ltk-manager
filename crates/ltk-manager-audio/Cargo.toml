@@ -28,6 +28,7 @@ specta = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 ww2ogg = { workspace = true }
+xxhash-rust = { workspace = true }
 
 [dev-dependencies]
 fs-err = { workspace = true }

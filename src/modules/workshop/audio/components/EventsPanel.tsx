@@ -14,13 +14,21 @@ import {
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
-import type { AssetRef, AudioEvent, AudioEventsResponse, MediaLocation } from "@/lib/tauri";
+import type {
+  AssetRef,
+  AudioEvent,
+  AudioEventResponse,
+  AudioEventsResponse,
+  MediaLocation,
+  ObjectProperties,
+} from "@/lib/tauri";
 
 import { previewDocument } from "../../documents/utils/contentDocument";
 import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { useOpenDocumentAs } from "../../state";
 import { audioQueries } from "../api/queries";
+import { type BankDocument, useBankDocument } from "../hooks/useBankDocument";
 import { useEventPlayer } from "../hooks/useEventPlayer";
 import { useOpenSiteRow } from "../hooks/useOpenSiteRow";
 import { useFocusMedia } from "../state/mediaFocus";
@@ -37,12 +45,15 @@ import {
   type TreeState,
 } from "../utils/eventTree";
 import { AudioToolbar } from "./AudioToolbar";
+import { containerOf, rowObject, takesChild, type TreeEditing } from "./EventPlates";
 import { EventTree, isPlayable } from "./EventTree";
 import { EventWaveform } from "./Waveform";
 import { EventRowThumbnail } from "./WaveformThumbnail";
 
 interface EventsPanelProps {
   readonly asset: AssetRef;
+  /** The id of the tab, which takes the unsaved dot and the undo keys of the bank's edits. */
+  readonly documentId?: string | null;
   /** The source that a random container picks a child with. */
   readonly random?: RandomSource;
 }
@@ -51,19 +62,23 @@ interface EventsPanelProps {
  * The Events tab of an event bank: the filter, the notices about its bank set, and the event
  * tree with one player.
  *
- * An event's tree is fetched when the event expands or plays. Per "Event tree" in
+ * An event's tree is fetched when the event expands or plays. Inside a project the bank opens
+ * as a document, and every read applies its edits. Per "Event tree" and "Editing" in
  * docs/ux/AUDIO.md.
  */
-export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
+export function EventsPanel({ asset, documentId = null, random = Math.random }: EventsPanelProps) {
   const sandbox = useSandbox();
   const version = useAssetVersion(asset);
   const queryClient = useQueryClient();
-  const events = useQuery(audioQueries.events(sandbox, asset, version));
+  const bank = useBankDocument(asset, documentId, true);
+  const revision = bank.revision;
+  const events = useQuery(audioQueries.events(sandbox, asset, version, revision));
   const player = useEventPlayer();
   const copy = useCopyToClipboard();
   const [filter, setFilter] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [selected, setSelected] = useState<string | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
 
   const listed = useMemo(
     () => sortEvents(filterEvents(events.data?.list.events ?? [], filter)),
@@ -71,8 +86,11 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
   );
   const openEvents = listed.filter((event) => expanded.has(eventKey(event.id)));
   const trees = useQueries({
-    queries: openEvents.map((event) => audioQueries.event(sandbox, asset, version, event.id)),
+    queries: openEvents.map((event) =>
+      audioQueries.event(sandbox, asset, version, event.id, revision),
+    ),
   });
+  const editing = useTreeEditing(bank, trees);
 
   const treeStates = new Map<number, TreeState>();
   openEvents.forEach((event, index) => {
@@ -99,7 +117,7 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
 
     if (row.kind === "event") {
       const { tree } = await queryClient.fetchQuery(
-        audioQueries.event(sandbox, asset, version, row.event.id),
+        audioQueries.event(sandbox, asset, version, row.event.id, revision),
       );
       player.play(row.key, eventVoices(tree, random));
       return;
@@ -136,6 +154,13 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
         <Count>{m.audio_events_total_label({ count: events.data.list.events.length })}</Count>
       </AudioToolbar>
       <SetNotices response={events.data} />
+      {bank.state !== null && !bank.state.editable && (
+        <NoticeBand>
+          <AlertBox tone="info">
+            {m.audio_edit_legacy_description({ version: String(bank.state.version) })}
+          </AlertBox>
+        </NoticeBand>
+      )}
       {events.data.list.events.length === 0 && (
         <EmptyState size="sm" title={m.audio_events_empty()} />
       )}
@@ -152,7 +177,18 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
           player={player}
           onPlay={(row) => void play(row)}
           onCopy={copyRow}
-          menu={(row) => <EventMenu row={row} onCopy={copyRow} />}
+          editing={editing}
+          adding={adding}
+          onAdding={setAdding}
+          menu={(row) => (
+            <EventMenu
+              row={row}
+              parent={row.parent === null ? undefined : rows.find((r) => r.key === row.parent)}
+              editing={editing}
+              onCopy={copyRow}
+              onAdd={setAdding}
+            />
+          )}
           thumbnail={(row) => (
             <EventRowThumbnail
               asset={asset}
@@ -169,6 +205,27 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
       </span>
     </Stack>
   );
+}
+
+/**
+ * Returns what the tree edits through while `bank` is open and takes edits, with the properties
+ * of the objects of `trees`, and null otherwise.
+ */
+function useTreeEditing(
+  bank: BankDocument,
+  trees: readonly { readonly data?: AudioEventResponse }[],
+): TreeEditing | null {
+  const { state, revision, edit } = bank;
+  const responses = trees.map((tree) => tree.data);
+  const properties = new Map<number, ObjectProperties>();
+  for (const response of responses) {
+    for (const object of response?.properties ?? []) properties.set(object.id, object);
+  }
+
+  const edited = useMemo(() => new Set(state?.edited ?? []), [state?.edited]);
+  if (state === null || revision === null || !state.editable) return null;
+
+  return { revision, properties, edited, edit };
 }
 
 /** Returns what Copy takes from `row`: an event's label, or the ID of an object. */
@@ -230,13 +287,42 @@ function SetNotices({ response }: { response: AudioEventsResponse }) {
   );
 }
 
-/** The context menu of one row: the copies, and Show media on a sound whose media is found. */
-function EventMenu({ row, onCopy }: { row: EventRow; onCopy: (row: EventRow) => void }) {
+interface EventMenuProps {
+  readonly row: EventRow;
+  readonly parent: EventRow | undefined;
+  readonly editing: TreeEditing | null;
+  readonly onCopy: (row: EventRow) => void;
+  /** Opens the child picker on the row `key`. */
+  readonly onAdd: (key: string) => void;
+}
+
+/**
+ * The context menu of one row: the copies, Show media on a sound whose media is found, and the
+ * child edits of an editable bank.
+ */
+function EventMenu({ row, parent, editing, onCopy, onAdd }: EventMenuProps) {
   const project = useOptionalProjectContext();
   const media = row.kind === "node" && row.node.kind === "sound" ? row.node.media : null;
+  const container = containerOf(parent);
+  const child = rowObject(row);
+  const editable = (id: number) => editing?.properties.get(id)?.editable === true;
+  const addable = row.kind === "node" && takesChild(row.node) && editable(row.node.id);
+  const removable = container !== null && child !== null && editable(container.id);
 
   return (
     <>
+      {editing !== null && addable && (
+        <ContextMenu.Item onClick={() => onAdd(row.key)}>
+          {m.audio_edit_add_child_action()}
+        </ContextMenu.Item>
+      )}
+      {editing !== null && removable && (
+        <ContextMenu.Item
+          onClick={() => void editing.edit({ kind: "removeChild", container: container.id, child })}
+        >
+          {m.audio_edit_remove_child_action()}
+        </ContextMenu.Item>
+      )}
       {row.kind === "event" && (
         <ContextMenu.Item onClick={() => onCopy(row)}>
           {m.audio_event_copy_name_action()}

@@ -50,6 +50,22 @@ export function childrenOf(node: EventNode): readonly EventNode[] {
 }
 
 /**
+ * Returns the indexes into the children of `node` in the order that the tree draws them.
+ *
+ * A random or sequence container draws its playlist items in playlist order, then the children
+ * outside the playlist. Every other node draws its children in file order.
+ */
+export function shownChildOrder(node: EventNode): number[] {
+  const children = childrenOf(node);
+  const natural = children.map((_, index) => index);
+  if (node.kind !== "random") return natural;
+
+  const listed = [...new Set(node.playlist.map((item) => item.child))];
+  const shown = new Set(listed);
+  return [...listed, ...natural.filter((index) => !shown.has(index))];
+}
+
+/**
  * Flattens `events` into the rows the tree draws, with the children of every key in `expanded`.
  *
  * An expanded event draws the rows of its tree from `trees`, or one loading or failed row while
@@ -67,7 +83,10 @@ export function eventRows(
     rows.push({ kind: "node", key, depth, parent, expandable: children.length > 0, node });
     if (!expanded.has(key)) return;
 
-    children.forEach((child, index) => pushNode(child, `${key}.${index}`, key, depth + 1));
+    for (const index of shownChildOrder(node)) {
+      const child = children[index];
+      if (child !== undefined) pushNode(child, `${key}.${index}`, key, depth + 1);
+    }
   }
 
   for (const event of events) {

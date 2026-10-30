@@ -262,6 +262,15 @@ impl BankSet {
         self.banked.get(&source).copied()
     }
 
+    /// Returns the bytes of the media `source` in the first media index that contains it.
+    pub(crate) fn banked_media(&self, source: SourceId) -> Option<&[u8]> {
+        let file = self.bank_with_media(source)?;
+        let BankContent::Bank { bank } = &self.files[file].content else {
+            return None;
+        };
+        bank.media()?.get(source)
+    }
+
     /// Returns the index of the first package that contains the media `source`.
     pub(crate) fn package_with_media(&self, source: SourceId) -> Option<usize> {
         self.packaged.get(&package_key(source)).copied()

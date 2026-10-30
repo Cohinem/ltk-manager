@@ -299,6 +299,23 @@ export type Audience =
 /**  `mSpectatorEventName`. */
 "spectator";
 
+/**  Where an open event bank stands after a change. */
+export type AudioBankState = {
+	id: number,
+	/**  Counts every change. */
+	revision: number,
+	/**  The document holds changes that no save wrote. */
+	dirty: boolean,
+	/**  The bank is version 145 with a hierarchy, so it takes edits. */
+	editable: boolean,
+	/**  The version of the bank. */
+	version: number,
+	/**  The file that a save writes. A game chunk's copy in the project after the first edit. */
+	asset: AssetRef,
+	/**  The IDs of the objects whose bytes differ from the bank as it was opened, in file order. */
+	edited: number[],
+};
+
 /**  The kind of Wwise file. */
 export type AudioContainer = 
 /**  A package (`.wpk`) of streamed media. */
@@ -340,6 +357,8 @@ export type AudioEventList = {
 export type AudioEventResponse = {
 	/**  The play tree of the event. */
 	tree: EventTree,
+	/**  The properties that an edit sets on the actions and nodes of the tree. */
+	properties: ObjectProperties[],
 	/**  Off `ready`, the tree has no media from the bank units of the game. */
 	index: AudioIndexStatus,
 };
@@ -398,6 +417,27 @@ export type BankDeclaration = {
 	contextual: SiteRow | null,
 };
 
+/**
+ *  One change to an open event bank, which is one undo step.
+ * 
+ *  Every ID is the decimal object ID or source ID, which the bank holds as a `u32`.
+ */
+export type BankEdit = 
+/**  Points the Play action `action` at the node `target`. */
+{ kind: "target"; action: number; target: number } | 
+/**  Adds the node `child` to the children of `container`, and to its playlist. */
+{ kind: "addChild"; container: number; child: number } | 
+/**  Removes `child` from the children of `container`, and from every list that names it. */
+{ kind: "removeChild"; container: number; child: number } | 
+/**  Moves the playlist item of `child` of the random container `container` to `index`. */
+{ kind: "moveChild"; container: number; child: number; index: number } | 
+/**  Sets the weight of the playlist item of `child`, and makes the random pick read weights. */
+{ kind: "weight"; container: number; child: number; weight: number } | 
+/**  Sets `property` of `object` to `value`. A default value removes the property. */
+{ kind: "property"; object: number; property: NodeProperty; value: number | null } | 
+/**  Points the sound `sound` at the media `source`. */
+{ kind: "source"; sound: number; source: number };
+
 /**  The `BKHD` header of a bank, and whether the client loads the bank. */
 export type BankFacts = {
 	/**  The generator version of the bank. */
@@ -417,6 +457,18 @@ export type BankFacts = {
 	rejection: string | null,
 	/**  The number of events of the hierarchy, or `None` if the bank has no hierarchy. */
 	eventCount: number | null,
+};
+
+/**  One sound or container of a bank set, which an edit adds as a child or a Play target. */
+export type BankNode = {
+	/**  The object ID. */
+	id: number,
+	/**  The object kind, the `HIRC` type byte. */
+	objectKind: number,
+	/**  The kind's name, such as `Sound`. */
+	kindName: string,
+	/**  The game path of the bank that holds the object. */
+	bank: string,
 };
 
 /**  The bank units and bank lists that name an audio file, and the slot of the game's index. */
@@ -5776,6 +5828,23 @@ export type NodeAddress_Serialize = {
 	label?: string | null,
 };
 
+/**
+ *  A property of a sound, a container or a Play action that an edit sets.
+ * 
+ *  Each property is edited in the unit of Wwise's property table.
+ */
+export type NodeProperty = 
+/**  `Volume`, in decibels. */
+"volume" | 
+/**  `Pitch`, in cents. */
+"pitch" | 
+/**  `LPF`, the low-pass filter from 0 to 100. */
+"lpf" | 
+/**  The delay in seconds: `InitialDelay` of a node, `DelayTime` of a Play action. */
+"delay" | 
+/**  `Loop` of a sound: the number of plays, where zero loops forever. */
+"loopCount";
+
 /**  One notice that concerns the running build, and has not expired. */
 export type Notice = {
 	/**  Stable across edits, which is what a dismissal is kept by. */
@@ -5956,6 +6025,18 @@ export type ObjectPrefixEntry = {
 	name: string,
 	/**  Objects below the prefix. */
 	count: number,
+};
+
+/**  The properties of one action or node of an event tree that an edit sets. */
+export type ObjectProperties = {
+	/**  The object ID. */
+	id: number,
+	/**  `true` for an object of the opened bank at version 145, which an edit changes. */
+	editable: boolean,
+	/**  Every property that the object takes, in the unit of [`NodeProperty`]. */
+	values: PropertyValue[],
+	/**  The playlist weights of a random or sequence container. */
+	weights: PlaylistWeights | null,
 };
 
 /**
@@ -6435,6 +6516,21 @@ export type Playback =
 /**  The media is not a readable WEM. */
 { kind: "unreadable"; message: string };
 
+/**  The weight of one playlist item. Wwise shows the weight divided by 1000. */
+export type PlaylistWeight = {
+	/**  The object ID of the child. */
+	child: number,
+	weight: number,
+};
+
+/**  The weights of the playlist of a random or sequence container, as the bank holds them. */
+export type PlaylistWeights = {
+	/**  `true` if a random pick reads the weights. */
+	weighted: boolean,
+	/**  The items of the playlist, in playlist order. */
+	items: PlaylistWeight[],
+};
+
 /**  One entry of `rigPoseModifierData`, of any kind of `BaseRigPoseModifierData`. */
 export type PoseModifier = 
 /**  `SpringPhysicsRigPoseModifierData`: one joint lags the unit's movement or turning. */
@@ -6870,6 +6966,12 @@ export type PropertyEdit = {
  *  compile error here.
  */
 export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";
+
+/**  The value of one property, in the unit of [`NodeProperty`]. */
+export type PropertyValue = {
+	property: NodeProperty,
+	value: number | null,
+};
 
 /**  Progress payload emitted during protocol install download. */
 export type ProtocolInstallProgress = {

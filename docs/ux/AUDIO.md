@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
+| 2026-10-30 | Add event bank editing                          |
 | 2026-10-30 | Pick by playlist, default switch and delay      |
 | 2026-10-29 | Add ability sound                               |
 | 2026-10-29 | Add bank units and contextual event names       |
@@ -257,6 +258,90 @@ object at the first rule that plays the event, and Show in bank unit, which open
 `events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu contains Copy object ID. A sound whose media is found also
 contains Show media, which opens the document of the file that contains the media, switches it to the
 Media tab and selects the row of the source ID.
+
+## Editing
+
+Inside a project, an event bank opens as a document that takes edits. The tab takes the unsaved
+dot, `Ctrl+S` saves it, and `Ctrl+Z`, `Ctrl+Shift+Z` and `Ctrl+Y` step its history. The game
+sandbox takes no edit. Every read of the tree applies the unsaved edits, so a press plays the
+edited bank before a save.
+
+Each edit decodes one object, changes it and encodes it at the bank's version, so every other
+object keeps its bytes. Only the objects of the opened bank take edits. An object of another bank
+of the set is edited in the document of that bank.
+
+### What an edit changes
+
+| Row                           | Plates and keys                                                           |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| Play action                   | Target, the object ID it plays. Delay                                     |
+| Sound                         | Source, the source ID of its media. Volume, Pitch, LPF, Delay, Loop Count |
+| Container                     | Volume, Pitch, LPF, Delay                                                 |
+| Child of a random container   | Weight, and its place in the playlist                                     |
+| Random container, actor-mixer | Add child                                                                 |
+| Child of any container        | Remove from container                                                     |
+
+| Property   | Wwise property                        | Unit                                    | Default |
+| ---------- | ------------------------------------- | --------------------------------------- | ------- |
+| Volume     | `Volume`                              | dB                                      | 0       |
+| Pitch      | `Pitch`                               | cents                                   | 0       |
+| LPF        | `LPF`                                 | 0 to 100                                | 0       |
+| Delay      | `InitialDelay`, `DelayTime` of a Play | seconds                                 | 0       |
+| Loop Count | `Loop` of a sound                     | plays, 0 loops forever                  | 1       |
+| Weight     | the playlist item's weight            | Wwise's weight, stored as 1000 times it | 50      |
+
+A value at its default removes the property from the object, as Wwise writes it. An empty plate
+sets the default. The shipped banks mostly carry `MakeUpGain` and not `Volume`, and the editor
+does not show `MakeUpGain` or any other property.
+
+A weight edit also makes the container's random pick read the weights, which bit 0 of its flags
+turns on. The other items then pick by the weights they carry.
+
+A random container draws its children in playlist order, which is the order a sequence plays.
+Moving a child moves its playlist item. An added child joins the children in ID order, as shipped
+banks write them, and the end of the playlist at weight 50. A switch container and a layer
+container take no added or moved child, because their groups name the children again. A removed
+child leaves every list of the container that names it.
+
+### Refusals
+
+An edit is refused with the reason in a toast, and the bank is unchanged:
+
+- A bank that is not version 145 shows an info notice that points at the Convert repair of its
+  Problems entry, and takes no edit
+- A new Play target or child that no bank of the set holds as a sound or a container
+- A child the container holds already, or the container itself
+- A source ID that no media index of the set holds for a sound in a bank, or that no package holds
+  for a streamed sound. A prefetched sound takes no source edit, because its media is in two files
+- A value outside the range of its property
+
+A plate keeps the text of a refused value, marked, until Escape drops it.
+
+### Keyboard
+
+| Key              | Action                                                        |
+| ---------------- | ------------------------------------------------------------- |
+| F2               | Focus the first plate of the selected row                     |
+| Enter, Escape    | Commit or drop a plate's text, and return focus to the tree   |
+| Tab              | Move between the plates of the row                            |
+| Delete           | Remove the selected child from its container                  |
+| Alt+Up, Alt+Down | Move the selected child of a random container in its playlist |
+| Ctrl+Enter       | Open the child picker of a random container or an actor-mixer |
+
+The child picker is a field in the container's row. It lists the sounds and containers of the
+bank set by kind and ID, filtered as the text is typed. Enter adds the highlighted one and Escape
+closes the picker.
+
+### Marks and saving
+
+A row whose object differs from the bank as it was opened carries an accent dot. Undoing every
+edit of an object removes its dot.
+
+The first edit of a game bank writes the game's bytes into the project, in the layer of the
+sandbox or else the base layer, at the chunk's path below its archive folder. The edit is refused
+if the project already has a file there. A save writes the layer file through a temporary file,
+and the tab then opens that layer file. A save refuses if the file changed on disk since it was
+opened or last saved, and the edits stay in the document until the bank is reopened.
 
 ## Waveform
 

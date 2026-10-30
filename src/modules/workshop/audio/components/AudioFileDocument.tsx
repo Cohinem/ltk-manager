@@ -41,6 +41,8 @@ interface AudioFileDocumentProps {
   readonly asset: AssetRef;
   /** The file name, which the document resolved. A reference may contain a hash. */
   readonly name: string;
+  /** The id of the tab, which takes the unsaved dot and the undo keys of an event bank. */
+  readonly documentId?: string | null;
 }
 
 const CONTAINER_LABELS: Record<AudioContainer, () => string> = {
@@ -58,7 +60,7 @@ const CONTAINER_LABELS: Record<AudioContainer, () => string> = {
  * A "Show media" request for the file switches to the Media tab. Per "The audio file document"
  * in docs/ux/AUDIO.md.
  */
-export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
+export function AudioFileDocument({ asset, name, documentId = null }: AudioFileDocumentProps) {
   const info = useAssetInfo(asset);
   const audio = info.data?.kind === "audio" ? info.data : null;
   const eventCount = audio?.bank?.eventCount ?? null;
@@ -95,7 +97,7 @@ export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
             <MediaPanel asset={asset} name={name} />
           </Tabs.Panel>
           <Tabs.Panel value="events" className="flex min-h-0 flex-1 flex-col">
-            <EventsPanel asset={asset} />
+            <EventsPanel asset={asset} documentId={documentId} />
           </Tabs.Panel>
         </Tabs.Root>
       )}

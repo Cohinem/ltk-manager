@@ -75,7 +75,9 @@ export function PreviewDocument({
       <DocumentToolbar active={active}>
         <PreviewActions document={document} />
       </DocumentToolbar>
-      {audio && <AudioFileDocument asset={document.asset} name={document.title} />}
+      {audio && (
+        <AudioFileDocument asset={document.asset} name={document.title} documentId={document.id} />
+      )}
       {!audio && (
         <AssetViewer documentId={document.id} asset={document.asset} name={document.title} />
       )}

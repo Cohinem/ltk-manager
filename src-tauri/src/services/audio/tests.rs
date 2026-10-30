@@ -327,3 +327,61 @@ fn skin_units_take_units_of_first_index_that_declares_skin() {
     let names: Vec<&str> = units.iter().map(|unit| unit.name.as_str()).collect();
     assert_eq!(names, ["Ahri_Skin07_Project"]);
 }
+
+const EVENTS_PATH: &str = "assets/sounds/wwise2016/sfx/shared/map22_sfx_events.bnk";
+
+fn game_chunk() -> AssetRef {
+    AssetRef::GameChunk {
+        wad: "DATA/FINAL/Maps/Shipping/Map22.wad.client".to_owned(),
+        path_hash: "0123456789abcdef".to_owned(),
+    }
+}
+
+#[test]
+fn layer_copy_places_game_chunk_in_base_layer_of_project() {
+    let sandbox = SandboxRef::Project {
+        project: "C:/mods/ward".to_owned(),
+    };
+
+    let copy = bank::layer_copy(&sandbox, &game_chunk(), EVENTS_PATH).unwrap();
+
+    assert_eq!(
+        copy,
+        Some(AssetRef::Layer {
+            project: "C:/mods/ward".to_owned(),
+            layer: "base".to_owned(),
+            path: format!("Map22.wad.client/{EVENTS_PATH}"),
+        })
+    );
+}
+
+#[test]
+fn layer_copy_names_unnamed_chunk_by_hash_in_sandbox_layer() {
+    let sandbox = SandboxRef::Layer {
+        project: "C:/mods/ward".to_owned(),
+        layer: "chroma".to_owned(),
+    };
+
+    let copy = bank::layer_copy(&sandbox, &game_chunk(), "0123456789abcdef").unwrap();
+
+    let Some(AssetRef::Layer { layer, path, .. }) = copy else {
+        panic!("not a layer file");
+    };
+    assert_eq!(layer, "chroma");
+    assert_eq!(path, "Map22.wad.client/0123456789abcdef.bnk");
+}
+
+#[test]
+fn layer_copy_refuses_game_sandbox_and_skips_layer_file() {
+    let layer = AssetRef::Layer {
+        project: "C:/mods/ward".to_owned(),
+        layer: "base".to_owned(),
+        path: format!("Map22.wad.client/{EVENTS_PATH}"),
+    };
+
+    assert!(bank::layer_copy(&SandboxRef::Game, &game_chunk(), EVENTS_PATH).is_err());
+    assert_eq!(
+        bank::layer_copy(&SandboxRef::Game, &layer, EVENTS_PATH).unwrap(),
+        None
+    );
+}

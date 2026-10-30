@@ -6,6 +6,7 @@ import {
   type AssetRef,
   type AudioEventResponse,
   type AudioEventsResponse,
+  type BankNode,
   type BankReferencesResponse,
   type BinDocumentId,
   type MediaRow,
@@ -18,15 +19,40 @@ import { assetKey } from "../../preview/utils/assetRef";
 import { sandboxKey } from "../../sandbox/utils/sandboxRef";
 import { pollWhileBuilding } from "../../shared/api/indexQueries";
 
+/** An open event bank document that a read applies the edits of, at one revision. */
+export interface BankRevision {
+  readonly id: number;
+  readonly revision: number;
+}
+
 export const audioKeys = {
   all: ["audio"] as const,
   media: (asset: AssetRef, version: number) =>
     [...audioKeys.all, "media", assetKey(asset), version] as const,
   eventBanks: () => [...audioKeys.all, "events"] as const,
-  events: (sandbox: SandboxRef, asset: AssetRef, version: number) =>
-    [...audioKeys.eventBanks(), sandboxKey(sandbox), assetKey(asset), version] as const,
-  event: (sandbox: SandboxRef, asset: AssetRef, version: number, event: number) =>
-    [...audioKeys.events(sandbox, asset, version), event] as const,
+  events: (
+    sandbox: SandboxRef,
+    asset: AssetRef,
+    version: number,
+    document: BankRevision | null = null,
+  ) =>
+    [
+      ...audioKeys.eventBanks(),
+      sandboxKey(sandbox),
+      assetKey(asset),
+      version,
+      document?.id ?? null,
+      document?.revision ?? null,
+    ] as const,
+  event: (
+    sandbox: SandboxRef,
+    asset: AssetRef,
+    version: number,
+    event: number,
+    document: BankRevision | null = null,
+  ) => [...audioKeys.events(sandbox, asset, version, document), event] as const,
+  nodes: (document: BankRevision) =>
+    [...audioKeys.all, "nodes", document.id, document.revision] as const,
   references: () => [...audioKeys.all, "references"] as const,
   referencesOf: (sandbox: SandboxRef, asset: AssetRef, version: number) =>
     [...audioKeys.references(), sandboxKey(sandbox), assetKey(asset), version] as const,
@@ -45,23 +71,46 @@ export const audioQueries = {
       staleTime: Infinity,
       retry: false,
     }),
-  /* Polls while the game's audio index builds, so the names arrive when it lands. */
-  events: (sandbox: SandboxRef, asset: AssetRef, version: number) =>
+  /* Polls while the game's audio index builds, so the names arrive when it lands. Keyed on the
+     document's revision, so an edit reads the bank again. */
+  events: (
+    sandbox: SandboxRef,
+    asset: AssetRef,
+    version: number,
+    document: BankRevision | null = null,
+  ) =>
     queryOptions<AudioEventsResponse, AppError>({
-      queryKey: audioKeys.events(sandbox, asset, version),
-      queryFn: queryFnWithArgs(api.readAudioEvents, sandbox, asset),
+      queryKey: audioKeys.events(sandbox, asset, version, document),
+      queryFn: queryFnWithArgs(api.readAudioEvents, sandbox, asset, document?.id ?? null),
+      placeholderData: (previous) => previous,
       staleTime: Infinity,
       retry: false,
       refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
   /* Polls while the game's audio index builds, so the media of the game's units arrive. */
-  event: (sandbox: SandboxRef, asset: AssetRef, version: number, event: number) =>
+  event: (
+    sandbox: SandboxRef,
+    asset: AssetRef,
+    version: number,
+    event: number,
+    document: BankRevision | null = null,
+  ) =>
     queryOptions<AudioEventResponse, AppError>({
-      queryKey: audioKeys.event(sandbox, asset, version, event),
-      queryFn: queryFnWithArgs(api.readAudioEvent, sandbox, asset, event),
+      queryKey: audioKeys.event(sandbox, asset, version, event, document),
+      queryFn: queryFnWithArgs(api.readAudioEvent, sandbox, asset, event, document?.id ?? null),
+      /* The tree before an edit shows while the edited one reads, so a row does not blink. */
+      placeholderData: (previous) => (previous?.tree.event === event ? previous : undefined),
       staleTime: Infinity,
       retry: false,
       refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
+    }),
+  /* The sounds and containers that an added child or a Play target is picked from. */
+  nodes: (document: BankRevision) =>
+    queryOptions<BankNode[], AppError>({
+      queryKey: audioKeys.nodes(document),
+      queryFn: queryFnWithArgs(api.audioBankNodes, document.id),
+      staleTime: Infinity,
+      retry: false,
     }),
   /* Polls while the game's audio index builds, so the game's units arrive when it lands. A
      layer file write invalidates every answer, since a project bin may declare a unit. */

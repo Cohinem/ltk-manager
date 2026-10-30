@@ -27,6 +27,15 @@ import type { EventPlayer } from "../hooks/useEventPlayer";
 import { childrenOf, type EventRow, eventLabel, objectLabel } from "../utils/eventTree";
 import { movedIndex, treeStep } from "../utils/rowKeys";
 import { AUDIO_LIST_GROUP, audioRowClasses } from "./audioRow";
+import {
+  childIds,
+  containerOf,
+  NodePicker,
+  RowPlates,
+  rowObject,
+  takesChild,
+  type TreeEditing,
+} from "./EventPlates";
 
 interface EventTreeProps {
   readonly rows: readonly EventRow[];
@@ -43,7 +52,16 @@ interface EventTreeProps {
   readonly menu: (row: EventRow) => ReactNode;
   /** The waveform column of `row`. */
   readonly thumbnail: (row: EventRow) => ReactNode;
+  /** The open document that the rows edit, or null for a tree that takes no edit. */
+  readonly editing?: TreeEditing | null;
+  /** The key of the container row whose child picker is open. */
+  readonly adding?: string | null;
+  /** Opens the child picker of a row, or closes it with null. */
+  readonly onAdding?: (key: string | null) => void;
 }
+
+/** The selector of an editable value plate, which `Readout` marks. */
+const PLATE = "[data-value-field]";
 
 /** The height of a row in px at 100% zoom: `h-6` is six spacing units of 4.5px. */
 const ROW_HEIGHT = 27;
@@ -66,8 +84,26 @@ export function EventTree({
   onCopy,
   menu,
   thumbnail,
+  editing = null,
+  adding = null,
+  onAdding,
 }: EventTreeProps) {
   const scroller = useRef<HTMLDivElement>(null);
+  const byKey = new Map(rows.map((row) => [row.key, row]));
+
+  /* A field that commits or drops its text leaves focus on no element, and the tree takes it
+     back, so a run of edits stays on the keyboard. */
+  function returnFocus() {
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active === null || active === document.body) scroller.current?.focus();
+    });
+  }
+
+  function closePicker() {
+    onAdding?.(null);
+    returnFocus();
+  }
   const [menuRow, setMenuRow] = useState<EventRow | null>(null);
   const zoomed = useZoomedPx();
   const rowHeight = zoomed(ROW_HEIGHT);
@@ -92,8 +128,52 @@ export function EventTree({
     virtualizer.scrollToIndex(rows.indexOf(row), { align: "auto" });
   }
 
+  /** Applies the edit key of `event` to `row`. Returns `true` if the key was an edit key. */
+  function editKey(event: KeyboardEvent<HTMLDivElement>, row: EventRow): boolean {
+    if (editing === null) return false;
+
+    const parent = row.parent === null ? undefined : byKey.get(row.parent);
+    const container = containerOf(parent);
+    const child = rowObject(row);
+    const containerEditable =
+      container !== null && editing.properties.get(container.id)?.editable === true;
+
+    if (event.key === "F2") {
+      document.getElementById(rowId(row.key))?.querySelector<HTMLInputElement>(PLATE)?.focus();
+      return true;
+    }
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && row.kind === "node") {
+      const editable = editing.properties.get(row.node.id)?.editable === true;
+      if (takesChild(row.node) && editable) onAdding?.(row.key);
+      return true;
+    }
+    if (event.key === "Delete" && containerEditable && child !== null) {
+      void editing.edit({ kind: "removeChild", container: container.id, child });
+      return true;
+    }
+
+    const moving = event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown");
+    if (moving && containerEditable && child !== null && container.kind === "random") {
+      const at = container.playlist.findIndex(
+        (item) => container.children[item.child]?.id === child,
+      );
+      const index = at + (event.key === "ArrowUp" ? -1 : 1);
+      if (at >= 0 && index >= 0 && index < container.playlist.length) {
+        void editing.edit({ kind: "moveChild", container: container.id, child, index });
+      }
+      return true;
+    }
+    return false;
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
+
+    const editRow = rows[selectedIndex];
+    if (editRow !== undefined && editKey(event, editRow)) {
+      event.preventDefault();
+      return;
+    }
 
     const target = movedIndex(event.key, selectedIndex, rows.length);
     if (target !== null) {
@@ -175,6 +255,32 @@ export function EventTree({
                   playing={player.playing === row.key}
                   failed={player.failed.has(row.key)}
                   thumbnail={thumbnail(row)}
+                  edited={editing !== null && editing.edited.has(rowObject(row) ?? -1)}
+                  plates={
+                    editing !== null && (
+                      <RowPlates
+                        row={row}
+                        parent={row.parent === null ? undefined : byKey.get(row.parent)}
+                        editing={editing}
+                        onLeave={returnFocus}
+                      />
+                    )
+                  }
+                  picker={
+                    editing !== null &&
+                    adding === row.key &&
+                    row.kind === "node" && (
+                      <NodePicker
+                        revision={editing.revision}
+                        exclude={new Set([row.node.id, ...childIds(row.node)])}
+                        onPick={(child) => {
+                          void editing.edit({ kind: "addChild", container: row.node.id, child });
+                          closePicker();
+                        }}
+                        onClose={closePicker}
+                      />
+                    )
+                  }
                   onSelect={() => onSelect(row.key)}
                   onExpand={(open) => onExpand(row.key, open)}
                   onToggle={() => {
@@ -214,12 +320,21 @@ interface EventLineProps {
   readonly playing: boolean;
   readonly failed: boolean;
   readonly thumbnail: ReactNode;
+  /** The row's object differs from the bank as it was opened. */
+  readonly edited: boolean;
+  /** The value plates of the row. */
+  readonly plates: ReactNode;
+  /** The child picker, while it is open on the row. */
+  readonly picker: ReactNode;
   readonly onSelect: () => void;
   readonly onExpand: (open: boolean) => void;
   readonly onToggle: () => void;
 }
 
-/** One row of the tree: the caret, the play button, what the row is and its waveform. */
+/**
+ * One row of the tree: the caret, the play button, what the row is, its plates and its
+ * waveform.
+ */
 function EventLine({
   row,
   open,
@@ -227,6 +342,9 @@ function EventLine({
   playing,
   failed,
   thumbnail,
+  edited,
+  plates,
+  picker,
   onSelect,
   onExpand,
   onToggle,
@@ -285,6 +403,17 @@ function EventLine({
         )}
       </span>
       <RowContent row={row} />
+      {edited && (
+        <Tooltip content={m.audio_edit_edited_label()}>
+          <span
+            role="img"
+            aria-label={m.audio_edit_edited_label()}
+            className="size-1.5 shrink-0 rounded-full bg-accent-500"
+          />
+        </Tooltip>
+      )}
+      {plates}
+      {picker}
       {failed && (
         <span className="text-meta text-danger-text">{m.audio_event_play_failed_label()}</span>
       )}

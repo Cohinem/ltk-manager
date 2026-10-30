@@ -267,10 +267,24 @@ export const api = {
   // Audio files
   readAudioMedia: audio.readAudioMedia,
   exportAudioMedia: audio.exportAudioMedia,
-  readAudioEvents: audio.readAudioEvents,
-  readAudioEvent: audio.readAudioEvent,
+  readAudioEvents: (sandbox: SandboxRef, asset: AssetRef, document: number | null = null) =>
+    audio.readAudioEvents(sandbox, asset, document),
+  readAudioEvent: (
+    sandbox: SandboxRef,
+    asset: AssetRef,
+    event: number,
+    document: number | null = null,
+  ) => audio.readAudioEvent(sandbox, asset, event, document),
   readBankReferences: audio.readBankReferences,
   resolveSounds: audio.resolveSounds,
+
+  // Event bank documents
+  audioBankOpen: audio.audioBankOpen,
+  audioBankClose: audio.audioBankClose,
+  audioBankEdit: audio.audioBankEdit,
+  audioBankStep: audio.audioBankStep,
+  audioBankSave: audio.audioBankSave,
+  audioBankNodes: audio.audioBankNodes,
 
   // Ritobin
   detectRitobinIntegration: preview.detectRitobinIntegration,

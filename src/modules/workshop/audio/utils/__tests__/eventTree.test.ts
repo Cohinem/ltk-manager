@@ -8,6 +8,7 @@ import {
   eventVoices,
   filterEvents,
   pickSounds,
+  shownChildOrder,
   sortEvents,
 } from "../eventTree";
 
@@ -66,6 +67,25 @@ const TREE: EventTree = {
     { id: 6, class: 0x0100, label: "Stop", target: 9, node: null, delay: 0 },
   ],
 };
+
+describe("shownChildOrder", () => {
+  it("draws a random container's children in playlist order, then the unlisted ones", () => {
+    const node: EventNode = {
+      ...RANDOM,
+      children: [sound(1, 11), sound(2, 12), sound(3, 13)],
+      playlist: [
+        { child: 2, weight: 1 },
+        { child: 0, weight: 1 },
+      ],
+    };
+
+    expect(shownChildOrder(node)).toEqual([2, 0, 1]);
+  });
+
+  it("draws the children of a switch container in file order", () => {
+    expect(shownChildOrder(switchOf({ kind: "firstChild" }))).toEqual([0, 1]);
+  });
+});
 
 describe("eventRows", () => {
   it("draws a loading row under an expanded event whose tree has not answered", () => {

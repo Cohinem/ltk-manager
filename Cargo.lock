@@ -3519,6 +3519,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tracing",
  "ww2ogg",
+ "xxhash-rust",
 ]
 
 [[package]]

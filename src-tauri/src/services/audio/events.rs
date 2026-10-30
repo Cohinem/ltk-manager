@@ -4,7 +4,8 @@ use ltk_hash::WadHash;
 use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    AudioEventList, AudioFile, AudioIndex, EventBank, EventTree, ObjectId, OpenedBank,
+    AudioEventList, AudioFile, AudioIndex, EventBank, EventTree, ObjectId, ObjectProperties,
+    OpenedBank,
 };
 use ltk_manager_base::error::AppError;
 use ltk_manager_bin::bin_document::RowNames;
@@ -12,6 +13,7 @@ use ltk_manager_bin::sandbox::SandboxRef;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
+use super::bank::{AudioBankDocuments, AudioBankId};
 use super::index::{chunk_path, game_audio_index, project_audio_index, AudioIndexStatus};
 use super::references::with_site_names;
 use super::{preview_error, with_audio_files};
@@ -35,24 +37,29 @@ pub struct AudioEventsResponse {
 pub struct AudioEventResponse {
     /// The play tree of the event.
     pub tree: EventTree,
+    /// The properties that an edit sets on the actions and nodes of the tree.
+    pub properties: Vec<ObjectProperties>,
     /// Off `ready`, the tree has no media from the bank units of the game.
     pub index: AudioIndexStatus,
 }
 
 /// List the events of the event bank `asset`, opened in `sandbox`, with the status of each tree.
 ///
-/// The bank set is the bank, then the files of the bank units that name it in the project's
-/// bins and in the game's audio index. "Event tree" in `docs/ux/AUDIO.md`.
+/// Reads the open bank `document` with its edits if one is given. The bank set is the bank,
+/// then the files of the bank units that name it in the project's bins and in the game's audio
+/// index. "Event tree" in `docs/ux/AUDIO.md`.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_audio_events(
     sandbox: SandboxRef,
     asset: AssetRef,
+    document: Option<AudioBankId>,
     app_handle: AppHandle,
 ) -> IpcResult<AudioEventsResponse> {
     off_thread(move || {
         let (game, index) = game_audio_index(&app_handle);
-        let list = with_event_bank(&app_handle, &sandbox, &asset, game.as_deref(), |bank| {
+        let source = bank_source(&app_handle, &asset, document)?;
+        let list = with_event_bank(&app_handle, &sandbox, source, game.as_deref(), |bank| {
             Ok(bank.events())
         })?;
         tracing::debug!(
@@ -69,50 +76,91 @@ pub async fn read_audio_events(
 
 /// Resolve the event `event` of the event bank `asset` into its play tree.
 ///
-/// Fails with `VALIDATION_FAILED` if the bank contains no event `event`, and with a preview error
-/// that names the object if an object of the tree cannot be decoded.
+/// Reads the open bank `document` with its edits if one is given. Fails with
+/// `VALIDATION_FAILED` if the bank contains no event `event`, and with a preview error that
+/// names the object if an object of the tree cannot be decoded.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_audio_event(
     sandbox: SandboxRef,
     asset: AssetRef,
     event: u32,
+    document: Option<AudioBankId>,
     app_handle: AppHandle,
 ) -> IpcResult<AudioEventResponse> {
     off_thread(move || {
         let (game, index) = game_audio_index(&app_handle);
-        let tree = with_event_bank(&app_handle, &sandbox, &asset, game.as_deref(), |bank| {
-            bank.event(ObjectId(event))
-                .map_err(preview_error)?
-                .ok_or_else(|| {
-                    AppError::ValidationFailed(format!("The bank contains no event {event}"))
-                })
-        })?;
-        Ok(AudioEventResponse { tree, index })
+        let source = bank_source(&app_handle, &asset, document)?;
+        let (tree, properties) =
+            with_event_bank(&app_handle, &sandbox, source, game.as_deref(), |bank| {
+                let tree = bank
+                    .event(ObjectId(event))
+                    .map_err(preview_error)?
+                    .ok_or_else(|| {
+                        AppError::ValidationFailed(format!("The bank contains no event {event}"))
+                    })?;
+                let properties = bank.properties(&tree);
+                Ok((tree, properties))
+            })?;
+        Ok(AudioEventResponse {
+            tree,
+            properties,
+            index,
+        })
     })
     .await
 }
 
-/// Opens the event bank `asset` in `sandbox` with the project's audio index and `game`, and
-/// runs `read` on it.
-fn with_event_bank<T>(
+/// Where the opened bank of a read comes from.
+pub(super) enum BankSource {
+    /// The bytes of the asset, read now.
+    Asset(AssetRef),
+    /// An open document, with its edits.
+    Opened(OpenedBank),
+}
+
+/// Returns the source of a read of `asset`: the open bank `document` if one is given.
+fn bank_source(
+    app: &AppHandle,
+    asset: &AssetRef,
+    document: Option<AudioBankId>,
+) -> AppResult<BankSource> {
+    match document {
+        Some(id) => Ok(BankSource::Opened(
+            app.state::<AudioBankDocuments>().opened(id)?,
+        )),
+        None => Ok(BankSource::Asset(asset.clone())),
+    }
+}
+
+/// Opens the event bank of `source` in `sandbox` with the project's audio index and `game`,
+/// and runs `read` on it.
+pub(super) fn with_event_bank<T>(
     app: &AppHandle,
     sandbox: &SandboxRef,
-    asset: &AssetRef,
+    source: BankSource,
     game: Option<&AudioIndex>,
     read: impl FnOnce(&EventBank) -> AppResult<T>,
 ) -> AppResult<T> {
-    let config = app.state::<SettingsState>().config();
-    let contents = asset.read(&config, &app.state::<WadCache>())?;
+    let contents = match &source {
+        BankSource::Asset(asset) => {
+            let config = app.state::<SettingsState>().config();
+            Some(asset.read(&config, &app.state::<WadCache>())?)
+        }
+        BankSource::Opened(_) => None,
+    };
     let project = sandbox.project().map(project_audio_index);
     let indexes: Vec<&AudioIndex> = project.iter().chain(game).collect();
 
     let bank = with_site_names(app, sandbox, |names, rows| {
-        let opened = OpenedBank {
-            path: bank_path(asset, rows),
-            file: AudioFile {
-                asset: asset.clone(),
-                contents,
+        let opened = match (source, contents) {
+            (BankSource::Opened(opened), _) => opened,
+            (BankSource::Asset(asset), contents) => OpenedBank {
+                path: bank_path(&asset, rows),
+                file: AudioFile {
+                    asset,
+                    contents: contents.unwrap_or_default(),
+                },
             },
         };
         with_audio_files(app, sandbox, |files, locale| {

@@ -9,7 +9,8 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 
 use ltk_manager_assets::preview::AssetRef;
-use ltk_wwise::hierarchy::{ObjectKind, StreamType};
+use ltk_wwise::bank::BankVersion;
+use ltk_wwise::hierarchy::{ContainerFields, ObjectKind, PropBundle, StreamType, Typed};
 use ltk_wwise::{ObjectId, SourceId};
 use serde::Serialize;
 
@@ -18,6 +19,7 @@ use crate::bank_set::{
 };
 use crate::bin_audio::{Audience, SiteStep};
 use crate::contextual::{ContextualMatch, contextual_names};
+use crate::edit::{CHILD_KINDS, NodeProperty, USES_WEIGHTS};
 use crate::files::{AudioFile, AudioFiles, ReadSeek};
 use crate::index::AudioIndex;
 use crate::lookup::{
@@ -214,6 +216,121 @@ impl EventBank {
 
         Ok(Some(event_tree(&self.set, tree)))
     }
+
+    /// Returns the editable properties of every action and node of `tree`, in tree order.
+    ///
+    /// An object whose bank is not the opened bank, an action of a class other than Play and an
+    /// object that does not decode are left out.
+    #[must_use]
+    pub fn properties(&self, tree: &EventTree) -> Vec<ObjectProperties> {
+        fn walk(set: &BankSet, node: &EventNode, out: &mut Vec<ObjectProperties>) {
+            let (id, children) = match node {
+                EventNode::Sound { id, .. } => (*id, &[][..]),
+                EventNode::Random { id, children, .. }
+                | EventNode::Switch { id, children, .. }
+                | EventNode::Layer { id, children }
+                | EventNode::Mixer { id, children } => (*id, &children[..]),
+                EventNode::Unsupported { .. } | EventNode::Missing { .. } => return,
+            };
+            out.extend(object_properties(set, id));
+            for child in children {
+                walk(set, child, out);
+            }
+        }
+
+        let mut out = Vec::new();
+        for action in &tree.actions {
+            out.extend(object_properties(&self.set, action.id));
+            if let Some(node) = &action.node {
+                walk(&self.set, node, &mut out);
+            }
+        }
+        out
+    }
+
+    /// Lists every sound and container of the bank set that a container takes as a child, the
+    /// first object of each ID, in file order.
+    #[must_use]
+    pub fn nodes(&self) -> Vec<BankNode> {
+        let mut seen = HashSet::new();
+        let mut nodes = Vec::new();
+        for file in self.set.files() {
+            let BankContent::Bank { bank } = file.content() else {
+                continue;
+            };
+            let Some(hierarchy) = bank.hierarchy() else {
+                continue;
+            };
+
+            for object in hierarchy.objects() {
+                if !CHILD_KINDS.contains(&object.kind()) || !seen.insert(object.id()) {
+                    continue;
+                }
+                nodes.push(BankNode {
+                    id: object.id().0,
+                    object_kind: object.kind().0,
+                    kind_name: object.kind().to_string(),
+                    bank: file.path().to_owned(),
+                });
+            }
+        }
+        nodes
+    }
+}
+
+/// Returns the editable properties of the object `id` of `set`, or `None` for an object that no
+/// edit changes.
+fn object_properties(set: &BankSet, id: u32) -> Option<ObjectProperties> {
+    let (file, bank, object) = set.object(ObjectId(id))?;
+    let typed = object.decode(bank.header().version).ok()??;
+    let editable = file == 0 && bank.header().version == BankVersion::CURRENT;
+
+    let (values, weights) = match typed {
+        Typed::Action(action) if action.action_type.is_play() => {
+            let delay = PropertyValue {
+                property: NodeProperty::Delay,
+                value: NodeProperty::action_delay(&action.props),
+            };
+            (vec![delay], None)
+        }
+        Typed::Sound(sound) => (node_values(NodeProperty::SOUND, &sound.node.props), None),
+        Typed::Container(container) => {
+            let weights = match &container.fields {
+                ContainerFields::RandomSequence(fields) => Some(PlaylistWeights {
+                    weighted: fields.bits & USES_WEIGHTS != 0,
+                    items: fields
+                        .playlist
+                        .iter()
+                        .map(|item| PlaylistWeight {
+                            child: item.child.0,
+                            weight: item.weight,
+                        })
+                        .collect(),
+                }),
+                _ => None,
+            };
+            let values = node_values(NodeProperty::CONTAINER, &container.node.props);
+            (values, weights)
+        }
+        _ => return None,
+    };
+
+    Some(ObjectProperties {
+        id,
+        editable,
+        values,
+        weights,
+    })
+}
+
+fn node_values(properties: &[NodeProperty], props: &PropBundle) -> Vec<PropertyValue> {
+    properties
+        .iter()
+        .map(|&property| PropertyValue {
+            property,
+            value: property.of_node(props),
+        })
+        .collect()
 }
 
 /// Returns `tree` as the event tree draws it, with each media placed in a file of `set`.
@@ -854,6 +971,66 @@ pub struct MediaLocation {
     pub source: u32,
     /// The kind of file that contains the media.
     pub container: MediaContainer,
+}
+
+/// The properties of one action or node of an event tree that an edit sets.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectProperties {
+    /// The object ID.
+    pub id: u32,
+    /// `true` for an object of the opened bank at version 145, which an edit changes.
+    pub editable: bool,
+    /// Every property that the object takes, in the unit of [`NodeProperty`].
+    pub values: Vec<PropertyValue>,
+    /// The playlist weights of a random or sequence container.
+    pub weights: Option<PlaylistWeights>,
+}
+
+/// The value of one property, in the unit of [`NodeProperty`].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyValue {
+    pub property: NodeProperty,
+    pub value: f32,
+}
+
+/// The weights of the playlist of a random or sequence container, as the bank holds them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistWeights {
+    /// `true` if a random pick reads the weights.
+    pub weighted: bool,
+    /// The items of the playlist, in playlist order.
+    pub items: Vec<PlaylistWeight>,
+}
+
+/// The weight of one playlist item. Wwise shows the weight divided by 1000.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistWeight {
+    /// The object ID of the child.
+    pub child: u32,
+    pub weight: u32,
+}
+
+/// One sound or container of a bank set, which an edit adds as a child or a Play target.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct BankNode {
+    /// The object ID.
+    pub id: u32,
+    /// The object kind, the `HIRC` type byte.
+    pub object_kind: u8,
+    /// The kind's name, such as `Sound`.
+    pub kind_name: String,
+    /// The game path of the bank that holds the object.
+    pub bank: String,
 }
 
 /// The kind of file that contains a media.
