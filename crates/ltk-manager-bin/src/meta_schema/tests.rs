@@ -397,8 +397,7 @@ fn a_patch_schema_types_an_edit_by_the_revision_at_its_build() {
     );
 }
 
-/// Story: silence types the edit from the base bin. A game newer than the database
-/// is typed that way rather than by the newest revision it names.
+/// Story: silence types the edit from the base bin.
 #[test]
 fn a_patch_schema_says_nothing_where_the_database_is_silent() {
     let schema = Arc::new(schema());
@@ -406,7 +405,7 @@ fn a_patch_schema_says_nothing_where_the_database_is_silent() {
     let unbuilt = PatchSchema::new(Arc::clone(&schema), None);
     let at = PatchSchema::new(schema, Some(AFTER_RETYPE));
 
-    assert_eq!(past.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), None);
+    assert_eq!(past.expected(FLOAT_TEXT_ICON_DATA, BinHash(0x1)), None);
     assert_eq!(unbuilt.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), None);
     assert_eq!(
         at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0xdead_beef)),
@@ -436,6 +435,22 @@ fn a_patch_schema_falls_back_to_the_newest_described_build() {
     assert_eq!(past.fallback(FLOAT_TEXT_ICON_DATA, BinHash(0x1)), None);
 }
 
+/// Story: a game newer than the database types its edits by the newest revision the
+/// database names.
+#[test]
+fn a_patch_schema_expects_the_newest_described_build_past_the_database() {
+    let schema = Arc::new(schema());
+    let newest = PatchSchema::new(
+        Arc::clone(&schema),
+        Some(GameBuild::new(16, 99, schema.latest())),
+    );
+    let past = PatchSchema::new(schema, Some(GameBuild::new(17, 1, 9_000_000)));
+
+    let at_newest = newest.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET);
+    assert!(at_newest.is_some());
+    assert_eq!(past.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), at_newest);
+}
+
 /// Story: an edit names the class of the object it lands on, and most of that class's
 /// fields are its bases'.
 #[test]
@@ -452,7 +467,10 @@ fn a_patch_schema_types_a_field_a_base_declares() {
             item: Some(Kind::WadChunkLink),
         })
     );
-    assert_eq!(past.expected(DERIVED, ICON_CIRCLE), None);
+    assert_eq!(
+        past.expected(DERIVED, ICON_CIRCLE),
+        at.expected(DERIVED, ICON_CIRCLE)
+    );
 }
 
 #[test]

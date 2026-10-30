@@ -3156,10 +3156,10 @@ Three edits are refused with the reason. A path through a field no table names h
 spelling in a declaration, and neither has a map key the file holds twice. No declaration
 removes a property, so Remove property is disabled and its menu item carries the reason.
 
-An added property takes the type the schema gives it at the install's build. Where the meta
+An edited property takes the type the schema gives it at the install's build. Where the meta
 database does not describe the install's build yet, it takes the type at the newest build the
-database names (league-mod ADR-0033), and draws as information. A field no build of the
-database knows is refused with that reason.
+database names. A field no build of the database knows types from the game's copy, and an
+added one is refused with that reason.
 
 What the apply reports draws on the row it names, over every layer of the project and not
 the chosen one alone. A skipped key draws a warning with its reason, the key as the manifest
