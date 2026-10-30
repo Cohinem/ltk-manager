@@ -35,14 +35,14 @@ pub use bank_set::{
 };
 pub use bin_audio::{
     Audience, AudienceName, BankList, BankSite, BinAudio, ContextualRule, ContextualRules,
-    HolderAudio, SiteStep, SitedUnit,
+    HolderAudio, SOUND_TARGETS, SiteStep, SitedUnit, SoundField,
 };
 pub use cache::SoundCache;
 pub use contextual::{ContextualMatch, contextual_names};
 pub use decode::{AudioFormat, DecodeError, DecodeFailure, Decoded, decode};
 pub use edit::{
-    BankEdit, BankEditError, ContainerKind, EditContext, EventBankDocument, MediaFile, NewNode,
-    NodeParent, NodeProperty,
+    BankEdit, BankEditError, ContainerKind, EditContext, EventBankDocument, MediaFile,
+    MediaReplacement, NewNode, NodeParent, NodeProperty, ReplacedSound,
 };
 pub use events::{
     AudioEvent, AudioEventList, BankNode, BankSetOrigin, EventAction, EventBank, EventContext,

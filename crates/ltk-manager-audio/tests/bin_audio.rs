@@ -289,3 +289,54 @@ fn bin_audio_reads_contextual_rules() {
         ]
     );
 }
+
+#[test]
+fn bin_audio_records_sound_fields_of_system_and_emitter_audio() {
+    const SYSTEM: BinHash = named("VfxSystemDefinitionData");
+    const AUDIO: BinHash = named("VfxEmitterAudio");
+    const ON_CREATE: BinHash = named("soundOnCreateDefault");
+    const PERSISTENT: BinHash = named("soundPersistentDefault");
+    const EMITTER_ON_CREATE: BinHash = named("SoundOnCreate");
+    const EMITTER_PERSISTENT: BinHash = named("SoundPersistent");
+    let system = BinObject::builder(0x3333_0000, SYSTEM)
+        .property(ON_CREATE, values::String::new("Play_sfx_Cast".to_owned()))
+        .property(
+            named("Audio"),
+            embed(AUDIO, vec![(EMITTER_PERSISTENT, string("Play_sfx_Loop"))]),
+        )
+        .build();
+
+    let audio = BinAudio::read(&bytes_of(vec![system])).unwrap();
+
+    let fields: Vec<(u32, u32, Vec<SiteStep>, &str)> = audio
+        .sound_fields
+        .iter()
+        .map(|field| {
+            (
+                field.class,
+                field.field,
+                field.site.steps.clone(),
+                field.value.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            (SYSTEM.0, ON_CREATE.0, vec![], "Play_sfx_Cast"),
+            (SYSTEM.0, PERSISTENT.0, vec![], ""),
+            (
+                AUDIO.0,
+                EMITTER_ON_CREATE.0,
+                vec![SiteStep::Field(named("Audio").0)],
+                ""
+            ),
+            (
+                AUDIO.0,
+                EMITTER_PERSISTENT.0,
+                vec![SiteStep::Field(named("Audio").0)],
+                "Play_sfx_Loop"
+            ),
+        ]
+    );
+}

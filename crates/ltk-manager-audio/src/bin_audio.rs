@@ -31,6 +31,38 @@ pub struct BinAudio {
     /// Every non-empty string of a field in [`EVENT_FIELDS`], and every `BankUnit.events`
     /// entry.
     pub event_names: Vec<String>,
+    /// Every field of [`SOUND_TARGETS`] that a holder of the bin takes, set or not, in walk order.
+    pub sound_fields: Vec<SoundField>,
+}
+
+/// The classes whose string fields an event can be set in: a clip event, a VFX system and an
+/// emitter's audio, with those fields.
+pub const SOUND_TARGETS: &[(BinHash, &[BinHash])] = &[
+    (named("SoundEventData"), &[named("mSoundName")]),
+    (
+        named("VfxSystemDefinitionData"),
+        &[
+            named("soundOnCreateDefault"),
+            named("soundPersistentDefault"),
+        ],
+    ),
+    (
+        named("VfxEmitterAudio"),
+        &[named("SoundOnCreate"), named("SoundPersistent")],
+    ),
+];
+
+/// One field of a [`SOUND_TARGETS`] holder, and the event name it holds.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SoundField {
+    /// The row of the struct that holds the field.
+    pub site: BankSite,
+    /// The class hash of that struct.
+    pub class: u32,
+    /// The field hash.
+    pub field: u32,
+    /// The event name of the field. Empty if the field is missing or empty.
+    pub value: String,
 }
 
 /// A list of bank paths without a `BankUnit`, such as `SpellDataResource.AudioBankPaths`.
@@ -274,6 +306,18 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Found {
                 holder: self.holder.clone(),
             });
             return Ok(Visit::Continue);
+        }
+
+        if let Some((_, fields)) = SOUND_TARGETS.iter().find(|(named, _)| *named == class) {
+            let site = site_of(node, &[])?;
+            for &field in *fields {
+                self.audio.sound_fields.push(SoundField {
+                    site: site.clone(),
+                    class: class.0,
+                    field: field.0,
+                    value: text(inner.get(field)?)?.unwrap_or_default(),
+                });
+            }
         }
 
         let Some((_, fields)) = EVENT_FIELDS.iter().find(|(named, _)| *named == class) else {
