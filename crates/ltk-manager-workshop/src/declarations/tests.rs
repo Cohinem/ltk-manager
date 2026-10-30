@@ -23,6 +23,70 @@ fn a_layer_name_that_is_not_one_component_is_refused() {
     );
 }
 
+/// A project with one layer per name, written so `config()` reads them.
+fn project_with_layers(dir: &std::path::Path, layers: &[&str]) -> ProjectDir {
+    let layers: Vec<String> = layers
+        .iter()
+        .enumerate()
+        .map(|(priority, name)| {
+            fs::create_dir_all(dir.join("content").join(name)).unwrap();
+            format!(r#"{{"name": "{name}", "priority": {priority}}}"#)
+        })
+        .collect();
+    fs::write(
+        dir.join("mod.config.json"),
+        format!(
+            r#"{{"name": "m", "display_name": "M", "version": "1.0.0", "description": "", "authors": [], "layers": [{}]}}"#,
+            layers.join(",")
+        ),
+    )
+    .unwrap();
+
+    ProjectDir::open(dir.display().to_string()).unwrap()
+}
+
+#[test]
+fn convert_manifests_reports_converted_and_failed_layers_apart() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = project_with_layers(tmp.path(), &["base", "broken", "clean"]);
+    let content = tmp.path().join("content");
+    fs::write(
+        content.join("base/game_data.json"),
+        r#"{"version": 1, "modules": []}"#,
+    )
+    .unwrap();
+    fs::write(content.join("broken/game_data.json"), "not json").unwrap();
+    fs::write(
+        content.join("clean/game_data.yaml"),
+        "version: 1\nmodules: []\n",
+    )
+    .unwrap();
+
+    let report = project.convert_manifests();
+
+    assert_eq!(report.converted, ["base"]);
+    assert_eq!(report.failed.len(), 1);
+    assert_eq!(report.failed[0].layer, "broken");
+    assert!(content.join("base/game_data.yaml").exists());
+    assert!(!content.join("base/game_data.json").exists());
+    assert!(content.join("broken/game_data.json").exists());
+    assert!(project.declarations_manifest("base").is_ok());
+}
+
+#[test]
+fn convert_manifests_reports_nothing_on_a_second_run() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = project_with_layers(tmp.path(), &["base"]);
+    fs::write(
+        tmp.path().join("content/base/game_data.toml"),
+        "version = 1\nmodules = []\n",
+    )
+    .unwrap();
+
+    assert_eq!(project.convert_manifests().converted, ["base"]);
+    assert_eq!(project.convert_manifests(), ManifestConversions::default());
+}
+
 #[test]
 fn a_manifest_changed_on_disk_surfaces_as_its_workshop_error() {
     let tmp = tempfile::tempdir().unwrap();

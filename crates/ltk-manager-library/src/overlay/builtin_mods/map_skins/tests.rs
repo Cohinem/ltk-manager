@@ -6,9 +6,10 @@ use fs_err as fs;
 use ltk_game_data::{
     ApplyDiagnosticKind, EntryName, OverridePath, Selector, apply, load_declarations,
 };
+use ltk_hash::HashValue;
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_bin::meta_schema::{MetaSchema, PatchSchema};
-use ltk_meta::property::values;
+use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 use ltk_overlay::ModContentProvider as _;
 use ltk_wad::{PathResolver, WadBuilder, WadChunkBuilder, WadHash};
@@ -436,23 +437,19 @@ fn the_tft_map_and_a_localized_archive_are_passed_over() {
     assert_eq!(declared(&overrides), []);
 }
 
-/// Story: the declarations are only worth writing if the overlay's apply turns them into the
-/// map bin the setting promises, typed by the schema the build uses.
-#[test]
-fn applied_declarations_give_every_skin_the_default_environment() {
-    let game = game();
-    let overrides = generate(game.path(), &settings(MapSkinMode::Classic, ""));
+/// `base` with the declarations of `overrides` applied, as the overlay applies them. Fails if the
+/// apply refuses a declaration.
+fn applied(base: &[u8], overrides: &Overrides) -> Bin {
     let text = overrides.declarations().unwrap();
     let declarations = load_declarations("game_data.yaml", &text, |_| unreachable!()).unwrap();
     let Selector::Target { edits, .. } = &declarations.modules[0].selector else {
         panic!("expected a target module");
     };
-    let base = map11_bin();
-    let game_bin = Bin::from_reader(&mut Cursor::new(&base)).unwrap();
+    let game_bin = Bin::from_reader(&mut Cursor::new(base)).unwrap();
     let schema = PatchSchema::new(Arc::new(MetaSchema::shipped()), None);
 
     let output = apply(
-        &base,
+        base,
         edits,
         |_: &OverridePath| -> Result<Vec<u8>, ltk_game_data::Error> { unreachable!() },
         |entry: &EntryName| Ok(game_bin.objects.get(&entry.object_hash()).cloned()),
@@ -467,7 +464,80 @@ fn applied_declarations_give_every_skin_the_default_environment() {
         .filter(|diagnostic| diagnostic.kind != ApplyDiagnosticKind::SchemaFallback)
         .collect();
     assert!(refused.is_empty(), "{refused:#?}");
-    let bin = Bin::from_reader(&mut Cursor::new(&output.bytes)).unwrap();
+
+    Bin::from_reader(&mut Cursor::new(&output.bytes)).unwrap()
+}
+
+/// A `Map11` bin whose `Bloom` swaps a material by the 8-byte hash of its name, as patch 16.21
+/// keys `MapMaterialSwap.Swaps`.
+fn wide_swap_bin() -> Vec<u8> {
+    let mut swaps = values::Map::empty(Kind::Hash, Kind::ObjectLink).unwrap();
+    swaps
+        .push(
+            values::Hash::new(HashValue::wide(0x5d07_ca0d_22ff_9588)).into(),
+            values::ObjectLink::new(h("Maps/Materials/Bloom_Swapped")).into(),
+        )
+        .unwrap();
+    let material_swap = values::Struct {
+        class_hash: h("MapMaterialSwap"),
+        properties: [(h("Swaps"), swaps.into())].into_iter().collect(),
+    };
+
+    let skins = [
+        map_skin("Map11", "Default", Vec::new()),
+        map_skin(
+            "Map11",
+            "Bloom",
+            vec![("MaterialSwap", material_swap.into())],
+        ),
+    ];
+    let PropertyValueEnum::Container(linked) =
+        links(&["Default", "Bloom"].map(|name| skin_entry("Map11", name)))
+    else {
+        unreachable!()
+    };
+    let map = BinObject::builder(h("Maps/Shipping/Map11"), h("Map"))
+        .property(h("mapSkins"), values::UnorderedContainer(linked))
+        .build();
+
+    let mut bin = Bin::default();
+    for object in skins.into_iter().chain([map]) {
+        bin.objects.insert(object.path_hash, object);
+    }
+    let mut bytes = Cursor::new(Vec::new());
+    bin.to_writer(&mut bytes).unwrap();
+    bytes.into_inner()
+}
+
+#[test]
+fn a_forced_skin_copies_a_material_swap_with_wide_hash_keys() {
+    let game = tempfile::tempdir().unwrap();
+    let base = wide_swap_bin();
+    build_wad(
+        &maps_dir(game.path()).join("Map11.wad.client"),
+        &[(MAP11_BIN.to_owned(), base.clone())],
+    );
+
+    let overrides = generate(game.path(), &settings(MapSkinMode::Forced, "Bloom"));
+    let bin = applied(&base, &overrides);
+
+    let swap = |name: &str| {
+        bin.objects[&h(&skin_entry("Map11", name))]
+            .properties
+            .get(&h("MaterialSwap"))
+            .cloned()
+    };
+    assert!(swap("Bloom").is_some());
+    assert_eq!(swap("Default"), swap("Bloom"));
+}
+
+/// Story: the declarations are only worth writing if the overlay's apply turns them into the
+/// map bin the setting promises, typed by the schema the build uses.
+#[test]
+fn applied_declarations_give_every_skin_the_default_environment() {
+    let game = game();
+    let overrides = generate(game.path(), &settings(MapSkinMode::Classic, ""));
+    let bin = applied(&map11_bin(), &overrides);
     let skin = |name: &str| &bin.objects[&h(&skin_entry("Map11", name))];
     let property = |name: &str, field: &str| skin(name).properties.get(&h(field)).cloned();
     for name in ["Bloom", "Ruby_SR", "Odyssey"] {

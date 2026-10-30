@@ -3328,8 +3328,11 @@ dependencies = [
  "ltk_game_data",
  "ltk_meta",
  "rowan",
+ "serde-saphyr",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "toml 1.1.3+spec-1.1.0",
  "yaml-edit",
 ]
 
@@ -3803,9 +3806,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_fantome"
-version = "0.17.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e6488bd69f52860609c168d5f49ad3a895abc9db21d2a6f6aa4f5820dd0711e"
+checksum = "5cd6de4ab83c86a7f85ab209f0555c2134ed214b29b0c6978d2451e7604d2296"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3834,9 +3837,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_game_data"
-version = "0.9.3"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20a553493a563436d9f4684c51b86e5d24ad9916e335061678e64d1ad08825df"
+checksum = "25163ceeec2956a7c005d43321bd18d9d9bef04dedfa1b3dbe359f3153310531"
 dependencies = [
  "camino",
  "glam",
@@ -3848,7 +3851,6 @@ dependencies = [
  "serde-saphyr",
  "serde_json",
  "thiserror 2.0.18",
- "toml 1.1.3+spec-1.1.0",
  "xxhash-rust",
 ]
 
@@ -4006,9 +4008,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mod_project"
-version = "0.18.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ba83de54f97ca50b975b5f27b439ba5f893704632ab23308b21cb4294de3e5e"
+checksum = "b72c5710b96d8467d112ad838a0bfa6d1fe8b5b4cfa76b68ec072e1ac84efb73"
 dependencies = [
  "camino",
  "ignore",
@@ -4033,9 +4035,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_modpkg"
-version = "0.12.15"
+version = "0.12.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed55c3b9a3ee0b0f50c4cb1e524ae25c5ec08d796f19810e3300ebec0fdbee0e"
+checksum = "50ed746563ba076f14ad737beee368e081c38456920527635b468b7c066c5823"
 dependencies = [
  "binrw",
  "byteorder",
@@ -4054,9 +4056,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.19.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e34f9b0af1ac1413a79329eca5a67eb5415203dbcadb1647c82fa9315e05d9d5"
+checksum = "b5d7cdc2e1e35e98b0620b233dd2a9fbe30fc1e8f660970e8c7278299c5bd9fe"
 dependencies = [
  "byteorder",
  "camino",

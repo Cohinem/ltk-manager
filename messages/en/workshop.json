@@ -2343,6 +2343,8 @@
   "workshop_controls_table_view_label": "Table view",
   "workshop_declarations_clone_tag": "copy of",
   "workshop_declarations_construct_tag": "new",
+  "workshop_declarations_conversion_failed_description": "Layer {layer} keeps its JSON or TOML files. {message}",
+  "workshop_declarations_conversion_failed_title": "Game data not converted to YAML",
   "workshop_declarations_copy_action": "Copy {what}",
   "workshop_declarations_empty_description": "This layer has no game_data manifest.",
   "workshop_declarations_empty_module_hint": "Empty. Drag entries here, or write new edits here",
