@@ -233,6 +233,10 @@ pub struct FixPreview {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub note: Option<String>,
+    /// The facts of the repair that the frontend words as its note, keyed by the rule id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub facts: Option<FixFacts>,
     /// The value now, rendered. `None` where a container draws its count instead.
     pub before: Option<String>,
     /// The value after, rendered. `None` for the same reason as `before`.
@@ -243,9 +247,9 @@ impl FixPreview {
     /// A preview of one value becoming another.
     pub fn value(before: impl Into<String>, after: impl Into<String>) -> Self {
         Self {
-            note: None,
             before: Some(before.into()),
             after: Some(after.into()),
+            ..Self::default()
         }
     }
 
@@ -256,8 +260,7 @@ impl FixPreview {
     pub fn note(note: impl Into<String>) -> Self {
         Self {
             note: Some(note.into()),
-            before: None,
-            after: None,
+            ..Self::default()
         }
     }
 
@@ -270,9 +273,37 @@ impl FixPreview {
         Self {
             note,
             before: Some(before.into()),
-            after: None,
+            ..Self::default()
         }
     }
+}
+
+/// The facts of one repair, which the frontend words as the note of the repair.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum FixFacts {
+    /// The `bin/skinhack` repair that removes the audio of another skin.
+    SkinAudio(SkinAudioRepair),
+}
+
+/// The changes of the `bin/skinhack` repair to the audio of one base skin.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct SkinAudioRepair {
+    /// The `Name` of each removed `BankUnits` entry.
+    pub removed_units: Vec<String>,
+    /// Each removed `TagEventList` entry.
+    pub removed_tags: Vec<String>,
+    /// The `Name` of each bank unit of the game's base skin that the repair adds.
+    pub added_units: Vec<String>,
+    /// The event fields renamed to their base event.
+    pub renamed_events: u32,
+    /// The clip event fields kept, because no base event has the base name.
+    pub silent_clip_events: u32,
+    /// The VFX event fields kept, because no base event has the base name.
+    pub silent_vfx_events: u32,
 }
 
 /// The id of one alternative fix, unique among the alternatives of its rule.

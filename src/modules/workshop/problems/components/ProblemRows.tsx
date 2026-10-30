@@ -13,6 +13,7 @@ import { rowKey } from "../../bin/tree/utils/binRows";
 import { previewDocument } from "../../documents";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { useOpenDocumentTab, useRevealRow } from "../../state";
+import { previewNote } from "../utils/previewNote";
 import {
   problemAddress,
   type ProblemGroup,
@@ -340,6 +341,8 @@ function TipValue({ children }: { children: ReactNode }) {
 /* What the file holds at this property, which is the half a reader is checking.
    A container draws one of its paths and how many more it holds. */
 function TipValueRow({ fix }: { fix: FixPreview }) {
+  const note = previewNote(fix);
+
   if (fix.before) {
     return (
       <>
@@ -347,17 +350,17 @@ function TipValueRow({ fix }: { fix: FixPreview }) {
         <dd className="flex min-w-0 flex-col items-start gap-1">
           {/* DS-CODE-CHIP */}
           <Code>{fix.before}</Code>
-          {fix.note && <span className="text-surface-400">{fix.note}</span>}
+          {note && <span className="text-surface-400">{note}</span>}
         </dd>
       </>
     );
   }
 
-  if (fix.note) {
+  if (note) {
     return (
       <>
         <TipLabel>Value</TipLabel>
-        <dd className="text-surface-200">{fix.note}</dd>
+        <dd className="text-surface-200">{note}</dd>
       </>
     );
   }

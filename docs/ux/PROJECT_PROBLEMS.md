@@ -883,8 +883,10 @@ each bin of the champion's WAD in that layer. It renames `Play_sfx_AhriSkin07_Ca
 `Play_sfx_Ahri_Cast`, and only if a unit of the game's skin 0 lists the base event. An event with
 no base event is unchanged, and it plays nothing once its unit is gone.
 
-The preview note lists the removals, the added units, the renamed events and the events that play
-nothing. The before and the after are the tags if a tag is removed, and the unit names otherwise.
+The preview carries the removed units and tags, the added units, the count of renamed events and
+the counts of clip and VFX events that play nothing. The Problems panel words them as the note,
+from the catalog keys of the rule id. The before and the after are the tags if a tag is removed,
+and the unit names otherwise.
 
 ```
 note    Removes the bank unit Lux_Skin07_SFX and the tag LuxSkin07. 1 clip event plays nothing.

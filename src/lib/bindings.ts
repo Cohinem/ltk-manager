@@ -2850,6 +2850,13 @@ export type FixAlternative_Serialize = {
 	fix: FixPreview_Serialize,
 };
 
+/**  The facts of one repair, which the frontend words as the note of the repair. */
+export type FixFacts = 
+/**  The `bin/skinhack` repair that removes the audio of another skin. */
+{
+	kind: "skinAudio",
+} & SkinAudioRepair;
+
 /**
  *  What a repair would change, in the words a row draws.
  * 
@@ -2867,6 +2874,8 @@ export type FixPreview = FixPreview_Serialize | FixPreview_Deserialize;
 export type FixPreview_Deserialize = {
 	/**  What the values alone do not say, such as `3 items`. */
 	note?: string | null,
+	/**  The facts of the repair that the frontend words as its note, keyed by the rule id. */
+	facts?: FixFacts | null,
 	/**  The value now, rendered. `None` where a container draws its count instead. */
 	before: string | null,
 	/**  The value after, rendered. `None` for the same reason as `before`. */
@@ -2882,6 +2891,8 @@ export type FixPreview_Deserialize = {
 export type FixPreview_Serialize = {
 	/**  What the values alone do not say, such as `3 items`. */
 	note?: string | null,
+	/**  The facts of the repair that the frontend words as its note, keyed by the rule id. */
+	facts?: FixFacts | null,
 	/**  The value now, rendered. `None` where a container draws its count instead. */
 	before: string | null,
 	/**  The value after, rendered. `None` for the same reason as `before`. */
@@ -8401,6 +8412,22 @@ export type Site_Serialize = {
 	path: string,
 	/**  Where inside the file. `None` for a rule that reads a file as a whole. */
 	node: NodeAddress_Serialize | null,
+};
+
+/**  The changes of the `bin/skinhack` repair to the audio of one base skin. */
+export type SkinAudioRepair = {
+	/**  The `Name` of each removed `BankUnits` entry. */
+	removedUnits: string[],
+	/**  Each removed `TagEventList` entry. */
+	removedTags: string[],
+	/**  The `Name` of each bank unit of the game's base skin that the repair adds. */
+	addedUnits: string[],
+	/**  The event fields renamed to their base event. */
+	renamedEvents: number,
+	/**  The clip event fields kept, because no base event has the base name. */
+	silentClipEvents: number,
+	/**  The VFX event fields kept, because no base event has the base name. */
+	silentVfxEvents: number,
 };
 
 /**

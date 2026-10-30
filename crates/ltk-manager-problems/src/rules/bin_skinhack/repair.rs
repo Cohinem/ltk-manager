@@ -14,7 +14,7 @@ use super::{
     text, unit_name,
 };
 use crate::engine::parse_bin;
-use crate::{FileHandle, FixPreview, ProjectFiles};
+use crate::{FileHandle, FixFacts, FixPreview, ProjectFiles, SkinAudioRepair};
 use ltk_manager_audio::{AudioIndex, BinAudio, EVENT_FIELDS};
 use ltk_manager_base::hashing::named;
 
@@ -135,53 +135,18 @@ pub(super) struct Plan {
 impl Plan {
     /// Returns the preview that a row draws for the repair.
     pub(super) fn preview(&self) -> FixPreview {
-        let mut removed = Vec::new();
-        if !self.removed_units.is_empty() {
-            removed.push(format!(
-                "the bank {} {}",
-                plural(self.removed_units.len(), "unit", "units"),
-                self.removed_units.join(", ")
-            ));
-        }
-        if !self.removed_tags.is_empty() {
-            removed.push(format!(
-                "the {} {}",
-                plural(self.removed_tags.len(), "tag", "tags"),
-                self.removed_tags.join(", ")
-            ));
-        }
-
-        let mut sentences = vec![format!("Removes {}.", removed.join(" and "))];
-        if !self.added_units.is_empty() {
-            sentences.push(format!(
-                "Adds the bank {} {}.",
-                plural(self.added_units.len(), "unit", "units"),
-                self.added_units.join(", ")
-            ));
-        }
-
-        let Events {
-            renamed,
-            silent_clips,
-            silent_vfx,
-        } = self.events;
-        if renamed == 1 {
-            sentences.push("Renames 1 event to its base event.".to_owned());
-        } else if renamed > 1 {
-            sentences.push(format!("Renames {renamed} events to their base events."));
-        }
-        for (count, noun) in [(silent_clips, "clip"), (silent_vfx, "VFX")] {
-            if count == 1 {
-                sentences.push(format!("1 {noun} event plays nothing."));
-            } else if count > 1 {
-                sentences.push(format!("{count} {noun} events play nothing."));
-            }
-        }
+        let facts = SkinAudioRepair {
+            removed_units: self.removed_units.clone(),
+            removed_tags: self.removed_tags.clone(),
+            added_units: self.added_units.clone(),
+            renamed_events: self.events.renamed,
+            silent_clip_events: self.events.silent_clips,
+            silent_vfx_events: self.events.silent_vfx,
+        };
 
         FixPreview {
-            note: Some(sentences.join(" ")),
-            before: Some(self.before.join(", ")),
-            after: Some(self.after.join(", ")),
+            facts: Some(FixFacts::SkinAudio(facts)),
+            ..FixPreview::value(self.before.join(", "), self.after.join(", "))
         }
     }
 
@@ -201,10 +166,6 @@ impl Plan {
     pub(super) fn dropped(&self) -> &[String] {
         &self.dropped
     }
-}
-
-fn plural<'a>(count: usize, one: &'a str, many: &'a str) -> &'a str {
-    if count == 1 { one } else { many }
 }
 
 /// Derives the repair of the base skin `handle` from the files of `project`.

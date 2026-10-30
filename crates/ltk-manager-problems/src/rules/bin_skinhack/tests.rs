@@ -9,6 +9,7 @@ use ltk_meta::{Bin, PropertyKind};
 
 use super::*;
 use crate::game::FakeContent;
+use crate::{FixFacts, SkinAudioRepair};
 use ltk_manager_base::config::Config;
 
 const WAD: &str = "Ahri.wad.client";
@@ -477,8 +478,14 @@ fn clip_event(bytes: &[u8]) -> String {
         .to_owned()
 }
 
-fn note_of(problem: &Problem) -> Option<&str> {
-    problem.fix.as_ref().and_then(|fix| fix.note.as_deref())
+fn facts_of(problem: &Problem) -> Option<&SkinAudioRepair> {
+    match problem.fix.as_ref()?.facts.as_ref()? {
+        FixFacts::SkinAudio(repair) => Some(repair),
+    }
+}
+
+fn owned(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_owned()).collect()
 }
 
 #[test]
@@ -509,7 +516,11 @@ fn skinhack_fix_removes_other_skin_bank_unit() {
     assert_eq!(
         problems[0].fix,
         Some(FixPreview {
-            note: Some("Removes the bank unit Ahri_Skin07_SFX.".to_owned()),
+            note: None,
+            facts: Some(FixFacts::SkinAudio(SkinAudioRepair {
+                removed_units: owned(&["Ahri_Skin07_SFX"]),
+                ..SkinAudioRepair::default()
+            })),
             before: Some("Ahri_Skin07_SFX, Ahri_Base_SFX".to_owned()),
             after: Some("Ahri_Base_SFX".to_owned()),
         })
@@ -531,7 +542,11 @@ fn skinhack_fix_removes_other_skin_tag() {
     assert_eq!(
         problems[0].fix,
         Some(FixPreview {
-            note: Some("Removes the tag AhriSkin07.".to_owned()),
+            note: None,
+            facts: Some(FixFacts::SkinAudio(SkinAudioRepair {
+                removed_tags: owned(&["AhriSkin07"]),
+                ..SkinAudioRepair::default()
+            })),
             before: Some("Ahri, AhriSkin07".to_owned()),
             after: Some("Ahri".to_owned()),
         })
@@ -566,8 +581,12 @@ fn skinhack_fix_adds_base_unit_if_none_remains() {
     repaired(&tmp, &files);
 
     assert_eq!(
-        note_of(&problems[0]),
-        Some("Removes the bank unit Ahri_Skin07_SFX. Adds the bank unit Ahri_Base_SFX.")
+        facts_of(&problems[0]),
+        Some(&SkinAudioRepair {
+            removed_units: owned(&["Ahri_Skin07_SFX"]),
+            added_units: owned(&["Ahri_Base_SFX"]),
+            ..SkinAudioRepair::default()
+        })
     );
     assert_eq!(
         audio_of(&on_disk(&tmp, SKIN0)).1,
@@ -585,10 +604,14 @@ fn skinhack_fix_rewrites_clip_event_with_base_event() {
     let report = repaired(&tmp, &files);
 
     assert_eq!(
-        note_of(&problems[0]),
-        Some(
-            "Removes the bank unit Ahri_Skin07_SFX and the tag AhriSkin07. Adds the bank unit Ahri_Base_SFX. Renames 1 event to its base event."
-        )
+        facts_of(&problems[0]),
+        Some(&SkinAudioRepair {
+            removed_units: owned(&["Ahri_Skin07_SFX"]),
+            removed_tags: owned(&["AhriSkin07"]),
+            added_units: owned(&["Ahri_Base_SFX"]),
+            renamed_events: 1,
+            ..SkinAudioRepair::default()
+        })
     );
     assert_eq!(report.applied, 1);
     assert_eq!(clip_event(&on_disk(&tmp, ANIMATIONS)), BASE_EVENT);
@@ -609,10 +632,13 @@ fn skinhack_fix_keeps_clip_event_without_base_event() {
     assert_eq!(
         problems[0].fix,
         Some(FixPreview {
-            note: Some(
-                "Removes the bank unit Ahri_Skin07_SFX and the tag AhriSkin07. 1 clip event plays nothing."
-                    .to_owned()
-            ),
+            note: None,
+            facts: Some(FixFacts::SkinAudio(SkinAudioRepair {
+                removed_units: owned(&["Ahri_Skin07_SFX"]),
+                removed_tags: owned(&["AhriSkin07"]),
+                silent_clip_events: 1,
+                ..SkinAudioRepair::default()
+            })),
             before: Some("Ahri, AhriSkin07".to_owned()),
             after: Some("Ahri".to_owned()),
         })

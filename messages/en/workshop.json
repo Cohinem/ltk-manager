@@ -1,5 +1,84 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "rule.bin/skinhack.fix.added.description": [
+    {
+      "declarations": ["input units", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Adds the bank unit {units}.",
+        "countPlural=other": "Adds the bank units {units}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.removed-tags.description": [
+    {
+      "declarations": ["input tags", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Removes the tag {tags}.",
+        "countPlural=other": "Removes the tags {tags}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.removed-units-and-tags.description": [
+    {
+      "declarations": [
+        "input units",
+        "input unitCount",
+        "input tags",
+        "input tagCount",
+        "local unitPlural = unitCount: plural",
+        "local tagPlural = tagCount: plural"
+      ],
+      "selectors": ["unitPlural", "tagPlural"],
+      "match": {
+        "unitPlural=one, tagPlural=one": "Removes the bank unit {units} and the tag {tags}.",
+        "unitPlural=one, tagPlural=other": "Removes the bank unit {units} and the tags {tags}.",
+        "unitPlural=other, tagPlural=one": "Removes the bank units {units} and the tag {tags}.",
+        "unitPlural=other, tagPlural=other": "Removes the bank units {units} and the tags {tags}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.removed-units.description": [
+    {
+      "declarations": ["input units", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Removes the bank unit {units}.",
+        "countPlural=other": "Removes the bank units {units}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.renamed.description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Renames {count} event to its base event.",
+        "countPlural=other": "Renames {count} events to their base events."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.silent-clips.description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} clip event plays nothing.",
+        "countPlural=other": "{count} clip events play nothing."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.silent-vfx.description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} VFX event plays nothing.",
+        "countPlural=other": "{count} VFX events play nothing."
+      }
+    }
+  ],
   "workshop.DECLARATIONS_CHANGED_ON_DISK.description": "{path} was written by something else since it was read, so the edit was not saved over it.",
   "workshop.DECLARATIONS_CHANGED_ON_DISK.title": "The game data file changed on disk",
   "workshop.DECLARATIONS_INVALID.description": "{path}: {message}",
