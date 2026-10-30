@@ -75,7 +75,11 @@ export type AudioCommandId =
   | "addSwitch"
   | "importWem"
   | "expandAll"
-  | "collapseAll";
+  | "collapseAll"
+  | "createEvent"
+  | "showInBank"
+  | "showInTree"
+  | "copyForSkin";
 
 /**
  * Who answers the keys of a binding.
@@ -100,6 +104,7 @@ export interface AudioBinding {
 const LISTS: readonly AudioSurface[] = ["media", "voices", "lines"];
 const TREES: readonly AudioSurface[] = ["voices", "lines"];
 const BANK: readonly AudioSurface[] = ["voices"];
+const LINES: readonly AudioSurface[] = ["lines"];
 const DOCUMENT_KEYS: readonly AudioSurface[] = ["document", "lines"];
 
 /** Every command of the keymap, in the order that the sheet lists each group. */
@@ -252,8 +257,12 @@ export const AUDIO_KEYMAP: readonly AudioBinding[] = [
   { id: "pickClick", keys: [], surfaces: TREES, group: "pointer", owner: "pointer" },
 
   { id: "details", keys: [], surfaces: ["document"], group: "view", owner: "menu" },
-  { id: "expandAll", keys: [], surfaces: BANK, group: "view", owner: "menu" },
-  { id: "collapseAll", keys: [], surfaces: BANK, group: "view", owner: "menu" },
+  { id: "expandAll", keys: [], surfaces: TREES, group: "view", owner: "menu" },
+  { id: "collapseAll", keys: [], surfaces: TREES, group: "view", owner: "menu" },
+  { id: "createEvent", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
+  { id: "showInBank", keys: [], surfaces: LINES, group: "view", owner: "menu" },
+  { id: "showInTree", keys: [], surfaces: LINES, group: "view", owner: "menu" },
+  { id: "copyForSkin", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
   { id: "rename", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "useIn", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "replaceMedia", keys: [], surfaces: BANK, group: "editing", owner: "menu" },

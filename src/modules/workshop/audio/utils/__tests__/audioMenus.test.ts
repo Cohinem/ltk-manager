@@ -100,6 +100,34 @@ describe("audioMenus", () => {
 
     expect(bank?.entries.map(entryName)).toEqual(["[units]", "-", "replaceMedia", "useIn"]);
   });
+
+  it("lists the rule edits and the Voice menu on the Voice lines view, without File or Bank", () => {
+    const menus = audioMenus({ ...BANK, surfaces: ["lines"], slots: ["volume"] });
+
+    expect(menus.map((menu) => menu.id)).toEqual(["edit", "insert", "view", "playback", "voice"]);
+    expect(menus.find((menu) => menu.id === "edit")?.entries.map(entryName)).toEqual([
+      "duplicate",
+      "remove",
+      "-",
+      "moveUp",
+      "moveDown",
+      "-",
+      "copy",
+      "-",
+      "selectAll",
+    ]);
+    expect(menus.find((menu) => menu.id === "voice")?.entries.map(entryName)).toEqual([
+      "createEvent",
+      "showInBank",
+      "showInTree",
+      "-",
+      "copyForSkin",
+    ]);
+  });
+
+  it("leaves the Voice menu off a bank", () => {
+    expect(audioMenus(BANK).some((menu) => menu.id === "voice")).toBe(false);
+  });
 });
 
 const BANK: AudioMenuFacts = {

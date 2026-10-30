@@ -12,6 +12,7 @@ A class view, its sections and its sandbox are in docs/ux/BIN_EDITOR.md, under "
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-10-30 | Add the menu bar, and lay the rules out as a cue sheet                 |
 | 2026-10-30 | Name the event tree of a bank in place of its Voices view              |
 | 2026-10-30 | Read the keys from the audio keymap, add drags and type-ahead          |
 | 2026-10-30 | Add the Voice lines view, the Played by column and the copy for a skin |
@@ -22,70 +23,103 @@ Each edit of this document adds a row at the top. The table keeps the last ten r
 
 A `ContextualActionData` object opens in the Voice lines class view, beside Properties. The skin
 layout lists `mContextualActionData` in its own Voice lines section, and its link opens the
-object. The view is one section of a stack layout that takes edits in place.
+object. The view is the one section of a headless stack layout that takes edits in place, so no
+section header or fold frames it. The first header row ends with `mObjectPath`. A field that the
+view does not draw lists under it as a field row, without the Other header.
 
 ```
-[Skin 0 v]  tags Lux  Shared cooldown 15 s  (Inferred)               [2 unresolved] [Inspector]
-[Filter........]  Target [Any v]  Spell [Any v]  [Self v]
-v (>) Spell cast  SpellCast  8 rules  first valid
-|-- (>) Q        spell LuxLightBinding   (o) 50 %  -10  all    cast3D    Play_vo_Lux_LuxLightBinding_cast3D
-|-- (>) R        spell LuxR                        100  all    cast3D    Play_vo_Lux_LuxR_cast3D
-|-- + Add rule
-v (>) First encounter  EnemyEncounter  15 rules  first valid  cooldown 15 s
-|-- (>) Quinn    other is Quinn, first                  Self   FirstEncounter3DQuinn   ! No event in lux_base_vo_events.bnk
+Edit  Insert  View  Playback  Voice   [Filter............]  [2 unresolved]   [! 86 skins] `Characters/Lux/CAC/Lux_Base`
+Resolve as [Skin 7 v] `Lux` `LuxSkin07` (Inferred) | Shared cooldown [15] s    Simulate [Self v]  Target [Any v]  Spell [Any v]
+         RULE      LINE                             HEARD BY  CHANCE    PRIORITY  WHEN
+v Spell cast  SpellCast  8 rules                                                                      (>)
+         Q         cast3D                     Lux   S A E Sp  (o) 50 %       -10  spell LuxLightBinding
+         R         cast3D             [LuxSkin07]   S A E Sp                 100  spell LuxR
+         + Add rule
+v First encounter  EnemyEncounter  15 rules  cooldown 15 s  ! 1 unresolved                         (>)
+         Quinn     FirstEncounter3DQuinn  [! Missing]  S . . .                    other is Quinn, first
 ```
 
 ### Header
 
-- The skin picker lists the skins whose `mContextualActionData` links the object, from the
-  project's bins and the game's audio index. The names resolve through the tags of the chosen
-  skin, against the events of that skin's voice-over banks. The view opens on the skin that the
-  reader chose last for the object, else the first skin of the project, else skin 0, else the first
-  skin. The choice is kept per object and per user.
-- The tags of the chosen skin, and the shared cooldown `mCooldown`, which F2, Enter or a double
-  click opens for an entry.
-- One Inferred chip. The event names are composed, as "Names" in docs/ux/AUDIO.md says, so no line
-  repeats the chip.
+The header has two rows. The first row holds the menu bar, the filter, the unresolved count, the
+shared mark and `mObjectPath`. The second row sets what the names resolve as, the shared cooldown and the trigger that a play
+simulates.
+
+- The menu bar is the one of the audio file document, per "Menu bar" in docs/ux/AUDIO.md, with the
+  commands of this view. Alt or F10 moves focus to it from anywhere in the view.
+
+  | Menu     | Items                                                                                  |
+  | -------- | -------------------------------------------------------------------------------------- |
+  | Edit     | Duplicate, Delete. Move up, Move down. Copy short name. Select all                     |
+  | Insert   | Add rule                                                                               |
+  | View     | Inspector as a switch. Expand all, Collapse all. Keys and gestures                     |
+  | Playback | Play or stop, Play all, Stop all. Loop as a switch. Volume up, Volume down, the volume |
+  | Voice    | Create event..., Show in bank, Show in tree. Copy for this skin                        |
+
+  A command of the selected line reads "Select a row" while no line is selected.
+
+- Resolve as lists the skins whose `mContextualActionData` links the object, from the project's
+  bins and the game's audio index. The names resolve through the tags of the chosen skin, against
+  the events of that skin's voice-over banks. The view opens on the skin that the reader chose last
+  for the object, else the first skin of the project, else skin 0, else the first skin. The choice
+  is kept per object and per user.
+- The tags of the chosen skin, each a code chip, then one Inferred chip. The event names are
+  composed, as "Names" in docs/ux/AUDIO.md says, so no line repeats the chip.
+- The shared cooldown `mCooldown`, which F2, Enter or a double click opens for an entry.
 - The count of unresolved rules. A press keeps only those rules.
 - The filter keeps the rules whose name, situation, short names, events or conditions contain its
   text.
-- The trigger pickers set what a situation's play simulates, per "Play situation".
+- Simulate sets the audience, the target and the spell that a situation's play simulates, per
+  "Play situation". The target and spell pickers show only when a condition names one.
 
 ### Shared object
 
-When two or more skins link the object, a notice above the list states the count, such as "Used by
-96 skins. An edit changes the voice lines of each." It stays until the first edit lands or the
-reader dismisses it. Editing the shared object stays possible.
+When two or more skins link the object, a warning mark before the object path states the count,
+such as "86 skins". A hover on it reads "Used by 86 skins. An edit changes the voice lines of
+each." The mark stays while the object is shared. Editing the shared object stays possible.
 
-Copy for this skin copies the object into the chosen skin's bin as `<path>_SkinNN`, sets the copy's
+Copy for this skin, in the Voice menu, copies the object into the chosen skin's bin as `<path>_SkinNN`, sets the copy's
 `mObjectPath`, links the skin's `mContextualActionData` to the copy, and opens the copy's tab in the
 Voice lines view. The three changes are one edit of the skin bin, so one undo in that bin reverts
 them. ADR-0073.
 
 ### Situations
 
-A situation is a group header with the lanes of the event tree: the caret, the play button, the
-situation's word, its key where the word differs, the rule count, first valid or random, and the
-situation cooldown when it is not 0. An unnamed key shows its hash. The view writes a word for the
-named keys a modder meets most, such as Spell cast for `SpellCast` and Attack order for the four
-`Attack*2D` keys, and the key itself for the rest.
+A situation is a header row with a filled band: the caret, the situation's word, its key in mono
+where the word differs, and the rule count, with the play button at the band's end. Settings show only where they differ
+from the default: a Random chip for `mChooseRandomValidRule`, the situation cooldown when it is not
+0, and the count of unresolved rules as a warning. An unnamed key shows its hash. The view writes a
+word for the named keys a modder meets most, such as Spell cast for `SpellCast` and Attack order
+for the four `Attack*2D` keys, and the key itself for the rest.
+
+The column heads stay at the top of the list while it scrolls, and the header of the situation in
+view stays under them until the next situation reaches it. A hairline separates two situations.
+The rows draw no tree guides.
 
 ### Rule lines
 
-Each rule is one line, and every column has one width, so the lines of every situation align.
+Each rule is one line under the column heads, and each column has one width, so the lines of every
+situation align. The fixed columns come first and When, the one column of prose, takes the rest of
+the width. The dim play button before a rule's name shows on hover, on the selected rule and while
+the line plays. Space and a middle click play any rule.
 
 | Cell     | Shows                                                                        | Edit                      |
 | -------- | ---------------------------------------------------------------------------- | ------------------------- |
 | (play)   | Plays the line for the audience of the trigger, else the first named line    |                           |
 | Rule     | `mRuleName`, or `#` and the rule's index muted                               | F2 on a named rule        |
-| When     | The conditions in words, joined by `·`, but the chance. `One passes` before  | In the inspector          |
+| Line     | The short name, `+N` when other audiences name others, then the resolved tag | F2                        |
+| Heard by | Four slots, Self, Ally, Enemy and Spectator: a letter if named, else a dot   |                           |
 | Chance   | The knob and the percent of the rule's one `ContextualConditionChanceToPlay` | The knob, F2              |
 | Priority | `mPriority`, empty while unset                                               | F2, an empty entry clears |
-| Audience | `all` for the four audiences, else each named audience                       |                           |
-| Short    | The short name of the drawn line, `+N` when other audiences name others      | F2                        |
-| Event    | The event it resolves to, or a warning that names the skin's event bank      | Create event...           |
+| When     | The conditions in words, joined by `·`, but the chance. `One passes` before  | In the inspector          |
 
-A rule without an audio action draws its animation or its chained situation in the Event column,
+The tag is the tag of the chosen skin that the event name starts with, such as `LuxSkin07` for
+`Play_vo_LuxSkin07_Move2DFirst`. A tag that is longer than another tag of the skin is the skin's own
+and draws as an accent chip, and the base tag draws as dim text, so the lines that the skin
+overrides stand out. A hover on the tag shows the full event name. A short name that resolves no event draws a Missing warning, and a
+hover on it names the skin's event bank. Create event... in the menu opens that bank.
+
+A rule without an audio action draws its animation or its chained situation in the Line column,
 muted. A condition class that the view has no words for reads as its short class name and its
 fields, such as `GameTimer(mGameTimeInMinutes = 20)`.
 
@@ -104,7 +138,8 @@ another. Playback reads each event's tree from its bank and plays one press of i
 
 ### Inspector
 
-The Inspector button shows the pane of the event tree, with the same remembered state.
+Inspector in the View menu, or `Ctrl+Alt+B`, shows the pane of the event tree, with the same
+remembered state.
 
 | Selected      | The pane lists                                                               |
 | ------------- | ---------------------------------------------------------------------------- |
@@ -139,7 +174,7 @@ a null `CooldownModifications` or `mAudioAction` gives the pointer its class fir
 The list is one tab stop. Focus selects the first line if no line is selected. The keys come from
 the one keymap of the audio views, `utils/keymap.ts`, per "Keys and gestures" in docs/ux/AUDIO.md.
 The menus, the tooltips and the sheet read the same table. `?` opens the sheet of this view, and
-the keyboard mark in the header opens it too.
+Keys and gestures in the View menu opens it too.
 
 | Key                                 | Action                                                     |
 | ----------------------------------- | ---------------------------------------------------------- |

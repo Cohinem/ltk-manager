@@ -15,7 +15,7 @@ import { playedBy } from "../playedBy";
 import { conditionText, ruleChance } from "../voiceConditions";
 import { chanceEdits, objectPath } from "../voiceEdits";
 import { topicEdits } from "../voiceFieldTopics";
-import { copyObjectName, voiceLineRows } from "../voiceLines";
+import { copyObjectName, resolvedTag, rowGroups, voiceLineRows } from "../voiceLines";
 import { simulateTrigger, type TriggerContext } from "../voiceTrigger";
 
 function field(name: string, value: VoiceConditionField["value"]): VoiceConditionField {
@@ -301,6 +301,37 @@ describe("voiceLineRows", () => {
     );
 
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("rowGroups", () => {
+  it("splits the rows at each situation header and keeps their list index", () => {
+    const rows = voiceLineRows(
+      { cooldown: 15, healthThreshold: null, situations: [situation([rule("{00000007}.r[0]")])] },
+      new Set(),
+      { text: "", unresolved: false },
+      true,
+    );
+
+    const groups = rowGroups([...rows, ...rows]);
+
+    expect(groups.map((group) => group.rows.map((each) => each.index))).toEqual([
+      [0, 1, 2],
+      [3, 4, 5],
+    ]);
+  });
+});
+
+describe("resolvedTag", () => {
+  const tags = ["Lux", "LuxSkin07"];
+
+  it("returns the longest tag that the event name starts with", () => {
+    expect(resolvedTag("Play_vo_LuxSkin07_Move2DFirst", tags)).toBe("LuxSkin07");
+    expect(resolvedTag("play_vo_lux_Move2DFirst", tags)).toBe("Lux");
+  });
+
+  it("returns null if no tag composes the name", () => {
+    expect(resolvedTag("Play_vo_Ezreal_Move2DFirst", tags)).toBeNull();
   });
 });
 

@@ -8,7 +8,7 @@
 import { type AudioCommandId, type AudioSurface, bindingOf, shortcutOf } from "./keymap";
 
 /** The id of one menu of the bar, in bar order. */
-export type AudioMenuId = "file" | "edit" | "insert" | "view" | "playback" | "bank";
+export type AudioMenuId = "file" | "edit" | "insert" | "view" | "playback" | "bank" | "voice";
 
 /** A place in a menu whose items the document draws itself. */
 export type AudioMenuSlot = "fileActions" | "units" | "volume";
@@ -58,6 +58,9 @@ export const AUDIO_MENU_SPEC: readonly {
       command("cut"),
       command("paste"),
       command("remove"),
+      SEPARATOR,
+      command("moveUp"),
+      command("moveDown"),
       SEPARATOR,
       command("copy"),
       SEPARATOR,
@@ -116,6 +119,16 @@ export const AUDIO_MENU_SPEC: readonly {
       SEPARATOR,
       command("replaceMedia"),
       command("useIn"),
+    ],
+  },
+  {
+    id: "voice",
+    entries: [
+      command("createEvent"),
+      command("showInBank"),
+      command("showInTree"),
+      SEPARATOR,
+      command("copyForSkin"),
     ],
   },
 ];

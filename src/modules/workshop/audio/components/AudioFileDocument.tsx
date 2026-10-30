@@ -71,6 +71,9 @@ const MEDIA_SURFACES: readonly AudioSurface[] = ["media", "document"];
 /** The commands of a bank's edits, which a file without a hierarchy never takes. */
 const BANK_COMMANDS: readonly AudioCommandId[] = ["save", "undo", "redo"];
 
+/** The commands of the event tree that only its keys run, which the menus leave out. */
+const KEY_ONLY_COMMANDS: readonly AudioCommandId[] = ["moveUp", "moveDown"];
+
 /**
  * A Wwise package, bank or WEM: the menu bar and the view tools in one row, the notices about the
  * file, and the table of its media.
@@ -147,7 +150,7 @@ export function AudioFileDocument({
               <AudioMenubar
                 facts={{
                   surfaces: hierarchy ? BANK_SURFACES : MEDIA_SURFACES,
-                  hidden: hierarchy ? [] : BANK_COMMANDS,
+                  hidden: hierarchy ? KEY_ONLY_COMMANDS : [...BANK_COMMANDS, ...KEY_ONLY_COMMANDS],
                   commands,
                   checked: {
                     viewMedia: shownView === "media",

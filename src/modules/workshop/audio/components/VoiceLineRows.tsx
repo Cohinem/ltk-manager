@@ -1,12 +1,11 @@
 import { PlusIcon, WarningIcon } from "@phosphor-icons/react";
-import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 
-import { Knob, Tooltip } from "@/components";
+import { Badge, Knob, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { Audience, VoiceBank, VoiceRule, VoiceSituation } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { LINE_FIELD_CLASSES } from "../../bin/tree/components/AddLineFrame";
 import {
   conditionText,
   hashLabel,
@@ -14,7 +13,14 @@ import {
   ruleChance,
   textConditions,
 } from "../utils/voiceConditions";
-import { audienceSummary, situationWord, type VoiceLineRow } from "../utils/voiceLines";
+import {
+  audienceSummary,
+  isUnresolved,
+  resolvedTag,
+  situationWord,
+  type VoiceLineRow,
+} from "../utils/voiceLines";
+import { LineEntry } from "./LineEntry";
 
 /** The cells of a rule line that the arrows move between and Enter or F2 opens. */
 export type LineCell = "name" | "chance" | "priority" | "short";
@@ -28,27 +34,46 @@ export function lineCells(row: VoiceLineRow): LineCell[] {
 
   const cells: LineCell[] = [];
   if (row.rule.name !== null) cells.push("name");
+  if (row.rule.audio !== null) cells.push("short");
   if (ruleChance(row.rule) !== null) cells.push("chance");
   cells.push("priority");
-  if (row.rule.audio !== null) cells.push("short");
   return cells;
 }
 
-/** The widths of the columns of a rule line, so every line of the view aligns. */
+/**
+ * The widths of the columns, which the column heads and every rule line share.
+ *
+ * The fixed columns lead and the conditions, the one column of prose, take the rest.
+ */
 const COLUMN = {
-  name: "w-32",
-  when: "w-64",
-  chance: "w-20",
-  priority: "w-12",
-  audience: "w-24",
-  short: "w-40",
+  name: "w-36 shrink-0",
+  line: "w-80 shrink-0",
+  heard: "w-[4.5rem] shrink-0",
+  chance: "w-20 shrink-0",
+  priority: "w-14 shrink-0 justify-end",
+  when: "min-w-24 flex-1",
 } as const;
+
+/** The width of the short name inside the Line column, so the tags of every line align. */
+const SHORT_WIDTH = "w-60 min-w-0 shrink";
+
+/** The caret slot and the play slot of a line, which a rule and the column heads leave empty. */
+export function LeadSlots() {
+  return (
+    <>
+      <span className="w-3 shrink-0" />
+      <span className="w-5 shrink-0" />
+    </>
+  );
+}
 
 /** The classes of a number read out in a line. DS-MONO-SIZE. */
 const NUMBER_CLASSES = "font-mono text-code tabular-nums text-surface-200";
 
 /** The classes of the cell the arrows rest on. */
 const ACTIVE_CELL = "rounded-sm ring-1 ring-accent-500/60";
+
+const AUDIENCES: readonly Audience[] = ["owner", "ally", "enemy", "spectator"];
 
 const AUDIENCE_LABELS: Record<Audience, () => string> = {
   owner: m.audio_event_audience_owner_label,
@@ -57,33 +82,72 @@ const AUDIENCE_LABELS: Record<Audience, () => string> = {
   spectator: m.audio_event_audience_spectator_label,
 };
 
+const AUDIENCE_SHORT_LABELS: Record<Audience, () => string> = {
+  owner: m.audio_voice_audience_owner_short_label,
+  ally: m.audio_voice_audience_ally_short_label,
+  enemy: m.audio_voice_audience_enemy_short_label,
+  spectator: m.audio_voice_audience_spectator_short_label,
+};
+
 /** Returns the label of `audience`. */
 export function audienceLabel(audience: Audience): string {
   return AUDIENCE_LABELS[audience]();
 }
 
-/** The situation's word, its key name where the word differs, the rule count, its settings. */
+/** The heads of the rule columns, drawn once above the list. */
+export function ColumnHeads() {
+  const head = (width: string, label: string) => (
+    <span className={twMerge("flex px-1", width)}>{label}</span>
+  );
+
+  return (
+    <div
+      data-ui="VoiceLinesView:heads"
+      className="flex h-6 items-center gap-2 pr-2 pl-1 text-fine font-medium tracking-wide text-surface-400 uppercase"
+    >
+      <LeadSlots />
+      {head(COLUMN.name, m.audio_voice_column_rule_label())}
+      {head(COLUMN.line, m.audio_voice_column_line_label())}
+      {head(COLUMN.heard, m.audio_voice_column_heard_label())}
+      {head(COLUMN.chance, m.audio_voice_column_chance_label())}
+      {head(COLUMN.priority, m.audio_voice_column_priority_label())}
+      {head(COLUMN.when, m.audio_voice_column_when_label())}
+    </div>
+  );
+}
+
+/**
+ * The situation's word, its key where the word differs, the rule count, and the settings that
+ * differ from the default: random choice, a cooldown and the count of unresolved rules.
+ */
 export function SituationText({ situation }: { situation: VoiceSituation }) {
   const word = situationWord(situation.name);
   const cooldown = situation.cooldown ?? 0;
+  const unresolved = situation.rules.filter(isUnresolved).length;
 
   return (
-    <span className="flex min-w-0 items-baseline gap-2">
+    <span className="flex min-w-0 items-center gap-2">
       <span className="truncate font-medium text-surface-100">
         {word ?? hashLabel(situation.key)}
       </span>
       {situation.name !== null && word !== situation.name && (
-        <span className="shrink-0 text-meta text-surface-400 select-text">{situation.name}</span>
+        <span className="shrink-0 font-mono text-code text-surface-400 select-text">
+          {situation.name}
+        </span>
       )}
       <span className="shrink-0 text-meta text-surface-400">
         {m.audio_voice_rules_label({ count: situation.rules.length })}
       </span>
-      <span className="shrink-0 text-meta text-surface-300">
-        {situation.chooseRandom ? m.audio_voice_random_label() : m.audio_voice_first_valid_label()}
-      </span>
+      {situation.chooseRandom && <Badge>{m.audio_voice_random_label()}</Badge>}
       {cooldown > 0 && (
         <span className="shrink-0 text-meta text-surface-400">
           {m.audio_voice_situation_cooldown_label({ seconds: String(cooldown) })}
+        </span>
+      )}
+      {unresolved > 0 && (
+        <span className="flex shrink-0 items-center gap-1 text-meta text-warning-text">
+          <WarningIcon weight="fill" className="size-3" aria-hidden />
+          {m.audio_voice_unresolved_label({ count: unresolved })}
         </span>
       )}
     </span>
@@ -107,6 +171,8 @@ interface RuleCellsProps {
   /** The cell whose entry is open, or null. */
   readonly entering: LineCell | null;
   readonly onEntering: (cell: LineCell | null) => void;
+  /** The tags of the chosen skin, which name the tag each event resolved through. */
+  readonly tags: readonly string[];
   /** The event banks of the chosen skin, which a warning names. */
   readonly banks: readonly VoiceBank[];
   /** The edits of the line, or null while the document takes none. */
@@ -114,22 +180,27 @@ interface RuleCellsProps {
 }
 
 /**
- * The cells of one rule line: the rule name, the conditions in words, the chance knob, the
- * priority, the audiences, the short name and the event it resolves to.
+ * The cells of one rule line: the rule name, the line it plays with the tag it resolved through,
+ * the audiences that hear it, the chance knob, the priority, and the conditions in words.
  *
- * Each column has one width, so the lines of every situation align. A line that resolves no
- * event draws a warning that names the bank. Per "Voice lines" in docs/ux/CONTEXTUAL_VOICE.md.
+ * The columns share their widths with `ColumnHeads`, so every line aligns under its head. A line
+ * that resolves no event draws a warning that names the bank. Per "Rule lines" in
+ * docs/ux/CONTEXTUAL_VOICE.md.
  */
-export function RuleCells({ row, active, entering, onEntering, banks, edits }: RuleCellsProps) {
+export function RuleCells({
+  row,
+  active,
+  entering,
+  onEntering,
+  tags,
+  banks,
+  edits,
+}: RuleCellsProps) {
   const { rule } = row;
   const close = () => onEntering(null);
   const cell = (name: LineCell, width: string, children: ReactNode) => (
     <span
-      className={twMerge(
-        "flex shrink-0 items-center gap-1.5 px-1",
-        width,
-        active === name && ACTIVE_CELL,
-      )}
+      className={twMerge("flex items-center gap-1.5 px-1", width, active === name && ACTIVE_CELL)}
     >
       {children}
     </span>
@@ -148,7 +219,19 @@ export function RuleCells({ row, active, entering, onEntering, banks, edits }: R
           onClose={close}
         />,
       )}
-      <WhenCell rule={rule} />
+      {cell(
+        "short",
+        COLUMN.line,
+        <PlaysCell
+          rule={rule}
+          tags={tags}
+          banks={banks}
+          entering={entering === "short"}
+          edits={edits}
+          onClose={close}
+        />,
+      )}
+      <HeardCell rule={rule} />
       {cell(
         "chance",
         COLUMN.chance,
@@ -169,17 +252,7 @@ export function RuleCells({ row, active, entering, onEntering, banks, edits }: R
           onClose={close}
         />,
       )}
-      <span
-        className={twMerge("shrink-0 truncate px-1 text-meta text-surface-300", COLUMN.audience)}
-      >
-        {audienceText(audienceSummary(rule.audio).audiences)}
-      </span>
-      {cell(
-        "short",
-        COLUMN.short,
-        <ShortCell rule={rule} entering={entering === "short"} edits={edits} onClose={close} />,
-      )}
-      <EventCell rule={rule} banks={banks} />
+      <WhenCell rule={rule} />
     </>
   );
 }
@@ -222,7 +295,7 @@ function WhenCell({ rule }: { rule: VoiceRule }) {
     rule.relationship !== 0 && when.length > 1 ? m.audio_voice_relationship_one_label() : null;
   const text = when.join(" · ");
   const body = (
-    <span className={twMerge("shrink-0 truncate px-1 text-meta text-surface-300", COLUMN.when)}>
+    <span className={twMerge("truncate px-1 text-meta text-surface-300", COLUMN.when)}>
       {relationship !== null && <span className="text-surface-400">{relationship} </span>}
       {text}
     </span>
@@ -292,7 +365,49 @@ function PriorityCell({ rule, entering, edits, onClose }: CellProps) {
   return <span className={NUMBER_CLASSES}>{rule.priority}</span>;
 }
 
-function ShortCell({ rule, entering, edits, onClose }: CellProps) {
+/** The four audiences in fixed slots: a letter for each audience with a short name, else a dot. */
+function HeardCell({ rule }: { rule: VoiceRule }) {
+  const heard = new Set(audienceSummary(rule.audio).audiences);
+  if (heard.size === 0) return <span className={COLUMN.heard} />;
+
+  const names = AUDIENCES.filter((each) => heard.has(each))
+    .map(audienceLabel)
+    .join(", ");
+  return (
+    <Tooltip content={names}>
+      <span
+        role="img"
+        aria-label={names}
+        className={twMerge("flex items-center px-1 text-fine", COLUMN.heard)}
+      >
+        {AUDIENCES.map((audience) => (
+          <span key={audience} className="flex w-4 justify-center">
+            {heard.has(audience) && (
+              <span className="font-medium text-surface-200">
+                {AUDIENCE_SHORT_LABELS[audience]()}
+              </span>
+            )}
+            {!heard.has(audience) && <span className="size-1 rounded-full bg-surface-600" />}
+          </span>
+        ))}
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
+ * The line a rule plays: the short name it writes, and the tag its event resolved through or a
+ * warning that names the skin's event bank. A rule without an audio action draws its animation or
+ * its chained situation, muted.
+ */
+function PlaysCell({
+  rule,
+  tags,
+  banks,
+  entering,
+  edits,
+  onClose,
+}: CellProps & { tags: readonly string[]; banks: readonly VoiceBank[] }) {
   const summary = audienceSummary(rule.audio);
   const line = summary.line;
   if (entering && edits !== null) {
@@ -305,53 +420,86 @@ function ShortCell({ rule, entering, edits, onClose }: CellProps) {
       />
     );
   }
+  if (line === null) return <OtherAction rule={rule} />;
 
   const others = new Set(rule.audio?.lines.map((each) => each.short).filter(Boolean)).size - 1;
   return (
     <>
-      <span className="truncate text-surface-200 select-text">{line?.short ?? ""}</span>
-      {summary.mixed && others > 0 && (
-        <Tooltip content={m.audio_voice_mixed_names_hint()}>
-          <span className="shrink-0 text-meta text-surface-400">
-            {m.audio_voice_mixed_names_label({ count: String(others) })}
-          </span>
-        </Tooltip>
-      )}
+      <span className={twMerge("flex items-center gap-1", SHORT_WIDTH)}>
+        <span className="truncate text-surface-200 select-text">{line.short}</span>
+        {summary.mixed && others > 0 && (
+          <Tooltip content={m.audio_voice_mixed_names_hint()}>
+            <span className="shrink-0 text-meta text-surface-400">
+              {m.audio_voice_mixed_names_label({ count: String(others) })}
+            </span>
+          </Tooltip>
+        )}
+      </span>
+      {line.event !== null && <ResolvedMark event={line.event.name} tags={tags} />}
+      {line.event === null && <MissingMark banks={banks} />}
     </>
   );
 }
 
-/** The audiences of a line in words: `all` for the four, else each one. */
-function audienceText(audiences: readonly Audience[]): string {
-  if (audiences.length === 4) return m.audio_voice_audience_all_label();
-  return audiences.map(audienceLabel).join(", ");
-}
+/**
+ * The tag that the event `event` resolved through, with the full event name on hover.
+ *
+ * A tag longer than another tag of the skin is the skin's own and takes the accent, so the lines
+ * the skin overrides stand out from the lines it shares with the base.
+ */
+function ResolvedMark({ event, tags }: { event: string; tags: readonly string[] }) {
+  const tag = resolvedTag(event, tags);
+  if (tag === null) return null;
 
-/** The event that the drawn line resolves to, a warning, or what a rule without audio does. */
-function EventCell({ rule, banks }: { rule: VoiceRule; banks: readonly VoiceBank[] }) {
-  const line = audienceSummary(rule.audio).line;
-
-  if (line?.event != null) {
+  const override = tags.some((other) => other.length < tag.length);
+  const name = <span className="font-mono text-code select-text">{event}</span>;
+  if (override) {
     return (
-      <span className="min-w-0 truncate px-1 text-surface-300 select-text">{line.event.name}</span>
-    );
-  }
-  if (line !== null) {
-    const [bank] = banks;
-    const text =
-      bank === undefined
-        ? m.audio_voice_no_bank_label()
-        : m.audio_voice_no_event_label({ bank: lastSegment(bank.path) });
-    return (
-      <Tooltip content={m.audio_voice_no_event_hint()}>
-        <span className="flex min-w-0 items-center gap-1 px-1 text-warning-text">
-          <WarningIcon weight="fill" className="size-3.5 shrink-0" aria-hidden />
-          <span className="truncate">{text}</span>
-        </span>
+      <Tooltip content={name}>
+        <Badge tone="accent" className="shrink-0">
+          {tag}
+        </Badge>
       </Tooltip>
     );
   }
 
+  return (
+    <Tooltip content={name}>
+      <span className="shrink-0 text-fine text-surface-400">{tag}</span>
+    </Tooltip>
+  );
+}
+
+/** The warning of a short name that no event of the skin's banks composes. */
+function MissingMark({ banks }: { banks: readonly VoiceBank[] }) {
+  const [bank] = banks;
+  const text =
+    bank === undefined
+      ? m.audio_voice_no_bank_label()
+      : m.audio_voice_no_event_label({ bank: lastSegment(bank.path) });
+
+  return (
+    <Tooltip
+      content={
+        <span className="flex flex-col gap-0.5">
+          <span>{text}</span>
+          <span className="text-surface-400">{m.audio_voice_no_event_hint()}</span>
+        </span>
+      }
+    >
+      <Badge
+        tone="warning"
+        className="shrink-0"
+        icon={<WarningIcon weight="fill" className="size-2.5" />}
+      >
+        {m.audio_voice_missing_label()}
+      </Badge>
+    </Tooltip>
+  );
+}
+
+/** What a rule without an audio action does: its animation or its chained situation, muted. */
+function OtherAction({ rule }: { rule: VoiceRule }) {
   const muted = rule.animation ?? rule.trigger;
   if (muted === null) return null;
 
@@ -360,14 +508,14 @@ function EventCell({ rule, banks }: { rule: VoiceRule; banks: readonly VoiceBank
     rule.animation !== null
       ? m.audio_voice_animation_label({ name })
       : m.audio_voice_chains_label({ name });
-  return <span className="min-w-0 truncate px-1 text-meta text-surface-400">{text}</span>;
+  return <span className="min-w-0 truncate text-meta text-surface-400">{text}</span>;
 }
 
 /** The add line under a situation's rules, which adds a rule on a press or Enter. */
 export function AddRuleLine({ onAdd }: { onAdd: () => void }) {
   return (
     <span
-      className="flex cursor-pointer items-center gap-1.5 px-1 text-surface-400 hover:text-surface-200"
+      className="flex cursor-pointer items-center gap-1.5 px-1 text-meta text-surface-400 hover:text-surface-200"
       onClick={(event) => {
         event.stopPropagation();
         onAdd();
@@ -376,105 +524,5 @@ export function AddRuleLine({ onAdd }: { onAdd: () => void }) {
       <PlusIcon weight="bold" className="size-3" aria-hidden />
       {m.audio_voice_add_rule_action()}
     </span>
-  );
-}
-
-interface LineEntryProps {
-  readonly label: string;
-  readonly initial: string;
-  /** A whole number or any number, which an empty text clears. Absent for text. */
-  readonly numeric?: "integer" | "number";
-  /** Takes the typed text. A promise that resolves `false` keeps the entry open, marked. */
-  readonly onCommit: (text: string) => Promise<boolean>;
-  readonly onClose: () => void;
-  readonly className?: string;
-}
-
-/** A whole number, and any decimal number, as a numeric entry takes one. */
-const INTEGER = /^-?\d+$/;
-const NUMBER = /^-?\d+(\.\d+)?$/;
-
-/**
- * The text entry of a cell, opened in place of its text, focused with the text selected.
- *
- * Enter and a press outside commit, and Escape closes it unchanged. A numeric entry refuses a text
- * that is not a whole number, and keeps it open marked.
- */
-export function LineEntry({
-  label,
-  initial,
-  numeric,
-  onCommit,
-  onClose,
-  className,
-}: LineEntryProps) {
-  const [text, setText] = useState(initial);
-  const [refused, setRefused] = useState(false);
-  /* The blur that follows an Enter or an Escape must not commit a second time. */
-  const settled = useRef(false);
-
-  function close() {
-    settled.current = true;
-    onClose();
-  }
-
-  function commit() {
-    if (settled.current) return;
-    if (text === initial) {
-      close();
-      return;
-    }
-    const pattern = numeric === "integer" ? INTEGER : NUMBER;
-    if (numeric !== undefined && text.trim() !== "" && !pattern.test(text.trim())) {
-      setRefused(true);
-      return;
-    }
-
-    settled.current = true;
-    void onCommit(text).then((applied) => {
-      if (applied) {
-        onClose();
-        return;
-      }
-      settled.current = false;
-      setRefused(true);
-    });
-  }
-
-  function keyDown(event: KeyboardEvent<HTMLInputElement>) {
-    event.stopPropagation();
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commit();
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-    }
-  }
-
-  return (
-    <input
-      autoFocus
-      data-draft
-      aria-label={label}
-      aria-invalid={refused}
-      value={text}
-      onChange={(event) => {
-        setText(event.target.value);
-        setRefused(false);
-      }}
-      onKeyDown={keyDown}
-      onBlur={commit}
-      onClick={(event) => event.stopPropagation()}
-      onFocus={(event) => event.currentTarget.select()}
-      className={twMerge(
-        LINE_FIELD_CLASSES,
-        "w-full font-sans text-row",
-        numeric !== undefined && "font-mono text-code tabular-nums",
-        refused && "border-danger focus:border-danger",
-        className,
-      )}
-    />
   );
 }

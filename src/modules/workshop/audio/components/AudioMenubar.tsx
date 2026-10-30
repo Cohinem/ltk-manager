@@ -24,6 +24,7 @@ const MENU_TITLES: Readonly<Record<AudioMenuId, () => string>> = {
   view: m.audio_menu_view_label,
   playback: m.audio_menu_playback_label,
   bank: m.audio_menu_bank_label,
+  voice: m.audio_menu_voice_label,
 };
 
 const MENU_CLASSES: Partial<Readonly<Record<AudioMenuId, string>>> = {

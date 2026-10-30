@@ -144,10 +144,12 @@ interface PlayButtonProps {
   readonly playable: boolean;
   readonly playing: boolean;
   readonly onToggle: () => void;
+  /** Rests the glyph at a dim neutral until the pointer is on it. */
+  readonly muted?: boolean;
 }
 
 /** The play button of a row that plays, and an empty slot of its width on any other row. */
-export function PlayButton({ playable, playing, onToggle }: PlayButtonProps) {
+export function PlayButton({ playable, playing, onToggle, muted = false }: PlayButtonProps) {
   const label = playing ? m.audio_event_stop_action() : m.audio_event_play_action();
   const Glyph = playing ? StopIcon : PlayIcon;
 
@@ -160,6 +162,7 @@ export function PlayButton({ playable, playing, onToggle }: PlayButtonProps) {
           icon={<Glyph weight="fill" />}
           label={label}
           pressed={playing}
+          muted={muted}
           onClick={(event) => {
             event.stopPropagation();
             onToggle();

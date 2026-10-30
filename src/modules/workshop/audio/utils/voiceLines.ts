@@ -177,6 +177,45 @@ export function voiceLineRows(
   return rows;
 }
 
+/** One situation of the view: its header row and the rows under it. */
+export interface RowGroup {
+  readonly key: string;
+  readonly rows: readonly { readonly row: VoiceLineRow; readonly index: number }[];
+}
+
+/** Returns `rows` split into one group per situation header, each row with its index in `rows`. */
+export function rowGroups(rows: readonly VoiceLineRow[]): RowGroup[] {
+  const groups: { key: string; rows: { row: VoiceLineRow; index: number }[] }[] = [];
+
+  rows.forEach((row, index) => {
+    const last = groups.at(-1);
+    if (row.kind === "situation" || last === undefined) {
+      groups.push({ key: row.key, rows: [{ row, index }] });
+      return;
+    }
+
+    last.rows.push({ row, index });
+  });
+  return groups;
+}
+
+/**
+ * Returns the tag of `tags` that the composed event name `event` starts with, such as `LuxSkin07`
+ * for `Play_vo_LuxSkin07_Move2DFirst`.
+ *
+ * The longest tag wins, as in `compose_vo_names`. Returns null if no tag composes the name.
+ */
+export function resolvedTag(event: string, tags: readonly string[]): string | null {
+  const name = event.toLowerCase();
+  let best: string | null = null;
+
+  for (const tag of tags) {
+    const prefix = `play_vo_${tag.toLowerCase()}_`;
+    if (name.startsWith(prefix) && tag.length > (best?.length ?? 0)) best = tag;
+  }
+  return best;
+}
+
 /** The situation words of the named keys a modder meets most. "Situation words" in the doc. */
 const SITUATION_WORDS: Readonly<Record<string, () => string>> = {
   moveorder2d: m.audio_voice_situation_move_label,

@@ -20,12 +20,13 @@ import type { ViewContext, WidgetProps } from "../../bin/classes/components/Clas
 import { LeafEditContext } from "../../bin/tree/hooks/useLeafEdit";
 import { rowKey } from "../../bin/tree/utils/binRows";
 import { previewDocument } from "../../documents/utils/contentDocument";
+import { RowCaret } from "../../shared/components/PropertyRowParts";
 import { useOpenDocumentAs } from "../../state";
 import { useCopyForSkin, useVoiceEdit, useVoiceLines, ruleTemplate } from "../api/voiceLines";
 import { useLinePlayer } from "../hooks/useLinePlayer";
 import { useTreePicks } from "../hooks/useTreePicks";
 import { useTypeAhead } from "../hooks/useTypeAhead";
-import { useNudgeVolume, useToggleLoop } from "../state/previewTransport";
+import { useNudgeVolume, usePreviewRepeat, useToggleLoop } from "../state/previewTransport";
 import { beginRowDrag, useRowDrops } from "../state/rowDrag";
 import {
   useBankEventStore,
@@ -34,8 +35,7 @@ import {
   useVoiceSkin,
 } from "../state/voiceLines";
 import { dropAction, type DragPayload, type DropSlot, ruleShortName } from "../utils/dropTargets";
-import { type AudioCommandId, resolveCommand, typesText } from "../utils/keymap";
-import { rowLanes } from "../utils/lanes";
+import { type AudioCommandId, type AudioSurface, resolveCommand, typesText } from "../utils/keymap";
 import { headIndex, movedIndex, pageRows, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import { spellOf, CLASS } from "../utils/voiceConditions";
@@ -54,6 +54,8 @@ import {
 } from "../utils/voiceEdits";
 import {
   audienceSummary,
+  rowGroups,
+  situationKey,
   unresolvedCount,
   voiceLineRows,
   type VoiceLineRow,
@@ -64,36 +66,43 @@ import {
   triggerChoices,
   type TriggerContext,
 } from "../utils/voiceTrigger";
-import { AudioGestureHint, AudioKeysDialog, LINES_SCOPE } from "./AudioKeys";
+import { AudioKeysDialog, LINES_SCOPE } from "./AudioKeys";
+import { AudioMenubar, VolumeReadout } from "./AudioMenubar";
 import { AUDIO_LIST_GROUP } from "./audioRow";
-import { Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
-import { PreviewTransport } from "./PreviewTransport";
+import { PlayButton, RowFrame, rowId } from "./EventRowParts";
 import { RowDragGhost } from "./RowDragGhost";
 import { type InspectorSubject, VoiceLineInspector } from "./VoiceLineInspector";
 import { type LineActions, VoiceLineMenu } from "./VoiceLineMenu";
 import {
   AddRuleLine,
+  ColumnHeads,
+  LeadSlots,
   type LineCell,
   lineCells,
   RuleCells,
   type RuleRow,
   SituationText,
 } from "./VoiceLineRows";
-import { SharedNotice, VoiceLinesHeader } from "./VoiceLinesHeader";
+import { VoiceLinesHeader } from "./VoiceLinesHeader";
 
 /**
  * The Voice lines section of a `ContextualActionData` object: the view of its situations and
  * rules, which edits the object's open document when the tab takes edits.
  */
-export function VoiceLinesSection({ view }: WidgetProps) {
+export function VoiceLinesSection({ section, view }: WidgetProps) {
   const editable = use(LeafEditContext) !== null;
+  const pathRow = section.rows.find((row) => row.name === OBJECT_PATH_FIELD);
+  const path = pathRow?.value.type === "string" ? pathRow.value.value : null;
 
   return (
     <div className="font-sans text-row">
-      <VoiceLinesView view={view} editable={editable} />
+      <VoiceLinesView view={view} editable={editable} path={path} />
     </div>
   );
 }
+
+/** The field that names the object's own path, which the menu row shows. */
+const OBJECT_PATH_FIELD = "mObjectPath";
 
 /** The trigger a situation's play simulates before the reader sets one. */
 const ANY_TRIGGER: TriggerContext = { target: null, spell: null, audience: "owner" };
@@ -104,6 +113,8 @@ const SITUATIONS_PREFIX = 8;
 interface VoiceLinesViewProps {
   readonly view: ViewContext;
   readonly editable: boolean;
+  /** `mObjectPath`, or null if the object does not write it. */
+  readonly path: string | null;
 }
 
 /**
@@ -115,7 +126,7 @@ interface VoiceLinesViewProps {
  * the inspector's fields, Delete, Ctrl+D and the moves together, each as one undo step. Per
  * "Voice lines" in docs/ux/CONTEXTUAL_VOICE.md.
  */
-function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
+function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
   const remembered = useVoiceSkin(view.entry);
   const choose = useChooseVoiceSkin();
   const read = useVoiceLines(view.document, view.entry, remembered);
@@ -128,8 +139,6 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
   const [cellName, setCellName] = useState<LineCell>("short");
   const [entering, setEntering] = useState<string | null>(null);
   const [trigger, setTrigger] = useState<TriggerContext>(ANY_TRIGGER);
-  const [dismissed, setDismissed] = useState(false);
-  const [edited, setEdited] = useState(false);
   const [menuRow, setMenuRow] = useState<VoiceLineRow | null>(null);
   const inspecting = useAudioInspector();
   const setInspecting = useSetAudioInspector();
@@ -139,6 +148,8 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
   const open = useOpenDocumentAs();
   const askBank = useBankEventStore((state) => state.ask);
   const list = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const looping = usePreviewRepeat() === "loop";
 
   const send = useVoiceEdit(view);
   const object = view.objectName(view.entry);
@@ -151,7 +162,7 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
         : voiceLineRows(data.lines, folded, { text: filter, unresolved: onlyUnresolved }, editable),
     [data, folded, filter, onlyUnresolved, editable],
   );
-  const lanes = useMemo(() => rowLanes(rows), [rows]);
+  const groups = useMemo(() => rowGroups(rows), [rows]);
   const ruleRows = useMemo(
     () => new Map(rows.flatMap((row) => (row.kind === "rule" ? [[row.key, row] as const] : []))),
     [rows],
@@ -206,16 +217,12 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
     return picks.picked.has(row.key) && picks.targets.length > 1 ? [...picks.targets] : [row];
   };
 
-  async function editSituations(edits: readonly ValueEdit[]): Promise<boolean> {
-    const applied = await send(situationsEdit(view.entry, edits));
-    if (applied) setEdited(true);
-    return applied;
+  function editSituations(edits: readonly ValueEdit[]): Promise<boolean> {
+    return send(situationsEdit(view.entry, edits));
   }
 
-  async function editObject(edit: BinEdit): Promise<boolean> {
-    const applied = await send(edit);
-    if (applied) setEdited(true);
-    return applied;
+  function editObject(edit: BinEdit): Promise<boolean> {
+    return send(edit);
   }
 
   function lineOf(rule: VoiceRule): AudienceLine | null {
@@ -592,14 +599,14 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
           ? { kind: "rules", rules: [selectedRow.rule] }
           : null;
 
-  function line(row: VoiceLineRow, index: number) {
-    const lane = lanes[index];
+  function line(row: VoiceLineRow) {
     const playing = isPlaying(row, player.playing);
+    const selectedLine = row.key === selected || picks.picked.has(row.key);
     const slot = slotOf(row);
     const frame = {
       row,
       open: row.open,
-      selected: row.key === selected || picks.picked.has(row.key),
+      selected: selectedLine,
       playing,
       drops: slot === null ? undefined : ("row" as const),
       onDragPress:
@@ -618,41 +625,39 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
       onExpand: (next: boolean) => fold(row, next),
       onHover: () => undefined,
     };
-    const lead = (
-      <Lead
-        row={row}
-        blocks={lane?.blocks ?? []}
-        ends={lane?.ends}
-        index={index}
-        open={row.open}
-        expandable={row.expandable}
-        onExpand={frame.onExpand}
-      />
-    );
-
     if (row.kind === "situation") {
       const resolved = row.situation.rules.some(
         (rule) => lineFor(rule, trigger.audience)?.event != null,
       );
       return (
         <RowFrame {...frame}>
-          {lead}
-          <PlayButton
-            playable={resolved}
-            playing={player.playing === `s:${row.situation.path}`}
-            onToggle={() =>
-              player.playing === null ? playSituation(row.situation) : player.stop()
-            }
-          />
+          <span
+            className="flex cursor-pointer"
+            onClick={(event) => {
+              event.stopPropagation();
+              fold(row, !row.open);
+            }}
+          >
+            <RowCaret expandable expanded={row.open} />
+          </span>
           <SituationText situation={row.situation} />
+          <span className="ml-auto flex">
+            <PlayButton
+              playable={resolved}
+              playing={player.playing === `s:${row.situation.path}`}
+              muted
+              onToggle={() =>
+                player.playing === null ? playSituation(row.situation) : player.stop()
+              }
+            />
+          </span>
         </RowFrame>
       );
     }
     if (row.kind === "add") {
       return (
         <RowFrame {...frame}>
-          {lead}
-          <span className="w-5 shrink-0" />
+          <LeadSlots />
           <AddRuleLine onAdd={() => void addRule(row.situation)} />
         </RowFrame>
       );
@@ -669,12 +674,20 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
           editable ? () => setEntering(`${row.key}:${activeCell(row) ?? "short"}`) : undefined
         }
       >
-        {lead}
-        <PlayButton
-          playable={shown?.event != null}
-          playing={playing}
-          onToggle={() => (playing ? player.stop() : playRule(row.rule))}
-        />
+        <span className="w-3 shrink-0" />
+        <span
+          className={twMerge(
+            "flex",
+            !selectedLine && !playing && "opacity-0 group-hover/row:opacity-100",
+          )}
+        >
+          <PlayButton
+            playable={shown?.event != null}
+            playing={playing}
+            muted
+            onToggle={() => (playing ? player.stop() : playRule(row.rule))}
+          />
+        </span>
         <RuleCells
           row={row}
           active={row.key === selected ? activeCell(row) : null}
@@ -683,6 +696,7 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
             setEntering(cell === null ? null : `${row.key}:${cell}`);
             if (cell === null) returnFocus();
           }}
+          tags={skin?.tags ?? []}
           banks={data?.banks ?? []}
           edits={
             editable
@@ -716,10 +730,48 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
     );
   }
 
-  const shared = data.skins.length > 1 && !dismissed && !edited;
+  const situationKeys = data.lines.situations.map(situationKey);
+  const collapsed = situationKeys.length > 0 && situationKeys.every((key) => folded.has(key));
+
+  function rowWithMenu(row: VoiceLineRow) {
+    return (
+      <div
+        key={row.key}
+        onContextMenu={() => {
+          if (!picks.picked.has(row.key)) picks.pick(row.key, "only");
+          setMenuRow(row);
+        }}
+      >
+        {line(row)}
+      </div>
+    );
+  }
+
+  const menuCommands: Partial<Record<AudioCommandId, () => void>> = {
+    ...lineCommands(selectedRow === undefined ? null : actionsOf(selectedRow)),
+    play:
+      selectedRow === undefined || selectedRow.kind === "add"
+        ? undefined
+        : () => togglePlay(selectedRow),
+    playAll:
+      selectedRow === undefined || selectedRow.kind === "add"
+        ? undefined
+        : () => playAll(selectedRow.situation),
+    stop: player.playing === null ? undefined : () => player.stop(),
+    loop: toggleLoop,
+    volumeUp: () => nudgeVolume(1),
+    volumeDown: () => nudgeVolume(-1),
+    selectAll: ruleRows.size === 0 ? undefined : () => picks.pickAll(),
+    toggleInspector: () => setInspecting(!inspecting),
+    expandAll: folded.size === 0 ? undefined : () => setFolded(new Set()),
+    collapseAll: collapsed ? undefined : () => setFolded(new Set(situationKeys)),
+    help: () => setHelp(true),
+    copyForSkin: editable && skin !== null ? () => void copyForSkin(skin) : undefined,
+  };
 
   return (
     <div
+      ref={root}
       data-ui="VoiceLinesView"
       className="flex flex-col rounded-md border border-surface-700/50 bg-surface-900"
       onKeyDown={handleViewKeyDown}
@@ -736,23 +788,28 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
         trigger={trigger}
         onTrigger={setTrigger}
         choices={choices}
-        inspecting={inspecting}
-        onInspecting={setInspecting}
-        tools={
-          <>
-            <PreviewTransport />
-            <AudioGestureHint onOpen={() => setHelp(true)} />
-          </>
+        path={path}
+        menubar={
+          <AudioMenubar
+            facts={{
+              surfaces: LINES_SURFACES,
+              hidden: [],
+              commands: menuCommands,
+              checked: { toggleInspector: inspecting, loop: looping },
+              reasons: selectedRow === undefined ? selectRowReasons() : {},
+            }}
+            slots={{ volume: <VolumeReadout /> }}
+            titles={{
+              add: m.audio_voice_add_rule_action(),
+              playAll: m.audio_voice_play_all_action(),
+              copy: m.audio_voice_copy_short_action(),
+              remove: m.audio_voice_delete_action(),
+            }}
+            keyScope={root}
+            experimental={false}
+          />
         }
       />
-      {shared && (
-        <SharedNotice
-          count={data.skins.length}
-          skin={editable ? skin : null}
-          onCopy={(target) => void copyForSkin(target)}
-          onDismiss={() => setDismissed(true)}
-        />
-      )}
       <div className="flex min-w-0 items-start">
         <ContextMenu.Root>
           <ContextMenu.Trigger
@@ -770,25 +827,31 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
             data-ui="VoiceLinesView:list"
             className={twMerge(
               AUDIO_LIST_GROUP,
-              "min-w-0 flex-1 overflow-x-auto py-1 scrollbar-md select-none focus-visible:outline-none",
+              "min-w-0 flex-1 overflow-x-clip pb-1 select-none focus-visible:outline-none",
             )}
           >
+            <div className={twMerge(STICKY_GROUND, "top-0 z-10 border-b border-surface-700/50")}>
+              <ColumnHeads />
+            </div>
             {rows.length === 0 && (
               <p className="px-3 py-2 text-meta text-surface-400">{m.audio_voice_empty()}</p>
             )}
-            <div className="flex min-w-max flex-col">
-              {rows.map((row, index) => (
+            {groups.map((group, at) => {
+              const [head, ...rest] = group.rows;
+              return (
                 <div
-                  key={row.key}
-                  onContextMenu={() => {
-                    if (!picks.picked.has(row.key)) picks.pick(row.key, "only");
-                    setMenuRow(row);
-                  }}
+                  key={group.key}
+                  className={twMerge("flex flex-col", at > 0 && "border-t border-surface-700/40")}
                 >
-                  {line(row, index)}
+                  {head !== undefined && (
+                    <div className={twMerge(STICKY_GROUND, "top-[calc(1.5rem+1px)] z-[5]")}>
+                      <div className="bg-surface-veil-soft">{rowWithMenu(head.row)}</div>
+                    </div>
+                  )}
+                  {rest.map((each) => rowWithMenu(each.row))}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </ContextMenu.Trigger>
           {menuRow !== null && (
             <ContextMenu.Content>
@@ -797,7 +860,7 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
           )}
         </ContextMenu.Root>
         {inspecting && (
-          <div className="sticky top-8 self-start">
+          <div className="sticky top-0 self-start">
             <VoiceLineInspector
               subject={subject}
               document={view.document}
@@ -814,6 +877,12 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
     </div>
   );
 }
+
+/**
+ * The ground of the column heads and the situation headers, opaque since the rules scroll under
+ * them. A situation header sticks below the heads, whose 1.5rem row and 1px rule it clears.
+ */
+const STICKY_GROUND = "sticky bg-surface-900";
 
 /** The height of a line in px at 100% zoom, which a page of the list counts. */
 const LINE_HEIGHT = 27;
@@ -833,6 +902,46 @@ function isPlaying(row: VoiceLineRow, playing: string | null): boolean {
   if (row.kind === "situation") return playing === `s:${row.situation.path}`;
   if (row.kind === "rule") return playing.startsWith(`${row.rule.path}:`);
   return false;
+}
+
+/** The surface of the view, whose commands the menu bar lists. */
+const LINES_SURFACES: readonly AudioSurface[] = ["lines"];
+
+/** The commands of the selected line that wait for a selection, each with the reason. */
+function selectRowReasons(): Partial<Record<AudioCommandId, string>> {
+  const reason = m.audio_menu_select_row_reason();
+  const ids: AudioCommandId[] = [
+    "play",
+    "playAll",
+    "add",
+    "duplicate",
+    "remove",
+    "moveUp",
+    "moveDown",
+    "copy",
+    "createEvent",
+    "showInBank",
+    "showInTree",
+  ];
+
+  return Object.fromEntries(ids.map((id) => [id, reason]));
+}
+
+/** Returns the menu commands of the line whose menu runs `actions`, or none without a line. */
+function lineCommands(actions: LineActions | null): Partial<Record<AudioCommandId, () => void>> {
+  if (actions === null) return {};
+
+  return {
+    add: actions.add ?? undefined,
+    duplicate: actions.duplicate ?? undefined,
+    remove: actions.remove ?? undefined,
+    moveUp: actions.moveUp ?? undefined,
+    moveDown: actions.moveDown ?? undefined,
+    copy: actions.copyShort ?? undefined,
+    createEvent: actions.createEvent ?? undefined,
+    showInBank: actions.showInBank ?? undefined,
+    showInTree: actions.showInTree ?? undefined,
+  };
 }
 
 /** Returns `rules` grouped by their situation, in the order of their first rule. */

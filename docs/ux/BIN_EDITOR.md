@@ -1246,6 +1246,10 @@ does not name falls into a last section, Other, drawn as the field rows of those
 among them opening in place. So a field the game adds in a patch is on screen the day the schema
 changes, and a layout is a placement rather than a whitelist.
 
+A headless layout draws its sections without headers or folds, for a layout whose one widget is
+the whole view, such as Voice lines. Its Other draws as field rows when it holds a field, and
+draws nothing when it is empty.
+
 A layout can also list the fields that the object does not author. The particle system's layout
 does this, because a system file authors only a few of its fields. Each of those fields draws at
 its schema default in the section of field rows that names it, or in Other, and an edit adds it to

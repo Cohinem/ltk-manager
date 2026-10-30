@@ -76,6 +76,10 @@ hierarchy lists no Insert or Bank items of the event tree, and no Save, Undo or 
 | View     | Media and Events as a choice, Inspector as a switch. Expand all, Collapse all. Focus filter, Keys and gestures        |
 | Playback | Play or stop, Play event, Stop all. Loop as a switch. Volume up, Volume down, and the preview volume                  |
 | Bank     | The bank units, per "Bank units", and Find references. Replace media from file..., Use in...                          |
+| Voice    | Only in the Voice lines view, per docs/ux/CONTEXTUAL_VOICE.md                                                         |
+
+Edit lists Move up and Move down only in the Voice lines view, because the event tree moves a
+row by its keys alone.
 
 A disabled item shows its reason under its words where the reader cannot see it: a command of the
 event tree in the Media view reads "Applies in the Events view", an edit of a bank that takes no

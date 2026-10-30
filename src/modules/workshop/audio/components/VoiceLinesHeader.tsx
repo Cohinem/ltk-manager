@@ -1,21 +1,10 @@
-import { CopySimpleIcon, SidebarSimpleIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import {
-  AlertBox,
-  Badge,
-  Button,
-  IconButton,
-  SearchField,
-  Select,
-  TogglePill,
-  Tooltip,
-} from "@/components";
+import { Badge, Code, Inline, SearchField, Select, TogglePill, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { Audience, VoiceLinesResponse, VoiceSkin } from "@/lib/tauri";
 
-import { KeyHint } from "../../bin/atlas/components/KeyHint";
-import { shortcutOf } from "../utils/keymap";
 import { skinLabel } from "../utils/voiceLines";
 import type { TriggerContext } from "../utils/voiceTrigger";
 import { TextControl } from "./VoiceFieldRows";
@@ -25,6 +14,8 @@ import { audienceLabel } from "./VoiceLineRows";
 const ANY = "";
 
 const AUDIENCES: readonly Audience[] = ["owner", "ally", "enemy", "spectator"];
+
+const LABEL_CLASSES = "shrink-0 text-meta text-surface-400";
 
 interface VoiceLinesHeaderProps {
   readonly data: VoiceLinesResponse;
@@ -40,17 +31,20 @@ interface VoiceLinesHeaderProps {
   readonly onTrigger: (trigger: TriggerContext) => void;
   /** The spells and champions that the conditions name, which the trigger pickers list. */
   readonly choices: { readonly spells: readonly string[]; readonly targets: readonly string[] };
-  readonly inspecting: boolean;
-  readonly onInspecting: (open: boolean) => void;
-  /** The preview transport and the mark of the keys and gestures, before the inspector switch. */
-  readonly tools?: ReactNode;
+  /** `mObjectPath`, which ends the first row, or null if the object does not write it. */
+  readonly path: string | null;
+  /** The menu bar of the view, which leads the first row. */
+  readonly menubar: ReactNode;
 }
 
 /**
- * The toolbar of the Voice lines view: the skin the names resolve as with its tags, the shared
- * cooldown, the Inferred chip, the filter, and the trigger a situation's play simulates.
+ * The toolbar of the Voice lines view, in two rows.
  *
- * "Inferred" is drawn here once, not on each line. Per "Header" in docs/ux/CONTEXTUAL_VOICE.md.
+ * The first row holds the menu bar, the filter, the unresolved count and the object's path. The
+ * second holds the
+ * skin the names resolve as with its tags and the Inferred chip, the shared cooldown, and the
+ * trigger that a situation's play simulates. "Inferred" is drawn here once, not on each line. Per
+ * "Header" in docs/ux/CONTEXTUAL_VOICE.md.
  */
 export function VoiceLinesHeader({
   data,
@@ -64,88 +58,17 @@ export function VoiceLinesHeader({
   trigger,
   onTrigger,
   choices,
-  inspecting,
-  onInspecting,
-  tools,
+  path,
+  menubar,
 }: VoiceLinesHeaderProps) {
   const skin = data.skins.find((each) => each.bin === data.skin) ?? null;
   const pick = (value: string | null) => (value === null || value === ANY ? null : value);
 
   return (
-    <div
-      data-ui="VoiceLinesHeader"
-      className="flex flex-col gap-1 border-b border-surface-700/50 px-2 py-1.5 select-none"
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {data.skins.length > 0 && (
-          <Select.Root value={data.skin} onValueChange={(bin) => bin !== null && onSkin(bin)}>
-            <Select.Trigger
-              aria-label={m.audio_voice_skin_picker_label()}
-              size="sm"
-              className="w-44"
-            />
-            <Select.Content>
-              {data.skins.map((each) => (
-                <Select.Item key={`${each.bin}:${each.row.objectHash}`} value={each.bin}>
-                  {skinLabel(each.bin)}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-        )}
-        {data.skins.length === 0 && (
-          <span className="flex items-center gap-1 text-meta text-warning-text">
-            <WarningIcon weight="fill" className="size-3.5" aria-hidden />
-            {m.audio_voice_no_skin_label()}
-          </span>
-        )}
-        {skin !== null && skin.tags.length > 0 && (
-          <span className="shrink-0 text-meta text-surface-400 select-text">
-            {m.audio_voice_tags_label({ tags: skin.tags.join(", ") })}
-          </span>
-        )}
-        <span className="flex shrink-0 items-center gap-1 text-meta text-surface-400">
-          {m.audio_voice_field_shared_cooldown_label()}
-          <TextControl
-            kind="number"
-            label={m.audio_voice_field_shared_cooldown_label()}
-            value={data.lines.cooldown ?? 0}
-            onEdit={onCooldown === null ? null : (value) => onCooldown(Number(value ?? 0))}
-          />
-          {m.audio_edit_unit_seconds()}
-        </span>
-        <Tooltip content={m.audio_voice_inferred_hint()}>
-          <Badge size="sm" dashed>
-            {m.audio_voice_inferred_label()}
-          </Badge>
-        </Tooltip>
-        <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          {unresolved > 0 && (
-            <TogglePill
-              size="xs"
-              label={m.audio_voice_unresolved_label({ count: unresolved })}
-              active={onlyUnresolved}
-              onClick={() => onOnlyUnresolved(!onlyUnresolved)}
-            />
-          )}
-          {tools}
-          <IconButton
-            icon={<SidebarSimpleIcon weight="bold" mirrored />}
-            label={m.audio_inspector_toggle_action()}
-            aria-keyshortcuts={shortcutOf("toggleInspector") ?? undefined}
-            tooltip={
-              <KeyHint
-                label={m.audio_inspector_toggle_action()}
-                shortcut={shortcutOf("toggleInspector") ?? ""}
-              />
-            }
-            pressed={inspecting}
-            onClick={() => onInspecting(!inspecting)}
-          />
-        </span>
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <span className="w-56">
+    <div data-ui="VoiceLinesHeader" className="flex flex-col border-b border-surface-700/50">
+      <div className="flex min-w-0 items-center gap-2 border-b border-surface-700/40 py-1 pr-2 pl-1 select-none">
+        {menubar}
+        <span className="flex w-56 min-w-32 shrink items-center">
           <SearchField
             value={filter}
             onChange={onFilter}
@@ -153,36 +76,123 @@ export function VoiceLinesHeader({
             clearLabel={m.audio_filter_clear_label()}
           />
         </span>
-        <TriggerPicker
-          label={m.audio_voice_trigger_target_label()}
-          value={trigger.target}
-          options={choices.targets}
-          onChange={(value) => onTrigger({ ...trigger, target: pick(value) })}
-        />
-        <TriggerPicker
-          label={m.audio_voice_trigger_spell_label()}
-          value={trigger.spell}
-          options={choices.spells}
-          onChange={(value) => onTrigger({ ...trigger, spell: pick(value) })}
-        />
-        <Select.Root
-          value={trigger.audience}
-          onValueChange={(value) => {
-            const audience = AUDIENCES.find((each) => each === value);
-            if (audience !== undefined) onTrigger({ ...trigger, audience });
-          }}
-        >
-          <Select.Trigger aria-label={m.audio_voice_audience_label()} size="sm" className="w-32" />
-          <Select.Content>
-            {AUDIENCES.map((audience) => (
-              <Select.Item key={audience} value={audience}>
-                {audienceLabel(audience)}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
+        {unresolved > 0 && (
+          <TogglePill
+            size="xs"
+            label={m.audio_voice_unresolved_label({ count: unresolved })}
+            active={onlyUnresolved}
+            onClick={() => onOnlyUnresolved(!onlyUnresolved)}
+          />
+        )}
+        <span className="ml-auto flex min-w-0 items-center gap-2">
+          {data.skins.length > 1 && <SharedMark count={data.skins.length} />}
+          {path !== null && (
+            <Code className="min-w-0 truncate text-surface-400 select-text">{path}</Code>
+          )}
+        </span>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-2 py-1.5 select-none">
+        <SkinPicker data={data} skin={skin} onSkin={onSkin} />
+        <span className="h-4 w-px shrink-0 bg-surface-700" aria-hidden />
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span className={LABEL_CLASSES}>{m.audio_voice_field_shared_cooldown_label()}</span>
+          <TextControl
+            kind="number"
+            label={m.audio_voice_field_shared_cooldown_label()}
+            value={data.lines.cooldown ?? 0}
+            onEdit={onCooldown === null ? null : (value) => onCooldown(Number(value ?? 0))}
+          />
+          <span className={LABEL_CLASSES}>{m.audio_edit_unit_seconds()}</span>
+        </span>
+        <span className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+          <Tooltip content={m.audio_voice_simulate_hint()}>
+            <span className={LABEL_CLASSES}>{m.audio_voice_simulate_label()}</span>
+          </Tooltip>
+          <Select.Root
+            value={trigger.audience}
+            onValueChange={(value) => {
+              const audience = AUDIENCES.find((each) => each === value);
+              if (audience !== undefined) onTrigger({ ...trigger, audience });
+            }}
+          >
+            <Select.Trigger aria-label={m.audio_voice_audience_label()} size="sm" className="w-28">
+              <Select.Value>{(value: Audience) => audienceLabel(value)}</Select.Value>
+              <Select.Icon />
+            </Select.Trigger>
+            <Select.Content>
+              {AUDIENCES.map((audience) => (
+                <Select.Item key={audience} value={audience}>
+                  {audienceLabel(audience)}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+          <TriggerPicker
+            label={m.audio_voice_trigger_target_label()}
+            value={trigger.target}
+            options={choices.targets}
+            onChange={(value) => onTrigger({ ...trigger, target: pick(value) })}
+          />
+          <TriggerPicker
+            label={m.audio_voice_trigger_spell_label()}
+            value={trigger.spell}
+            options={choices.spells}
+            onChange={(value) => onTrigger({ ...trigger, spell: pick(value) })}
+          />
+        </span>
       </div>
     </div>
+  );
+}
+
+interface SkinPickerProps {
+  readonly data: VoiceLinesResponse;
+  readonly skin: VoiceSkin | null;
+  readonly onSkin: (bin: string) => void;
+}
+
+/** The skin that the names resolve as, its tags, and the one Inferred chip. */
+function SkinPicker({ data, skin, onSkin }: SkinPickerProps) {
+  if (data.skins.length === 0) {
+    return (
+      <span className="flex items-center gap-1 text-meta text-warning-text">
+        <WarningIcon weight="fill" className="size-3.5" aria-hidden />
+        {m.audio_voice_no_skin_label()}
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className={LABEL_CLASSES}>{m.audio_voice_resolve_as_label()}</span>
+      <Select.Root value={data.skin} onValueChange={(bin) => bin !== null && onSkin(bin)}>
+        <Select.Trigger aria-label={m.audio_voice_skin_picker_label()} size="sm" className="w-32">
+          <Select.Value>
+            {(bin: string | null) => (bin === null ? "" : skinLabel(bin))}
+          </Select.Value>
+          <Select.Icon />
+        </Select.Trigger>
+        <Select.Content>
+          {data.skins.map((each) => (
+            <Select.Item key={`${each.bin}:${each.row.objectHash}`} value={each.bin}>
+              {skinLabel(each.bin)}
+            </Select.Item>
+          ))}
+        </Select.Content>
+      </Select.Root>
+      {skin !== null && skin.tags.length > 0 && (
+        <Inline gap={1}>
+          {skin.tags.map((tag) => (
+            <Code key={tag} className="select-text">
+              {tag}
+            </Code>
+          ))}
+        </Inline>
+      )}
+      <Tooltip content={m.audio_voice_inferred_hint()}>
+        <Badge dashed>{m.audio_voice_inferred_label()}</Badge>
+      </Tooltip>
+    </span>
   );
 }
 
@@ -198,10 +208,17 @@ function TriggerPicker({ label, value, options, onChange }: TriggerPickerProps) 
   if (options.length === 0) return null;
 
   return (
-    <span className="flex shrink-0 items-center gap-1.5 text-meta text-surface-400">
-      {label}
+    <span className="flex shrink-0 items-center gap-1.5">
+      <span className={LABEL_CLASSES}>{label}</span>
       <Select.Root value={value ?? ANY} onValueChange={onChange}>
-        <Select.Trigger aria-label={label} size="sm" className="w-40" />
+        <Select.Trigger aria-label={label} size="sm" className="w-36">
+          <Select.Value>
+            {(current: string | null) =>
+              current === null || current === ANY ? m.audio_voice_trigger_any_label() : current
+            }
+          </Select.Value>
+          <Select.Icon />
+        </Select.Trigger>
         <Select.Content>
           <Select.Item value={ANY}>{m.audio_voice_trigger_any_label()}</Select.Item>
           {options.map((option) => (
@@ -215,35 +232,13 @@ function TriggerPicker({ label, value, options, onChange }: TriggerPickerProps) 
   );
 }
 
-interface SharedNoticeProps {
-  readonly count: number;
-  readonly skin: VoiceSkin | null;
-  readonly onCopy: (skin: VoiceSkin) => void;
-  readonly onDismiss: () => void;
-}
-
-/** The notice of an object that several skins link, with the copy for the chosen skin. */
-export function SharedNotice({ count, skin, onCopy, onDismiss }: SharedNoticeProps) {
+/** The mark of an object that several skins link, whose hover states what an edit changes. */
+function SharedMark({ count }: { count: number }) {
   return (
-    <div data-ui="VoiceLinesHeader:shared" className="shrink-0 px-2 pt-1.5">
-      <AlertBox
-        tone="warning"
-        onDismiss={onDismiss}
-        actions={
-          skin !== null && (
-            <Button
-              variant="outline"
-              size="xs"
-              left={<CopySimpleIcon weight="bold" />}
-              onClick={() => onCopy(skin)}
-            >
-              {m.audio_voice_copy_for_skin_action()}
-            </Button>
-          )
-        }
-      >
-        {m.audio_voice_shared_notice({ count })}
-      </AlertBox>
-    </div>
+    <Tooltip content={m.audio_voice_shared_notice({ count })}>
+      <Badge tone="warning" icon={<WarningIcon weight="fill" className="size-2.5" />}>
+        {m.audio_voice_shared_label({ count })}
+      </Badge>
+    </Tooltip>
   );
 }

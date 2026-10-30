@@ -17,7 +17,7 @@ import {
   type VoiceFieldSection,
   type VoiceFieldTopic,
 } from "../utils/voiceFieldTopics";
-import { LineEntry } from "./VoiceLineRows";
+import { LineEntry } from "./LineEntry";
 
 export const SECTION_TITLE: Record<VoiceFieldSection, () => string> = {
   rule: m.audio_voice_section_rule_label,
@@ -154,7 +154,16 @@ export function TopicControl({ kind, label, value, onEdit }: TopicControlProps) 
         disabled={onEdit === null}
         onValueChange={(next) => void onEdit?.(next === "all" ? 0 : 1)}
       >
-        <Select.Trigger aria-label={label} size="sm" className="w-36" />
+        <Select.Trigger aria-label={label} size="sm" className="w-36">
+          <Select.Value>
+            {(current: string | null) =>
+              current === "one"
+                ? m.audio_voice_relationship_one_label()
+                : m.audio_voice_relationship_all_label()
+            }
+          </Select.Value>
+          <Select.Icon />
+        </Select.Trigger>
         <Select.Content>
           <Select.Item value="all">{m.audio_voice_relationship_all_label()}</Select.Item>
           <Select.Item value="one">{m.audio_voice_relationship_one_label()}</Select.Item>

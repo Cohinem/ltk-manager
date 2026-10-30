@@ -1,19 +1,23 @@
 import {
   ArrowCounterClockwiseIcon,
+  ArrowDownIcon,
   ArrowsInLineVerticalIcon,
   ArrowsOutLineVerticalIcon,
   ArrowUUpLeftIcon,
+  ArrowUpIcon,
   ArrowUUpRightIcon,
   BracketsSquareIcon,
   ClipboardTextIcon,
   CopySimpleIcon,
   FileArrowUpIcon,
+  FilesIcon,
   FloppyDiskIcon,
   GitForkIcon,
   HashIcon,
   type Icon,
   InfoIcon,
   KeyboardIcon,
+  ListBulletsIcon,
   ListNumbersIcon,
   MagnifyingGlassIcon,
   PencilSimpleIcon,
@@ -22,6 +26,7 @@ import {
   PlugsConnectedIcon,
   PlusCircleIcon,
   PlusIcon,
+  PlusSquareIcon,
   RepeatIcon,
   ScissorsIcon,
   SelectionAllIcon,
@@ -32,20 +37,19 @@ import {
   StopIcon,
   SwapIcon,
   TrashIcon,
+  TreeStructureIcon,
   WaveformIcon,
 } from "@phosphor-icons/react";
 
-import { Dialog, Grid, IconButton, Kbd, Stack } from "@/components";
+import { Dialog, Grid, Kbd, Stack } from "@/components";
 import { m } from "@/i18n";
 
-import { KeyHint } from "../../bin/atlas/components/KeyHint";
 import {
   type AudioCommandGroup,
   type AudioCommandId,
   type AudioSurface,
   chordLabel,
   sheetGroups,
-  shortcutOf,
 } from "../utils/keymap";
 
 /** The words of each command, which the sheet and the palette show. */
@@ -107,6 +111,10 @@ export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
   importWem: m.audio_key_import_wem_label,
   expandAll: m.audio_key_expand_all_label,
   collapseAll: m.audio_key_collapse_all_label,
+  createEvent: m.audio_key_create_event_label,
+  showInBank: m.audio_key_show_in_bank_label,
+  showInTree: m.audio_key_show_in_tree_label,
+  copyForSkin: m.audio_key_copy_for_skin_label,
 };
 
 /** The short words of a command in a menu. A command without them shows its sheet words. */
@@ -146,6 +154,12 @@ const COMMAND_TITLES: Partial<Readonly<Record<AudioCommandId, () => string>>> = 
   replaceMedia: m.audio_replace_action,
   useIn: m.audio_event_use_action,
   details: m.audio_details_file_action,
+  moveUp: m.audio_voice_move_up_action,
+  moveDown: m.audio_voice_move_down_action,
+  createEvent: m.audio_voice_create_event_action,
+  showInBank: m.audio_voice_show_in_bank_action,
+  showInTree: m.audio_voice_show_in_tree_action,
+  copyForSkin: m.audio_voice_copy_for_skin_action,
 };
 
 /** Returns the words of `id` in a menu. */
@@ -188,6 +202,12 @@ export const COMMAND_ICONS: Partial<Readonly<Record<AudioCommandId, Icon>>> = {
   volumeDown: SpeakerLowIcon,
   replaceMedia: SwapIcon,
   useIn: PlugsConnectedIcon,
+  moveUp: ArrowUpIcon,
+  moveDown: ArrowDownIcon,
+  createEvent: PlusSquareIcon,
+  showInBank: ListBulletsIcon,
+  showInTree: TreeStructureIcon,
+  copyForSkin: FilesIcon,
 };
 
 const GROUP_TITLES: Readonly<Record<AudioCommandGroup, () => string>> = {
@@ -254,28 +274,5 @@ function KeyRow({ label, keys }: { label: string; keys: readonly string[] }) {
         ))}
       </span>
     </>
-  );
-}
-
-/**
- * The pointer gestures of the lists behind a mark in the toolbar, as `GestureHint` puts the
- * gestures of the curve plot. A press opens the full sheet.
- */
-export function AudioGestureHint({ onOpen }: { onOpen: () => void }) {
-  const help = shortcutOf("help");
-
-  return (
-    <IconButton
-      icon={<KeyboardIcon weight="bold" />}
-      aria-label={m.audio_key_help_label()}
-      aria-keyshortcuts={help ?? undefined}
-      tooltip={
-        <Stack as="span" gap={1}>
-          <span>{m.audio_keys_gesture_hint()}</span>
-          {help !== null && <KeyHint label={m.audio_key_help_label()} shortcut={help} />}
-        </Stack>
-      }
-      onClick={onOpen}
-    />
   );
 }
