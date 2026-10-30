@@ -3,9 +3,9 @@ use crate::services::shared::Workshop;
 use crate::state::SettingsState;
 use crate::workshop::{
     AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, DeclarationsLayer,
-    FantomePeekResult, FolderInspection, IgnoreRules, LayerWatches, OpenedProjectFolder,
-    PackProjectArgs, PackResult, ProjectEdit, ProjectSource, ProjectText, ProjectTextFile,
-    Revision, ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState,
+    FantomePeekResult, FolderInspection, IgnoreRules, LayerWatches, ManifestConversions,
+    OpenedProjectFolder, PackProjectArgs, PackResult, ProjectEdit, ProjectSource, ProjectText,
+    ProjectTextFile, Revision, ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState,
     RECOMMENDED_IGNORE_RULES,
 };
 use chrono::Local;
@@ -121,6 +121,20 @@ pub fn open_project_folder(path: String, workshop: Workshop) -> IpcResult<Worksh
 #[specta::specta]
 pub fn record_project_opened(path: String, workshop: State<WorkshopState>) -> IpcResult<()> {
     workshop.0.record_opened(&path).into()
+}
+
+/// Convert the JSON and TOML game data of the project at `project_path` to YAML.
+#[tauri::command]
+#[specta::specta]
+pub fn convert_project_manifests(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ManifestConversions> {
+    workshop
+        .0
+        .project(&project_path)
+        .map(|project| project.convert_manifests())
+        .into()
 }
 
 /// Watch the layers of `project_path` for files saved from outside the app.

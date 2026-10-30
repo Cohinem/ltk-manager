@@ -319,6 +319,7 @@ services! {
         inspect_project_folder,
         open_project_folder,
         record_project_opened,
+        convert_project_manifests,
         get_opened_project_folders,
         forget_project_folder,
         relocate_project_folder,

@@ -45,6 +45,74 @@ fn png_bytes() -> Vec<u8> {
     out.into_inner()
 }
 
+/// An archive whose `base` layer carries declarations, as `files` plus `info` for `META/info.json`.
+fn make_declaring_fantome_zip(path: &Path, info: &str, files: &[(&str, &str)]) {
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(info.as_bytes()).unwrap();
+
+    for (name, text) in files {
+        zip.start_file(*name, options).unwrap();
+        zip.write_all(text.as_bytes()).unwrap();
+    }
+
+    zip.finish().unwrap();
+}
+
+#[test]
+fn import_from_fantome_writes_editable_yaml_for_a_manifest_entry() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (workshop, config) = make_workshop(tmp.path());
+    let archive = tmp.path().join("mod.fantome");
+    make_declaring_fantome_zip(
+        &archive,
+        r#"{"Name":"M","Author":"A","Version":"1.0.0","Description":"d","Layers":{"base":{"Name":"base","Priority":0}}}"#,
+        &[(
+            "META/game_data/base/game_data.yaml",
+            "version: 1\nmodules:\n  - entries:\n      Characters/Aatrox:\n        mass: 1.5\n",
+        )],
+    );
+
+    let project = import(&workshop, &config, &archive, "imported");
+
+    let layer = project.join("content").join("base");
+    assert!(layer.join("game_data.yaml").exists());
+    assert!(!layer.join("game_data.json").exists());
+    assert!(
+        ProjectDir::open(project.display().to_string())
+            .unwrap()
+            .declarations_manifest("base")
+            .is_ok()
+    );
+}
+
+#[test]
+fn import_from_fantome_writes_editable_yaml_for_info_json_game_data() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (workshop, config) = make_workshop(tmp.path());
+    let archive = tmp.path().join("mod.fantome");
+    make_declaring_fantome_zip(
+        &archive,
+        r#"{"Name":"M","Author":"A","Version":"1.0.0","Description":"d","Layers":{"base":{"Name":"base","Priority":0,"GameData":{"version":1,"modules":[{"entries":{"Characters/Aatrox":{"mass":1.5}},"origin":{"manifest":"game_data.yaml","source":null,"module":0}}]}}}}"#,
+        &[],
+    );
+
+    let project = import(&workshop, &config, &archive, "imported");
+
+    let layer = project.join("content").join("base");
+    assert!(layer.join("game_data.yaml").exists());
+    assert!(!layer.join("game_data.json").exists());
+    assert!(
+        ProjectDir::open(project.display().to_string())
+            .unwrap()
+            .declarations_manifest("base")
+            .is_ok()
+    );
+}
+
 /// An archive spelling `wad/` in lower case, with a license and a
 /// thumbnail under `META/`.
 fn make_lowercase_fantome_zip(path: &Path) {

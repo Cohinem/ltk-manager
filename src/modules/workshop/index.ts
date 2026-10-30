@@ -1,6 +1,7 @@
 export * from "./api";
 export * from "./bin";
 export * from "./components";
+export { useConvertManifests } from "./declarations";
 export * from "./documents";
 export * from "./folders";
 export * from "./gameBrowser";

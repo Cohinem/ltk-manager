@@ -3997,6 +3997,22 @@ export type LinkChange =
 /**  A `-links` item of a dependency of the game's list the applied one lacks. */
 "removed";
 
+/**  A layer whose declaration files could not be converted to YAML. */
+export type ManifestConversionFailure = {
+	/**  The name of the layer. */
+	layer: string,
+	/**  The conversion error, with the file it is about. */
+	message: string,
+};
+
+/**  The layers that [`ProjectDir::convert_manifests`] converted and the ones it could not. */
+export type ManifestConversions = {
+	/**  The names of the layers whose files were converted. */
+	converted: string[],
+	/**  The layers that keep their JSON or TOML files. */
+	failed: ManifestConversionFailure[],
+};
+
 /**  The world rectangle on X and Z that a map-wide texture covers, in engine units. */
 export type MapBounds = {
 	min: [(number | null), (number | null)],
