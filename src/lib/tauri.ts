@@ -283,9 +283,13 @@ export const api = {
   audioBankClose: audio.audioBankClose,
   audioBankEdit: audio.audioBankEdit,
   audioBankImport: audio.audioBankImport,
+  audioBankReplacePreview: audio.audioBankReplacePreview,
+  audioBankReplace: audio.audioBankReplace,
+  audioBankUseEvent: audio.audioBankUseEvent,
   audioBankStep: audio.audioBankStep,
   audioBankSave: audio.audioBankSave,
   audioBankNodes: audio.audioBankNodes,
+  audioSoundTargets: audio.audioSoundTargets,
 
   // Ritobin
   detectRitobinIntegration: preview.detectRitobinIntegration,

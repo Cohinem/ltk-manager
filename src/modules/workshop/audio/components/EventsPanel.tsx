@@ -1,4 +1,5 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
@@ -9,6 +10,7 @@ import {
   SearchField,
   SegmentedControl,
   Stack,
+  useConfirm,
 } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
@@ -21,6 +23,7 @@ import {
   type AudioEventsResponse,
   type BankEdit,
   type ContainerKind,
+  type MediaReplacement,
   type NodeParent,
   type ObjectProperties,
 } from "@/lib/tauri";
@@ -47,6 +50,12 @@ import {
   type TreeState,
 } from "../utils/eventTree";
 import {
+  asksBeforeReplace,
+  type FormatChange,
+  formatChanges,
+  REPLACE_EXTENSIONS,
+} from "../utils/mediaReplace";
+import {
   deleteEdit,
   duplicateEdit,
   type NodeTarget,
@@ -71,6 +80,7 @@ import { isPlayable } from "./EventRowParts";
 import { EventTree } from "./EventTree";
 import { NewEventEntry, type Naming } from "./NewEventEntry";
 import { NoticeBand } from "./NoticeBand";
+import { SoundTargetPicker } from "./SoundTargetPicker";
 import { VoiceList } from "./VoiceList";
 import { EventWaveform } from "./Waveform";
 import { EventRowThumbnail, VoiceRowThumbnail } from "./WaveformThumbnail";
@@ -107,6 +117,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [naming, setNaming] = useState<Naming | null>(null);
+  const [using, setUsing] = useState<AudioEvent | null>(null);
+  const confirm = useConfirm();
   const [view, setView] = useState<EventsView>("voices");
   const voices = view === "voices";
 
@@ -347,7 +359,33 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
             },
       remove: removal === null ? null : () => void editing.edit(removal),
       copy: copyPicks,
+      rename:
+        copiedEvent === undefined
+          ? null
+          : (event) => setNaming({ copyOf: null, renames: event.id, initial: eventLabel(event) }),
+      assignTo: copiedEvent === undefined ? null : setUsing,
+      replace: only?.kind === "sound" ? (source) => void replaceMedia(source) : null,
     };
+  }
+
+  /**
+   * Replaces the media `source` with a file the reader picks, after a confirm if several sounds
+   * share the media or its format changes. Per "Replacing media" in docs/ux/AUDIO.md.
+   */
+  async function replaceMedia(source: number) {
+    const file = await open({
+      multiple: false,
+      directory: false,
+      title: m.audio_replace_file_title(),
+      filters: [{ name: m.audio_replace_file_filter_label(), extensions: [...REPLACE_EXTENSIONS] }],
+    });
+    if (typeof file !== "string") return;
+
+    const replacement = await bank.previewReplace(source, file);
+    if (replacement === null) return;
+    if (asksBeforeReplace(replacement) && !(await confirm(replaceQuestion(replacement)))) return;
+
+    await bank.replaceMedia(source, file);
   }
 
   const actions = nodeActions();
@@ -388,17 +426,27 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
       }
       create={
         editing !== null && (
-          <NewEventEntry
-            naming={naming}
-            onNaming={setNaming}
-            onCommit={(name, copyOf) =>
-              editing.edit(
-                copyOf === null
-                  ? { kind: "newEvent", name }
-                  : { kind: "copyEvent", event: copyOf, name },
-              )
-            }
-          />
+          <>
+            {using !== null && using.name !== null && (
+              <SoundTargetPicker
+                revision={editing.revision}
+                name={using.name}
+                onPick={(target) => {
+                  const name = using.name;
+                  setUsing(null);
+                  if (name !== null) void bank.assignEvent(target, name);
+                }}
+                onClose={() => setUsing(null)}
+              />
+            )}
+            {using === null && (
+              <NewEventEntry
+                naming={naming}
+                onNaming={setNaming}
+                onCommit={(name, entry) => editing.edit(namingEdit(name, entry))}
+              />
+            )}
+          </>
         )
       }
     />
@@ -656,4 +704,49 @@ function SetNotices({ response }: { response: AudioEventsResponse }) {
       )}
     </NoticeBand>
   );
+}
+
+/** Returns the edit that the name entry commits: a new event, a copy or a rename. */
+function namingEdit(name: string, naming: Naming): BankEdit {
+  if (naming.renames != null) return { kind: "renameEvent", event: naming.renames, name };
+  if (naming.copyOf !== null) return { kind: "copyEvent", event: naming.copyOf, name };
+  return { kind: "newEvent", name };
+}
+
+const FORMAT_CHANGE_LABELS: Record<FormatChange, () => string> = {
+  codec: m.audio_replace_change_codec_label,
+  channels: m.audio_replace_change_channels_label,
+  rate: m.audio_replace_change_rate_label,
+};
+
+/** The confirm of a replacement whose media several sounds share or whose format changes. */
+function replaceQuestion(replacement: MediaReplacement) {
+  const changes = formatChanges(replacement);
+  const elsewhere = replacement.sounds.filter((sound) => !sound.opened).length;
+
+  return {
+    title: m.audio_replace_confirm_title(),
+    heading: m.audio_replace_confirm_heading({ count: replacement.sounds.length }),
+    description: (
+      <Stack as="span" gap={1} align="start">
+        {changes.length > 0 && (
+          <span>
+            {m.audio_replace_confirm_format_description({
+              changes: changes.map((change) => FORMAT_CHANGE_LABELS[change]()).join(", "),
+            })}
+          </span>
+        )}
+        {elsewhere > 0 && (
+          <span>{m.audio_replace_confirm_elsewhere_description({ count: elsewhere })}</span>
+        )}
+        <span className="flex flex-wrap gap-1 select-text">
+          {replacement.sounds.map((sound) => (
+            <Code key={sound.id}>{m.audio_replace_sound_label({ id: String(sound.id) })}</Code>
+          ))}
+        </span>
+      </Stack>
+    ),
+    confirmLabel: m.audio_replace_confirm_action(),
+    tone: "warning" as const,
+  };
 }

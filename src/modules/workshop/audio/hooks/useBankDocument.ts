@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useToast } from "@/components";
@@ -7,7 +8,9 @@ import {
   type AssetRef,
   type AudioBankState,
   type BankEdit,
+  type MediaReplacement,
   type NodeParent,
+  type SoundTarget,
 } from "@/lib/tauri";
 import { type HistoryStep, useDocumentHistory, useDocumentSave } from "@/modules/editor";
 
@@ -32,6 +35,21 @@ export interface BankDocument {
    * after a toast, if it was refused.
    */
   readonly importWem: (parent: NodeParent, file: string) => Promise<boolean>;
+  /**
+   * Reads what replacing the media `source` with the file at `file` writes. Resolves null, after
+   * a toast, if the file or the media takes no replacement.
+   */
+  readonly previewReplace: (source: number, file: string) => Promise<MediaReplacement | null>;
+  /**
+   * Replaces the media `source` with the file at `file`, as one undo step. Resolves false, after
+   * a toast, if it was refused.
+   */
+  readonly replaceMedia: (source: number, file: string) => Promise<boolean>;
+  /**
+   * Sets the sound field `target` of a project bin to the event `name`, as one undo step.
+   * Resolves false, after a toast, if it was refused.
+   */
+  readonly assignEvent: (target: SoundTarget, name: string) => Promise<boolean>;
   /** Steps the history back or forward. Resolves false if it took no step. */
   readonly step: (step: HistoryStep) => Promise<boolean>;
   /** Writes the unsaved edits. Rejects, after a toast, if the save fails. */
@@ -59,6 +77,7 @@ export function useBankDocument(
   const [state, setState] = useState<AudioBankState | null>(null);
   const [history, setHistory] = useState<HistoryDepth>(NO_HISTORY);
   const toast = useToast();
+  const queryClient = useQueryClient();
   const latest = useRef(state);
   latest.current = state;
 
@@ -106,9 +125,10 @@ export function useBankDocument(
       }
       setState(result.value);
       setHistory(afterEdit);
+      void invalidateBinReads(queryClient);
       return true;
     },
-    [toast],
+    [queryClient, toast],
   );
 
   const importWem = useCallback(
@@ -126,6 +146,63 @@ export function useBankDocument(
       return true;
     },
     [toast],
+  );
+
+  const previewReplace = useCallback(
+    async (source: number, file: string) => {
+      const current = latest.current;
+      if (current === null) return null;
+
+      const result = await api.audioBankReplacePreview(current.id, source, file);
+      if (!result.ok) {
+        toast.error(m.audio_replace_failed_title(), errorSummary(result.error));
+        return null;
+      }
+      return result.value;
+    },
+    [toast],
+  );
+
+  const replaceMedia = useCallback(
+    async (source: number, file: string) => {
+      const current = latest.current;
+      if (current === null) return false;
+
+      const result = await api.audioBankReplace(current.id, source, file);
+      if (!result.ok) {
+        toast.error(m.audio_replace_failed_title(), errorSummary(result.error));
+        return false;
+      }
+      setState(result.value);
+      setHistory(afterEdit);
+      return true;
+    },
+    [toast],
+  );
+
+  const assignEvent = useCallback(
+    async (target: SoundTarget, name: string) => {
+      const current = latest.current;
+      if (current === null || target.row.asset === null) return false;
+
+      const result = await api.audioBankUseEvent(
+        current.id,
+        target.row.asset,
+        target.row.objectHash,
+        target.holder,
+        target.field,
+        name,
+      );
+      if (!result.ok) {
+        toast.error(m.audio_use_failed_title(), errorSummary(result.error));
+        return false;
+      }
+      setState(result.value);
+      setHistory(afterEdit);
+      void invalidateBinReads(queryClient);
+      return true;
+    },
+    [queryClient, toast],
   );
 
   const step = useCallback(
@@ -146,9 +223,10 @@ export function useBankDocument(
       if (result.value === null) return false;
 
       setState(result.value);
+      void invalidateBinReads(queryClient);
       return true;
     },
-    [toast],
+    [queryClient, toast],
   );
 
   const replaceDocument = useWorkshopEditorStore((store) => store.replaceDocument);
@@ -192,5 +270,29 @@ export function useBankDocument(
   useDocumentHistory(tab, stepFromKeys, state?.editable === true);
 
   const revision = state === null ? null : { id: state.id, revision: state.revision };
-  return { state, revision, edit, importWem, step, save, history };
+  return {
+    state,
+    revision,
+    edit,
+    importWem,
+    previewReplace,
+    replaceMedia,
+    assignEvent,
+    step,
+    save,
+    history,
+  };
+}
+
+/**
+ * Marks the reads of every open bin document stale, so a bin tab draws the unit and sound fields
+ * that an edit of the bank changed in the same tree.
+ */
+function invalidateBinReads(queryClient: ReturnType<typeof useQueryClient>) {
+  return queryClient.invalidateQueries({
+    predicate: (query) => {
+      const [head] = query.queryKey;
+      return typeof head === "string" && head.startsWith("bin-");
+    },
+  });
 }

@@ -12,6 +12,7 @@ import {
   type MediaRow,
   type ResolvedSounds,
   type SandboxRef,
+  type SoundTarget,
 } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
@@ -53,6 +54,8 @@ export const audioKeys = {
   ) => [...audioKeys.events(sandbox, asset, version, document), event] as const,
   nodes: (document: BankRevision) =>
     [...audioKeys.all, "nodes", document.id, document.revision] as const,
+  soundTargets: (document: BankRevision) =>
+    [...audioKeys.all, "sound-targets", document.id, document.revision] as const,
   references: () => [...audioKeys.all, "references"] as const,
   referencesOf: (sandbox: SandboxRef, asset: AssetRef, version: number) =>
     [...audioKeys.references(), sandboxKey(sandbox), assetKey(asset), version] as const,
@@ -109,6 +112,15 @@ export const audioQueries = {
     queryOptions<BankNode[], AppError>({
       queryKey: audioKeys.nodes(document),
       queryFn: queryFnWithArgs(api.audioBankNodes, document.id),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /* The sound fields of the project's bins that "Use in" sets. Keyed on the revision, so a
+     field that an edit set shows its new value. */
+  soundTargets: (document: BankRevision) =>
+    queryOptions<SoundTarget[], AppError>({
+      queryKey: audioKeys.soundTargets(document),
+      queryFn: queryFnWithArgs(api.audioSoundTargets, document.id),
       staleTime: Infinity,
       retry: false,
     }),

@@ -107,10 +107,12 @@
   "audio_event_play_action": "Play",
   "audio_event_play_failed_label": "Cannot be played",
   "audio_event_playing_label": "Playing",
+  "audio_event_rename_action": "Rename",
   "audio_event_show_in_unit_action": "Show in bank unit",
   "audio_event_show_media_action": "Show media",
   "audio_event_show_rule_action": "Show contextual rule",
   "audio_event_stop_action": "Stop",
+  "audio_event_use_action": "Use in...",
   "audio_events_alone_description": "No bank unit names this bank, so its media is read from the bank alone.",
   "audio_events_empty": "This bank contains no events",
   "audio_events_failed_empty": "The events cannot be read",
@@ -122,6 +124,7 @@
   "audio_events_new_action": "New event",
   "audio_events_new_label": "Name of the new event",
   "audio_events_new_placeholder": "Event name, such as Play_sfx_Mod_Cast",
+  "audio_events_rename_label": "Event name",
   "audio_events_siblings_description": "No bank unit names this bank, so its media is read from the _audio bank and package beside it.",
   "audio_events_total_label": [
     {
@@ -196,6 +199,37 @@
   "audio_playing_label": "Playing {source}",
   "audio_read_failure_title": "The file cannot be read",
   "audio_rejection_title": "The client rejects this bank",
+  "audio_replace_action": "Replace media from file...",
+  "audio_replace_change_channels_label": "channel count",
+  "audio_replace_change_codec_label": "codec",
+  "audio_replace_change_rate_label": "sample rate",
+  "audio_replace_confirm_action": "Replace",
+  "audio_replace_confirm_elsewhere_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} sound is in another bank of the set and keeps its fields.",
+        "countPlural=other": "{count} sounds are in another bank of the set and keep their fields."
+      }
+    }
+  ],
+  "audio_replace_confirm_format_description": "The new media changes the {changes}.",
+  "audio_replace_confirm_heading": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} sound plays this media",
+        "countPlural=other": "{count} sounds play this media"
+      }
+    }
+  ],
+  "audio_replace_confirm_title": "Replace media",
+  "audio_replace_failed_title": "Media not replaced",
+  "audio_replace_file_filter_label": "WEM or audio file",
+  "audio_replace_file_title": "Replace media from a file",
+  "audio_replace_sound_label": "#{id}",
   "audio_save_decoded_action": "Save as .{extension}",
   "audio_save_original_action": "Save as .wem",
   "audio_selection_count_label": [
@@ -252,6 +286,12 @@
   "audio_units_voice_over_name_label": "{name} · Voice-over",
   "audio_unplayable_hint": "No decoder for this codec",
   "audio_unreadable_hint": "The media cannot be read: {reason}",
+  "audio_use_current_label": "{bin} - plays {name}",
+  "audio_use_empty": "No clip event, VFX system or emitter audio in the project matches",
+  "audio_use_failed_title": "Event not set",
+  "audio_use_label": "Field to play {name}",
+  "audio_use_loading_empty": "Reading the project's bins",
+  "audio_use_placeholder": "Clip, VFX system or emitter",
   "audio_viewport_sound_hint": "Plays an approximation of the game's mix, without buses, RTPCs, attenuation or 3D position.",
   "audio_viewport_sound_label": "Sound",
   "audio_viewport_unresolved_hint": "Sound events that resolve to no event: {count}",

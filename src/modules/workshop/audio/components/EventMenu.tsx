@@ -6,7 +6,10 @@ import {
   GitForkIcon,
   HashIcon,
   ListNumbersIcon,
+  PencilSimpleIcon,
+  PlugsConnectedIcon,
   PlusIcon,
+  SwapIcon,
   ShuffleIcon,
   TrashIcon,
   WaveformIcon,
@@ -39,6 +42,12 @@ export interface NodeActions {
   readonly wrap: ((container: ContainerKind) => void) | null;
   readonly remove: (() => void) | null;
   readonly copy: () => void;
+  /** Opens the name entry of the picked event, to rename it. */
+  readonly rename: ((event: AudioEvent) => void) | null;
+  /** Opens the picker of the sound field that the picked event is set in. */
+  readonly assignTo: ((event: AudioEvent) => void) | null;
+  /** Replaces the media that the picked sound plays with a file. */
+  readonly replace: ((source: number) => void) | null;
 }
 
 const WRAPS: readonly {
@@ -72,7 +81,14 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
   const project = useOptionalProjectContext();
   const media = row.kind === "node" && row.node.kind === "sound" ? row.node.media : null;
   const event = row.kind === "event";
-  const creates = actions !== null && (actions.add !== null || actions.duplicate !== null);
+  const named = row.kind === "event" && row.event.name !== null ? row.event : null;
+  const source = row.kind === "node" && row.node.kind === "sound" ? row.node.source : null;
+  const rename = row.kind === "event" ? actions?.rename : null;
+  const assignTo = named === null ? null : actions?.assignTo;
+  const replace = source === null ? null : actions?.replace;
+  const creates =
+    actions !== null &&
+    (actions.add !== null || actions.duplicate !== null || rename != null || assignTo != null);
   const copyLabel =
     count > 1
       ? m.audio_node_copy_many_action({ count })
@@ -102,6 +118,26 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
             </ContextMenu.Item>
           )}
           {actions.wrap !== null && <WrapItems wrap={actions.wrap} />}
+          {rename != null && row.kind === "event" && (
+            <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => rename(row.event)}>
+              {m.audio_event_rename_action()}
+            </ContextMenu.Item>
+          )}
+          {assignTo != null && named !== null && (
+            <ContextMenu.Item icon={<PlugsConnectedIcon />} onClick={() => assignTo(named)}>
+              {m.audio_event_use_action()}
+            </ContextMenu.Item>
+          )}
+        </ContextMenu.Group>
+      )}
+      {replace != null && source !== null && (
+        <ContextMenu.Group>
+          <ContextMenu.GroupLabel>
+            <ExperimentalChip />
+          </ContextMenu.GroupLabel>
+          <ContextMenu.Item icon={<SwapIcon />} onClick={() => replace(source)}>
+            {m.audio_replace_action()}
+          </ContextMenu.Item>
         </ContextMenu.Group>
       )}
       {actions?.remove != null && (

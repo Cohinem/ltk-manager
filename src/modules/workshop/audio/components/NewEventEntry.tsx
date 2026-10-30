@@ -7,10 +7,12 @@ import { twMerge } from "@/utils";
 
 import { LINE_FIELD_CLASSES } from "../../bin/tree/components/AddLineFrame";
 
-/** The name entry of a new event: blank, or the name of a copy of the event `copyOf`. */
+/** The name entry of an event: blank, the name of a copy of `copyOf`, or a rename of `renames`. */
 export interface Naming {
   /** The event that the new event copies, or null for an event with no action. */
   readonly copyOf: number | null;
+  /** The event that the name renames, or null for a new event. */
+  readonly renames?: number | null;
   readonly initial: string;
 }
 
@@ -19,7 +21,7 @@ interface NewEventEntryProps {
   readonly naming: Naming | null;
   readonly onNaming: (naming: Naming | null) => void;
   /** Creates the event. Resolves false if the backend refused the name. */
-  readonly onCommit: (name: string, copyOf: number | null) => Promise<boolean>;
+  readonly onCommit: (name: string, naming: Naming) => Promise<boolean>;
 }
 
 /**
@@ -27,7 +29,7 @@ interface NewEventEntryProps {
  *
  * Enter creates the event, whose ID is the hash of the name, and Escape or a press outside drops
  * the entry. A refused name keeps the entry open with the text. Duplicate on an event opens the
- * same entry, prefilled. Per "New objects" in docs/ux/AUDIO.md.
+ * same entry, prefilled, and so does Rename. Per "New objects" in docs/ux/AUDIO.md.
  */
 export function NewEventEntry({ naming, onNaming, onCommit }: NewEventEntryProps) {
   if (naming === null) {
@@ -48,7 +50,7 @@ export function NewEventEntry({ naming, onNaming, onCommit }: NewEventEntryProps
 
   return (
     <NameField
-      key={`${naming.copyOf ?? "new"}:${naming.initial}`}
+      key={`${naming.copyOf ?? "new"}:${naming.renames ?? ""}:${naming.initial}`}
       naming={naming}
       onClose={() => onNaming(null)}
       onCommit={onCommit}
@@ -59,7 +61,7 @@ export function NewEventEntry({ naming, onNaming, onCommit }: NewEventEntryProps
 interface NameFieldProps {
   readonly naming: Naming;
   readonly onClose: () => void;
-  readonly onCommit: (name: string, copyOf: number | null) => Promise<boolean>;
+  readonly onCommit: (name: string, naming: Naming) => Promise<boolean>;
 }
 
 function NameField({ naming, onClose, onCommit }: NameFieldProps) {
@@ -73,7 +75,7 @@ function NameField({ naming, onClose, onCommit }: NameFieldProps) {
       return;
     }
 
-    void onCommit(name, naming.copyOf).then((created) => {
+    void onCommit(name, naming).then((created) => {
       if (created) onClose();
       else setRefused(true);
     });
@@ -94,7 +96,9 @@ function NameField({ naming, onClose, onCommit }: NameFieldProps) {
     <input
       autoFocus
       data-draft
-      aria-label={m.audio_events_new_label()}
+      aria-label={
+        naming.renames == null ? m.audio_events_new_label() : m.audio_events_rename_label()
+      }
       aria-invalid={refused}
       placeholder={m.audio_events_new_placeholder()}
       value={text}
