@@ -39,6 +39,7 @@ export * from "./HoverCard";
 export * from "./icons";
 export * from "./InputDefaultContext";
 export * from "./Kbd";
+export * from "./Knob";
 export * from "./Layout";
 export * from "./ListEditor";
 export * from "./LoadingState";
