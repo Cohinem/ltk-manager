@@ -2,6 +2,7 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "audio_add_action": "Add",
   "audio_add_container_action": "Container",
+  "audio_add_experimental_hint": "Experimental. New objects are not confirmed in a match yet.",
   "audio_add_file_action": "From file…",
   "audio_add_file_filter_label": "Wwise media",
   "audio_add_file_title": "Import a WEM file",

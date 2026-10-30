@@ -11,7 +11,7 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
-import { Button, ExperimentalChip, Menu } from "@/components";
+import { Button, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { ContainerKind, MediaLocation, NodeParent, SetFile } from "@/lib/tauri";
 
@@ -50,7 +50,7 @@ const CONTAINERS: readonly {
 
 /**
  * The add row at the end of an event's actions or a container's children: `+ Add` and its typed
- * menu.
+ * menu. The tooltip of the press marks the actions as experimental.
  *
  * New sound opens the media picker over the bank set, From file imports a `.wem`, Container adds
  * an empty container of a kind, and Existing opens the node picker. Under an event each of them
@@ -132,20 +132,22 @@ export function AddNodeLine({
           if (!next) onLeave();
         }}
       >
-        <Menu.Trigger
-          render={
-            <Button
-              variant="ghost"
-              size="xs"
-              tabIndex={-1}
-              left={<PlusIcon weight="bold" />}
-              className="h-5 px-1 text-row font-normal text-surface-300"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {m.audio_add_action()}
-            </Button>
-          }
-        />
+        <Tooltip content={m.audio_add_experimental_hint()} side="right">
+          <Menu.Trigger
+            render={
+              <Button
+                variant="ghost"
+                size="xs"
+                tabIndex={-1}
+                left={<PlusIcon weight="bold" />}
+                className="h-5 px-1 text-row font-normal text-surface-300"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {m.audio_add_action()}
+              </Button>
+            }
+          />
+        </Tooltip>
         <Menu.Content align="start">
           <Menu.Item icon={<WaveformIcon />} onClick={() => pick("media")}>
             {m.audio_add_sound_action()}
@@ -180,7 +182,6 @@ export function AddNodeLine({
           </Menu.Item>
         </Menu.Content>
       </Menu.Root>
-      <ExperimentalChip />
     </span>
   );
 }

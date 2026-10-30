@@ -72,7 +72,8 @@ interface EventMenuProps {
 
 /**
  * The context menu of one row of either view: the edits of the picked rows, the copies, Show
- * media on a sound whose media is found, and the rows of an event's sites.
+ * media on a sound whose media is found, and the rows of an event's sites. The experimental
+ * actions share one group under one Experimental chip.
  *
  * Every item carries its icon, and the key that does the same in the tree. Per "Row actions" and
  * "Selection" in docs/ux/AUDIO.md.
@@ -98,7 +99,7 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
 
   return (
     <>
-      {actions !== null && creates && (
+      {actions !== null && (creates || replace != null) && (
         <ContextMenu.Group>
           <ContextMenu.GroupLabel>
             <ExperimentalChip />
@@ -128,16 +129,11 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
               {m.audio_event_use_action()}
             </ContextMenu.Item>
           )}
-        </ContextMenu.Group>
-      )}
-      {replace != null && source !== null && (
-        <ContextMenu.Group>
-          <ContextMenu.GroupLabel>
-            <ExperimentalChip />
-          </ContextMenu.GroupLabel>
-          <ContextMenu.Item icon={<SwapIcon />} onClick={() => replace(source)}>
-            {m.audio_replace_action()}
-          </ContextMenu.Item>
+          {replace != null && source !== null && (
+            <ContextMenu.Item icon={<SwapIcon />} onClick={() => replace(source)}>
+              {m.audio_replace_action()}
+            </ContextMenu.Item>
+          )}
         </ContextMenu.Group>
       )}
       {actions?.remove != null && (

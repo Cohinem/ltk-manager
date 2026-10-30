@@ -648,8 +648,10 @@ name, kind or ID as the text is typed. Enter adds the highlighted one and Escape
 
 ### New objects
 
-New objects are experimental until the in-game checks of #954 confirm them in a match. Every
-action of this section carries the Experimental chip. An edit of an existing value carries none.
+New objects are experimental until the in-game checks of #954 confirm them in a match. Toolbar
+`+ New event` carries the Experimental chip, and the context menu holds these actions in one group
+under one chip. An add row reads a plain `+ Add`, and its tooltip says that the actions are
+experimental. An edit of an existing value carries no mark.
 
 An event ends in an add row, and so does the `children` row of a random, sequence or switch
 container and of an actor-mixer. A layer container has no add row, because its layers name the
