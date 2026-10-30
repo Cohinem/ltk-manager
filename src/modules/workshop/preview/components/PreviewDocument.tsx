@@ -1,12 +1,14 @@
-import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
+import { DownloadSimpleIcon, FloppyDiskIcon, StackPlusIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { Button, Tooltip } from "@/components";
+import { Button, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import type { WorkshopFileKind } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
 /* The leaves rather than the barrels, which pull the documents that circle back
    into this file. */
+import { AudioFileDocument } from "../../audio/components/AudioFileDocument";
 import { BinDocument } from "../../bin/documents/components/BinDocument";
 import { MapFileDocument } from "../../bin/map/components/MapFileDocument";
 import { mapPathOfFile } from "../../bin/map/utils/mapFile";
@@ -15,6 +17,7 @@ import { useExtractActions } from "../../gameBrowser/extraction/hooks/useExtract
 import { chunkTarget } from "../../gameBrowser/extraction/utils/extractTargets";
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
 import { useAssetInfo } from "../api/useAssetInfo";
+import { useSaveCopy } from "../hooks/useSaveCopy";
 import { webViewerOf } from "../utils/viewer";
 import { isPropertyBin } from "./BinPreview";
 import { FontPreview } from "./FontPreview";
@@ -39,6 +42,7 @@ export function PreviewDocument({
   const sniffed = info.data?.kind === "unsupported" && isPropertyBin(info.data.fileKind);
 
   const bin = isPropertyBin(named) || sniffed;
+  const audio = AUDIO_KINDS.has(named) || info.data?.kind === "audio";
   const objects = (actions: ReactNode) => (
     <BinDocument
       documentId={document.id}
@@ -67,6 +71,18 @@ export function PreviewDocument({
 
   if (bin) return objects(<PreviewActions document={document} />);
 
+  if (audio) {
+    return (
+      <AudioFileDocument
+        asset={document.asset}
+        name={document.title}
+        documentId={document.id}
+        active={active}
+        fileActions={<PreviewMenuItems document={document} />}
+      />
+    );
+  }
+
   return (
     <>
       <DocumentToolbar active={active}>
@@ -76,6 +92,13 @@ export function PreviewDocument({
     </>
   );
 }
+
+/** The file kinds that the audio file document opens. */
+const AUDIO_KINDS: ReadonlySet<WorkshopFileKind> = new Set([
+  "wwise_bank",
+  "wwise_package",
+  "wwise_media",
+]);
 
 interface AssetViewerProps {
   documentId: string;
@@ -150,6 +173,44 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
         </Tooltip>
       )}
       <SaveCopyAction asset={document.asset} name={name} />
+    </>
+  );
+}
+
+/** The ways out of `PreviewActions`, as the items of a document's own kebab. */
+function PreviewMenuItems({ document }: Pick<PreviewProps, "document">) {
+  const { run, lastFolder, layerLabel, busy } = useExtractActions();
+  const target = chunkTarget(document.asset, document.path);
+  const name = document.title;
+  const saveCopy = useSaveCopy(document.asset, name);
+
+  return (
+    <>
+      {target && layerLabel && (
+        <Menu.Item
+          icon={<StackPlusIcon className="size-4" />}
+          disabled={busy}
+          onClick={() => run("copy", [target], name)}
+        >
+          {m.workshop_preview_copy_into_action({ layer: layerLabel })}
+        </Menu.Item>
+      )}
+      {target && lastFolder && (
+        <Menu.Item
+          icon={<DownloadSimpleIcon className="size-4" />}
+          disabled={busy}
+          onClick={() => run("quick", [target], name)}
+        >
+          {m.workshop_preview_extract_to_label({ folder: lastFolder })}
+        </Menu.Item>
+      )}
+      <Menu.Item
+        icon={<FloppyDiskIcon className="size-4" />}
+        disabled={saveCopy.pending}
+        onClick={() => void saveCopy.run()}
+      >
+        {m.workshop_preview_save_copy_action()}
+      </Menu.Item>
     </>
   );
 }

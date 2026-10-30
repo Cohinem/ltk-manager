@@ -1,0 +1,285 @@
+import {
+  ArrowCounterClockwiseIcon,
+  ArrowDownIcon,
+  ArrowsInLineVerticalIcon,
+  ArrowsOutLineVerticalIcon,
+  ArrowUUpLeftIcon,
+  ArrowUpIcon,
+  ArrowUUpRightIcon,
+  BracketsSquareIcon,
+  ClipboardTextIcon,
+  CopySimpleIcon,
+  FileArrowUpIcon,
+  FilesIcon,
+  FloppyDiskIcon,
+  GitForkIcon,
+  HashIcon,
+  type Icon,
+  InfoIcon,
+  KeyboardIcon,
+  ListBulletsIcon,
+  ListNumbersIcon,
+  MagnifyingGlassIcon,
+  MinusCircleIcon,
+  PercentIcon,
+  PencilSimpleIcon,
+  PlayCircleIcon,
+  PlayIcon,
+  PlusCircleIcon,
+  PlusIcon,
+  PlusSquareIcon,
+  RepeatIcon,
+  ScissorsIcon,
+  SelectionAllIcon,
+  ShuffleIcon,
+  SidebarSimpleIcon,
+  SpeakerHighIcon,
+  SpeakerLowIcon,
+  StopIcon,
+  SwapIcon,
+  TrashIcon,
+  TreeStructureIcon,
+  WaveformIcon,
+} from "@phosphor-icons/react";
+
+import { Dialog, Grid, Kbd, Stack } from "@/components";
+import { m } from "@/i18n";
+
+import {
+  type AudioCommandGroup,
+  type AudioCommandId,
+  type AudioSurface,
+  chordLabel,
+  sheetGroups,
+} from "../utils/keymap";
+
+/** The words of each command, which the sheet and the palette show. */
+export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
+  play: m.audio_key_play_label,
+  playAll: m.audio_key_play_all_label,
+  stop: m.audio_key_stop_label,
+  loop: m.audio_key_loop_label,
+  volumeDown: m.audio_key_volume_down_label,
+  volumeUp: m.audio_key_volume_up_label,
+  moveRow: m.audio_key_move_row_label,
+  movePage: m.audio_key_move_page_label,
+  moveEnd: m.audio_key_move_end_label,
+  extendRange: m.audio_key_extend_range_label,
+  selectAll: m.audio_key_select_all_label,
+  stepRight: m.audio_key_step_right_label,
+  stepLeft: m.audio_key_step_left_label,
+  nextEvent: m.audio_key_next_event_label,
+  previousEvent: m.audio_key_previous_event_label,
+  typeAhead: m.audio_key_type_ahead_label,
+  find: m.audio_key_find_label,
+  menu: m.audio_key_menu_label,
+  viewMedia: m.audio_key_view_media_label,
+  viewEvents: m.audio_key_view_events_label,
+  toggleInspector: m.audio_key_toggle_inspector_label,
+  help: m.audio_key_help_label,
+  enter: m.audio_key_enter_label,
+  reset: m.audio_key_reset_label,
+  add: m.audio_key_add_label,
+  duplicate: m.audio_key_duplicate_label,
+  remove: m.audio_key_remove_label,
+  moveUp: m.audio_key_move_up_label,
+  moveDown: m.audio_key_move_down_label,
+  wrap: m.audio_key_wrap_label,
+  copy: m.audio_key_copy_label,
+  cut: m.audio_key_cut_label,
+  paste: m.audio_key_paste_label,
+  save: m.audio_key_save_label,
+  undo: m.audio_key_undo_label,
+  redo: m.audio_key_redo_label,
+  knobStep: m.audio_key_knob_step_label,
+  knobFine: m.audio_key_knob_fine_label,
+  knobCoarse: m.audio_key_knob_coarse_label,
+  knobReset: m.audio_key_knob_reset_label,
+  dragReorder: m.audio_key_drag_reorder_label,
+  dropMedia: m.audio_key_drop_media_label,
+  dragEvent: m.audio_key_drag_event_label,
+  middleClick: m.audio_key_middle_click_label,
+  pickClick: m.audio_key_pick_click_label,
+  details: m.audio_key_details_label,
+  rename: m.audio_key_rename_label,
+  replaceMedia: m.audio_key_replace_media_label,
+  newEvent: m.audio_key_new_event_label,
+  addSound: m.audio_key_add_sound_label,
+  addRandom: m.audio_key_add_random_label,
+  addSequence: m.audio_key_add_sequence_label,
+  addSwitch: m.audio_key_add_switch_label,
+  importWem: m.audio_key_import_wem_label,
+  expandAll: m.audio_key_expand_all_label,
+  collapseAll: m.audio_key_collapse_all_label,
+  createEvent: m.audio_key_create_event_label,
+  showInBank: m.audio_key_show_in_bank_label,
+  showInTree: m.audio_key_show_in_tree_label,
+  copyForSkin: m.audio_key_copy_for_skin_label,
+  addChance: m.audio_key_add_chance_label,
+  removeChance: m.audio_key_remove_chance_label,
+  pickRandom: m.audio_key_pick_random_label,
+};
+
+/** The short words of a command in a menu. A command without them shows its sheet words. */
+const COMMAND_TITLES: Partial<Readonly<Record<AudioCommandId, () => string>>> = {
+  save: m.audio_menu_save_action,
+  undo: m.audio_menu_undo_action,
+  redo: m.audio_menu_redo_action,
+  duplicate: m.audio_node_duplicate_action,
+  wrap: m.audio_node_wrap_action,
+  cut: m.audio_node_cut_action,
+  paste: m.audio_node_paste_action,
+  remove: m.audio_node_delete_action,
+  copy: m.audio_menu_copy_action,
+  rename: m.audio_event_rename_action,
+  reset: m.audio_menu_reset_action,
+  selectAll: m.audio_menu_select_all_action,
+  newEvent: m.audio_events_new_action,
+  add: m.audio_menu_add_action,
+  addSound: m.audio_add_sound_action,
+  addRandom: m.audio_add_random_action,
+  addSequence: m.audio_add_sequence_action,
+  addSwitch: m.audio_add_switch_action,
+  importWem: m.audio_menu_import_wem_action,
+  viewMedia: m.audio_tab_media_label,
+  viewEvents: m.audio_tab_events_label,
+  toggleInspector: m.audio_inspector_toggle_action,
+  expandAll: m.audio_menu_expand_all_action,
+  collapseAll: m.audio_menu_collapse_all_action,
+  find: m.audio_menu_find_action,
+  help: m.audio_keys_title,
+  play: m.audio_menu_play_action,
+  playAll: m.audio_menu_play_event_action,
+  stop: m.audio_menu_stop_action,
+  loop: m.audio_transport_loop_action,
+  volumeUp: m.audio_menu_volume_up_action,
+  volumeDown: m.audio_menu_volume_down_action,
+  replaceMedia: m.audio_replace_action,
+  details: m.audio_details_file_action,
+  moveUp: m.audio_voice_move_up_action,
+  moveDown: m.audio_voice_move_down_action,
+  createEvent: m.audio_voice_create_event_action,
+  showInBank: m.audio_voice_show_in_bank_action,
+  showInTree: m.audio_voice_show_in_tree_action,
+  copyForSkin: m.audio_voice_copy_for_skin_action,
+  addChance: m.audio_voice_add_chance_action,
+  removeChance: m.audio_voice_remove_chance_action,
+  pickRandom: m.audio_voice_pick_random_action,
+};
+
+/** Returns the words of `id` in a menu. */
+export function commandTitle(id: AudioCommandId): string {
+  return COMMAND_TITLES[id]?.() ?? COMMAND_LABELS[id]();
+}
+
+/** The glyph of each command that a menu lists. */
+export const COMMAND_ICONS: Partial<Readonly<Record<AudioCommandId, Icon>>> = {
+  save: FloppyDiskIcon,
+  undo: ArrowUUpLeftIcon,
+  redo: ArrowUUpRightIcon,
+  duplicate: CopySimpleIcon,
+  wrap: BracketsSquareIcon,
+  cut: ScissorsIcon,
+  paste: ClipboardTextIcon,
+  remove: TrashIcon,
+  copy: HashIcon,
+  rename: PencilSimpleIcon,
+  reset: ArrowCounterClockwiseIcon,
+  selectAll: SelectionAllIcon,
+  details: InfoIcon,
+  newEvent: PlusCircleIcon,
+  add: PlusIcon,
+  addSound: WaveformIcon,
+  addRandom: ShuffleIcon,
+  addSequence: ListNumbersIcon,
+  addSwitch: GitForkIcon,
+  importWem: FileArrowUpIcon,
+  toggleInspector: SidebarSimpleIcon,
+  expandAll: ArrowsOutLineVerticalIcon,
+  collapseAll: ArrowsInLineVerticalIcon,
+  find: MagnifyingGlassIcon,
+  help: KeyboardIcon,
+  play: PlayIcon,
+  playAll: PlayCircleIcon,
+  stop: StopIcon,
+  loop: RepeatIcon,
+  volumeUp: SpeakerHighIcon,
+  volumeDown: SpeakerLowIcon,
+  replaceMedia: SwapIcon,
+  moveUp: ArrowUpIcon,
+  moveDown: ArrowDownIcon,
+  createEvent: PlusSquareIcon,
+  showInBank: ListBulletsIcon,
+  showInTree: TreeStructureIcon,
+  copyForSkin: FilesIcon,
+  addChance: PercentIcon,
+  removeChance: MinusCircleIcon,
+  pickRandom: ShuffleIcon,
+};
+
+const GROUP_TITLES: Readonly<Record<AudioCommandGroup, () => string>> = {
+  transport: m.audio_keys_transport_title,
+  navigation: m.audio_keys_navigation_title,
+  view: m.audio_keys_view_title,
+  editing: m.audio_keys_editing_title,
+  pointer: m.audio_keys_pointer_title,
+};
+
+/** The surfaces whose keys the sheet of the audio file document lists. */
+export const DOCUMENT_SCOPE: readonly AudioSurface[] = ["media", "voices", "document", "knob"];
+
+/** The surfaces whose keys the sheet of the Voice lines view lists. */
+export const LINES_SCOPE: readonly AudioSurface[] = ["lines", "knob"];
+
+interface AudioKeysDialogProps {
+  readonly open: boolean;
+  readonly onClose: () => void;
+  /** The surfaces of the view that opened the sheet. */
+  readonly scope: readonly AudioSurface[];
+}
+
+/**
+ * The shortcut sheet: every key and gesture of `scope`, read from the keymap, by group.
+ *
+ * Per "Keys and gestures" in docs/ux/AUDIO.md.
+ */
+export function AudioKeysDialog({ open, onClose, scope }: AudioKeysDialogProps) {
+  return (
+    <Dialog.Shell open={open} onClose={onClose} title={m.audio_keys_title()} size="lg">
+      <Dialog.Body>
+        <Grid minColumnWidth="18rem" gap={6} rowGap={5} align="start" data-ui="AudioKeysDialog">
+          {sheetGroups(scope).map((section) => (
+            <Stack key={section.group} gap={2}>
+              <h3 className="text-xs font-medium tracking-wide text-surface-400 uppercase select-none">
+                {GROUP_TITLES[section.group]()}
+              </h3>
+              <Grid columns="minmax(0, 1fr) fit-content(50%)" gap={3} rowGap={1.5} align="center">
+                {section.bindings.map((binding) => (
+                  <KeyRow
+                    key={binding.id}
+                    label={COMMAND_LABELS[binding.id]()}
+                    keys={binding.keys}
+                  />
+                ))}
+              </Grid>
+            </Stack>
+          ))}
+        </Grid>
+      </Dialog.Body>
+    </Dialog.Shell>
+  );
+}
+
+/** One command of the sheet: its words, then each chord as keycaps. */
+function KeyRow({ label, keys }: { label: string; keys: readonly string[] }) {
+  return (
+    <>
+      <span className="text-meta text-surface-200 select-none">{label}</span>
+      <span className="flex flex-wrap justify-end gap-1">
+        {keys.map((key) => (
+          <Kbd key={key} shortcut={chordLabel(key)} />
+        ))}
+      </span>
+    </>
+  );
+}

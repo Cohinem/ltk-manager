@@ -330,8 +330,8 @@ function OpenObject({
                       document={handle.document}
                       asset={asset}
                       editable={
-                        layout.shell !== undefined &&
-                        EDITABLE_SHELLS.has(layout.shell) &&
+                        (layout.editable === true ||
+                          (layout.shell !== undefined && EDITABLE_SHELLS.has(layout.shell))) &&
                         handle.readOnly === null
                       }
                       roots={roots}

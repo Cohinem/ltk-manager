@@ -10,9 +10,10 @@ governs the `crates/ltk-manager-*` crates, whose `AGENTS.md` files point here.
 | `crates/ltk-manager-base`     | Settings, `AppError`, events and shared helpers         | none of the workspace       | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-runtime`  | The patcher host, the launcher and the diagnostics      | base, `ritoclient`          | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-assets`   | Game archives, hash tables and asset previews           | base                        | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-audio`    | Wwise banks, the sound lookup and WEM decoding          | base, assets                | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-workshop` | A mod project on disk                                   | base, assets                | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-bin`      | Bin documents, the object index and the meta schema     | base, assets, workshop      | `GPL-3.0-or-later`  |
-| `crates/ltk-manager-problems` | The Problems rules and their repairs                    | base, assets, workshop, bin | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-problems` | The Problems rules and their repairs                    | base, assets, audio, workshop, bin | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-library`  | The mod library and the overlay built from it           | problems and what it takes  | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-core`     | A patching session, install links and the release feeds | library, runtime            | `GPL-3.0-or-later`  |
 | `crates/ltk-manager-runeforge` | The RuneForge API client and the token store          | base                        | `GPL-3.0-or-later`  |

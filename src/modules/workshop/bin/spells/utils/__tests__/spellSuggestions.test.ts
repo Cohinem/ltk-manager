@@ -24,6 +24,7 @@ const spell = (patch: Partial<SpellPreview>): SpellPreview => ({
   missileSpeed: null,
   effectKey: null,
   effectName: null,
+  audioBankPaths: [],
   issues: [],
   ...patch,
 });

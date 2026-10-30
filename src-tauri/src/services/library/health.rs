@@ -16,7 +16,7 @@ use ltk_manager_base::events::HealthSweepReport;
 use ltk_manager_library::mods::{
     HealthCheckReadiness, HealthSweepState, LibraryRepairReport, SweepScope,
 };
-use ltk_manager_problems::FixReport;
+use ltk_manager_problems::{AlternativeId, ChosenAlternative, FixReport, ProblemId};
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager, State};
 
@@ -66,6 +66,35 @@ pub async fn repair_mod(mod_id: String, app_handle: AppHandle) -> IpcResult<FixR
 
     off_thread(move || {
         let report = library.repair_mod(&config, &mod_id)?;
+        library.announce_change();
+        Ok(report)
+    })
+    .await
+}
+
+/// Applies the alternative `alternative` of the problem `problem` in one mod.
+///
+/// The explicit press beside a finding. "Repair" and "Repair all" never apply an
+/// alternative.
+#[tauri::command]
+#[specta::specta]
+pub async fn repair_mod_alternative(
+    mod_id: String,
+    problem: ProblemId,
+    alternative: AlternativeId,
+    app_handle: AppHandle,
+) -> IpcResult<FixReport> {
+    let (config, library) = match library_setup(&app_handle, PatcherGuard::Reject) {
+        Ok(v) => v,
+        Err(e) => return IpcResult::from(Err::<FixReport, _>(e)),
+    };
+
+    off_thread(move || {
+        let chosen = ChosenAlternative {
+            problem: &problem,
+            alternative: &alternative,
+        };
+        let report = library.repair_mod_alternative(&config, &mod_id, chosen)?;
         library.announce_change();
         Ok(report)
     })

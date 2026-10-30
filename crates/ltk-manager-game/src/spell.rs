@@ -224,6 +224,8 @@ pub struct SpellPreview {
     pub effect_key: Option<String>,
     /// The written fallback effect name, retained for inspection.
     pub effect_name: Option<String>,
+    /// The written `AudioBankPaths`, which the spell loads beside its owner's bank units.
+    pub audio_bank_paths: Vec<String>,
     /// Fields requiring correction or an explicit preview approximation.
     pub issues: Vec<SpellIssue>,
 }
@@ -287,6 +289,7 @@ pub fn read_spell(
         preview.cast_cone_angle = read.number(spell, "castConeAngle", "mSpell");
         preview.cast_cone_distance = read.number(spell, "castConeDistance", "mSpell");
         preview.missile_speed = read.number(spell, "missileSpeed", "mSpell");
+        preview.audio_bank_paths = read.strings(spell, "AudioBankPaths", "mSpell");
         if let Some(value) = spell.get(&h("castRangeValues")) {
             // The unnamed rank-value class declared by castRangeValues in the meta schema.
             if let PropertyValueEnum::Embedded(inner) = value
@@ -386,6 +389,29 @@ impl Read {
         }
         self.issue(&format!("{parent}.{name}"), SpellIssueKind::Invalid);
         None
+    }
+
+    /// Returns the strings of the list `name`, and none if it is absent or not a list of strings.
+    fn strings(&mut self, fields: &Fields, name: &str, parent: &str) -> Vec<String> {
+        let Some(value) = fields.get(&h(name)) else {
+            return Vec::new();
+        };
+
+        if let PropertyValueEnum::Container(container) = value {
+            let strings: Option<Vec<String>> = container
+                .items()
+                .iter()
+                .map(|value| match leaf(Some(value)) {
+                    Some(Leaf::String(value)) => Some(value.to_owned()),
+                    _ => None,
+                })
+                .collect();
+            if let Some(strings) = strings {
+                return strings;
+            }
+        }
+        self.issue(&format!("{parent}.{name}"), SpellIssueKind::Invalid);
+        Vec::new()
     }
 
     fn issue(&mut self, path: &str, kind: SpellIssueKind) {

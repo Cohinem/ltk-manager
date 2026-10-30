@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DRAG_MOTION } from "../../../engine/model/enums";
 import type { EmitterModel, SystemModel } from "../../../engine/model/model";
 import { FIRST_FLIGHT, missileMotion, type RigModel } from "../../../engine/model/rig";
+import { NO_SOUNDS } from "../../../engine/model/systemModel";
 import { emitterOf } from "../../../engine/simulation/__tests__/emitterFixture";
 import type { DrawnEmitter } from "../definitions";
 import { definitionBounds, rigGround, STANDING_REACH } from "../systemBounds";
@@ -27,6 +28,8 @@ function systemOf(...emitters: EmitterModel[]): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 

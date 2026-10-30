@@ -14,7 +14,7 @@
 
 use fs_err as fs;
 use std::cell::OnceCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::io;
 use std::path::{Component, Path, PathBuf};
@@ -32,7 +32,8 @@ use super::game::GameContent;
 use super::pass::Fact;
 use super::preserve::{KeptTable, PreservedNames};
 use super::{
-    Applied, BinNames, NodeAddress, Problem, ProblemId, ProjectFiles, RuleId, Run, Site, rules,
+    AlternativeId, Applied, BinNames, NodeAddress, Problem, ProblemId, ProjectFiles, RuleId, Run,
+    Site, rules,
 };
 
 /// The directory a project keeps its layers under.
@@ -345,13 +346,13 @@ impl<'a> FixRun<'a> {
 
     /// Record a file the rule read and left alone.
     pub fn skipped(&mut self, layer: &str, path: &str, skipped: u32) {
-        self.record(layer, path, 0, skipped, FileChange::Written);
+        self.record(layer, path, 0, skipped, FileChange::Unchanged);
     }
 
     /// Record problems at one file that a write to a different file repaired.
     /// The file itself is unchanged.
     pub fn repaired(&mut self, layer: &str, path: &str, applied: u32) {
-        self.record(layer, path, applied, 0, FileChange::Written);
+        self.record(layer, path, applied, 0, FileChange::Unchanged);
     }
 
     /// Record every one of `problems` as skipped, for a rule that derives no repair for them.
@@ -477,9 +478,10 @@ impl<'a> FixRun<'a> {
             outcome.applied += applied;
             outcome.skipped += skipped;
             // A removal is the last thing that can happen to a file, so it is
-            // what the row says however it was reached.
-            if change == FileChange::Removed {
-                outcome.change = FileChange::Removed;
+            // what the row says however it was reached. A write outranks a
+            // file that was only read.
+            if change == FileChange::Removed || outcome.change == FileChange::Unchanged {
+                outcome.change = change;
             }
             return;
         }
@@ -594,19 +596,70 @@ pub fn apply(
     exclusions: Option<&dyn PathResolver>,
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<FixReport> {
-    let mut fix_run = FixRun::open(
-        project_root,
-        migration_tables(),
+    let inputs = RunInputs {
+        config,
         exclusions,
-        config.clone(),
         game,
-    );
-    let failed = fix_each(&mut fix_run, run, problems);
-    let mut report = fix_run
-        .finish()
-        .map_err(|error| AppError::Other(error.to_string()))?;
-    report.failed = failed;
-    Ok(report)
+    };
+    apply_on_disk(project_root, run, Choice::Fixes(problems), inputs)
+}
+
+/// One alternative of one problem, as a press applies it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChosenAlternative<'a> {
+    /// The problem that offers the alternative.
+    pub problem: &'a ProblemId,
+    /// The alternative of [`problem`](Self::problem) to apply.
+    pub alternative: &'a AlternativeId,
+}
+
+/// Applies one alternative of one problem, as [`apply`] applies fixes.
+///
+/// A problem that `run` does not report, that comes from a dormant rule, or that does not offer
+/// the alternative is not applied, and the report counts nothing.
+///
+/// # Errors
+///
+/// Reports a project that cannot be opened. A rule that fails is reported inside the
+/// [`FixReport`].
+pub fn apply_alternative(
+    project_root: &Path,
+    run: &Run,
+    chosen: ChosenAlternative<'_>,
+    config: &Config,
+    exclusions: Option<&dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<FixReport> {
+    let inputs = RunInputs {
+        config,
+        exclusions,
+        game,
+    };
+    apply_on_disk(project_root, run, Choice::Alternative(chosen), inputs)
+}
+
+/// [`apply_alternative`] over the files that a check read in place, with every write kept in
+/// memory for the edit that writes it back, as [`apply_held`] does.
+///
+/// # Errors
+///
+/// Reports a kept name the table grammar refuses. A rule that fails is reported inside the
+/// [`FixReport`].
+pub fn apply_alternative_held(
+    project: ProjectFiles,
+    declared: Vec<(HashtableEntry, Hashtable)>,
+    run: &Run,
+    chosen: ChosenAlternative<'_>,
+    config: &Config,
+    exclusions: Option<&dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<(FixReport, HeldWrites)> {
+    let inputs = RunInputs {
+        config,
+        exclusions,
+        game,
+    };
+    apply_in_memory(project, declared, run, Choice::Alternative(chosen), inputs)
 }
 
 /// [`apply`] over the files a check read where they lie, with every write held
@@ -628,18 +681,65 @@ pub fn apply_held(
     exclusions: Option<&dyn PathResolver>,
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<(FixReport, HeldWrites)> {
+    let inputs = RunInputs {
+        config,
+        exclusions,
+        game,
+    };
+    apply_in_memory(project, declared, run, Choice::Fixes(problems), inputs)
+}
+
+/// The settings, the exclusions and the install that a fix run reads beside the project.
+struct RunInputs<'a> {
+    config: &'a Config,
+    exclusions: Option<&'a dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
+}
+
+/// Applies `choice` to the project at `project_root`, and writes to disk.
+fn apply_on_disk(
+    project_root: &Path,
+    run: &Run,
+    choice: Choice<'_>,
+    inputs: RunInputs<'_>,
+) -> AppResult<FixReport> {
+    let mut fix_run = FixRun::open(
+        project_root,
+        migration_tables(),
+        inputs.exclusions,
+        inputs.config.clone(),
+        inputs.game,
+    );
+    let failed = fix_each(&mut fix_run, run, choice);
+
+    let mut report = fix_run
+        .finish()
+        .map_err(|error| AppError::Other(error.to_string()))?;
+    report.failed = failed;
+    Ok(report)
+}
+
+/// Applies `choice` to the files of `project`, and returns the writes with the report.
+fn apply_in_memory(
+    project: ProjectFiles,
+    declared: Vec<(HashtableEntry, Hashtable)>,
+    run: &Run,
+    choice: Choice<'_>,
+    inputs: RunInputs<'_>,
+) -> AppResult<(FixReport, HeldWrites)> {
     let mut fix_run = FixRun::held(
         project,
         declared,
         migration_tables(),
-        exclusions,
-        config.clone(),
-        game,
+        inputs.exclusions,
+        inputs.config.clone(),
+        inputs.game,
     );
-    let failed = fix_each(&mut fix_run, run, problems);
-    let (mut report, held) = fix_run.finish_held()?;
+    let failed = fix_each(&mut fix_run, run, choice);
+
+    let (mut report, writes) = fix_run.finish_held()?;
     report.failed = failed;
-    Ok((report, held))
+    Ok((report, writes))
 }
 
 /// The migration tables a run applies, by name.
@@ -650,24 +750,63 @@ fn migration_tables() -> Vec<String> {
         .collect()
 }
 
-/// Run every rule's fix over its share of `problems`, and name the rules that
+/// What a fix run applies: the fixes of named problems, or one alternative.
+#[derive(Debug, Clone, Copy)]
+enum Choice<'a> {
+    Fixes(&'a [ProblemId]),
+    Alternative(ChosenAlternative<'a>),
+}
+
+/// Run every rule's fix over its share of the chosen problems, and name the rules that
 /// stopped.
-fn fix_each(fix_run: &mut FixRun<'_>, run: &Run, problems: &[ProblemId]) -> Vec<String> {
-    let chosen = run.by_rule(problems);
+fn fix_each(fix_run: &mut FixRun<'_>, run: &Run, choice: Choice<'_>) -> Vec<String> {
+    let chosen = match choice {
+        Choice::Fixes(problems) => run.by_rule(problems),
+        Choice::Alternative(alternative) => offering(run, alternative),
+    };
 
     let mut failed = Vec::new();
     for rule in rules::all() {
         let Some(problems) = chosen.get(&rule.id()) else {
             continue;
         };
+        let fixed = match choice {
+            Choice::Fixes(_) => rule.fix(problems, fix_run),
+            Choice::Alternative(alternative) => {
+                rule.fix_alternative(alternative.alternative, problems, fix_run)
+            }
+        };
         // A rule that stops does not take the others with it. What it had
         // already written stays written, and `FixReport::failed` is what tells
         // a caller its `remaining` does not cover the whole run.
-        if let Err(error) = rule.fix(problems, fix_run) {
+        if let Err(error) = fixed {
             failed.push(error.to_string());
         }
     }
     failed
+}
+
+/// Returns the chosen problem by its rule if a live rule reported it with the alternative.
+fn offering<'r>(run: &'r Run, chosen: ChosenAlternative<'_>) -> HashMap<RuleId, Vec<&'r Problem>> {
+    let offered = run.live_problems().find(|problem| {
+        problem.id == *chosen.problem
+            && problem
+                .alternatives
+                .iter()
+                .any(|alternative| alternative.id == *chosen.alternative)
+    });
+
+    match offered {
+        Some(problem) => HashMap::from([(problem.rule, vec![problem])]),
+        None => {
+            tracing::debug!(
+                "Ignoring alternative {} of {}, which this run does not offer",
+                chosen.alternative,
+                chosen.problem
+            );
+            HashMap::new()
+        }
+    }
 }
 
 /// One path segment as a plain name, or `None` for anything else.
@@ -733,15 +872,20 @@ pub struct FileOutcome {
 /// What one fix run did to a file, as against how much of it.
 ///
 /// The counts beside this say how much a rule changed. This says whether the
-/// file survived, which is what an archive edit has to know before it can state
-/// the repair as a chunk write.
+/// file was written, removed or left unchanged, which is what an archive edit
+/// has to know before it can state the repair as a chunk write. A file written
+/// beside the file of a finding counts no finding and is still written.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum FileChange {
+    /// The run wrote the file.
     #[default]
     Written,
+    /// The run deleted the file.
     Removed,
+    /// The run read the file and wrote nothing over it.
+    Unchanged,
 }
 
 /// What stopped a fix.

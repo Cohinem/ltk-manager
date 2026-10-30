@@ -13,6 +13,7 @@ import {
   Button,
   ButtonGroup,
   Code,
+  ExperimentalChip,
   IconButton,
   Menu,
   Progress,
@@ -27,8 +28,10 @@ import { m, Marked } from "@/i18n";
 import {
   type ModHealthVerdict,
   type ModRepairProgress,
+  type OfferedAlternative,
   type ProblemSeverity,
   type RuleBrief,
+  type RuleId,
 } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
@@ -40,8 +43,11 @@ import {
   useInstalledMods,
   useModHealthVerdicts,
   useRepairMod,
+  useRepairModAlternative,
   useRepairMods,
 } from "../api";
+import { alternativeCopy } from "../utils/alternativeCopy";
+import { fixNote } from "../utils/fixCopy";
 import {
   alarmOf,
   alarmOver,
@@ -534,7 +540,7 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
           </span>
         )}
       </div>
-      {open && <RuleList verdict={verdict} />}
+      {open && <RuleList verdict={verdict} name={name} />}
     </li>
   );
 }
@@ -573,7 +579,7 @@ function RowMark({ enabled }: { enabled: boolean }) {
  * or a property path - that is the modder's half, and it lives in the Problems
  * panel.
  */
-function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
+function RuleList({ verdict, name }: { verdict: ModHealthVerdict; name: string }) {
   const fixable = verdict.health === "repairable";
 
   return (
@@ -605,9 +611,72 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
           ) : (
             <p className="text-surface-500">{brief.description}</p>
           )}
+          <FixNote brief={brief} offered={fixable} />
+          {(brief.alternatives ?? []).map((offered) => (
+            <AlternativeLine
+              key={`${offered.problem}:${offered.alternative.id}`}
+              modId={verdict.modId}
+              name={name}
+              rule={brief.rule}
+              offered={offered}
+            />
+          ))}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** What the fix of a rule changes, under the rule of a mod that Repair reaches. */
+function FixNote({ brief, offered }: { brief: RuleBrief; offered: boolean }) {
+  const note = fixNote(brief.rule);
+  if (!offered || brief.fixable === 0 || note === null) return null;
+
+  return <p className="text-surface-500">{note}</p>;
+}
+
+/**
+ * One alternative of one finding, as a secondary press under its rule.
+ *
+ * "Repair" and "Repair all" never apply it, so the line is the only way to. The file
+ * name tells two findings of one rule apart, and the note says what the repair changes.
+ */
+function AlternativeLine({
+  modId,
+  name,
+  rule,
+  offered,
+}: {
+  modId: string;
+  name: string;
+  rule: RuleId;
+  offered: OfferedAlternative;
+}) {
+  const repair = useRepairModAlternative();
+  const { alternative } = offered;
+  const copy = alternativeCopy(rule, alternative);
+
+  return (
+    <div data-ui="ModHealthSweepPanel:alternative" className="flex flex-col gap-0.5 pt-0.5">
+      <div className="flex items-center gap-1.5">
+        <Code className="min-w-0 truncate select-text">{offered.file}</Code>
+        {alternative.experimental && <ExperimentalChip />}
+        <Button
+          variant="ghost"
+          size="xs"
+          loading={repair.isPending}
+          onClick={() =>
+            repair.mutate({ modId, problem: offered.problem, alternative: alternative.id })
+          }
+          aria-label={m.library_health_alternative_label({ title: copy.title, name })}
+          className="ml-auto shrink-0"
+        >
+          <PlugsIcon className="size-4" weight="duotone" />
+          {copy.title}
+        </Button>
+      </div>
+      {copy.note && <p className="text-surface-500">{copy.note}</p>}
+    </div>
   );
 }
 

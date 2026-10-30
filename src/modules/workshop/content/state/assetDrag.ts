@@ -20,6 +20,8 @@ const DRAG_START = 4;
 
 export interface AssetDropDetail {
   readonly path: string;
+  /** The file on disk that the dragged row stands for, or null for a path without one. */
+  readonly file: string | null;
   readonly x: number;
   readonly y: number;
 }
@@ -36,13 +38,14 @@ export function useAssetDrag(): AssetDrag | null {
 }
 
 /**
- * Drag `path` from a press, once the pointer travels `DRAG_START` pixels.
+ * Drag `path` from a press, once the pointer travels `DRAG_START` pixels. `file` is the file on disk
+ * that the row stands for, which a drop target that reads files takes.
  *
  * Pointer events rather than HTML drag and drop, since the webview's own file drop takes the
  * HTML drop events on Windows. A release sends `ASSET_DROP_EVENT` to the element under the
  * pointer, and Escape drops the drag.
  */
-export function beginAssetDrag(event: ReactPointerEvent, path: string) {
+export function beginAssetDrag(event: ReactPointerEvent, path: string, file: string | null = null) {
   if (event.button !== 0) return;
 
   const from = { x: event.clientX, y: event.clientY };
@@ -77,7 +80,7 @@ export function beginAssetDrag(event: ReactPointerEvent, path: string) {
     stop();
     if (target === null) return;
 
-    const detail: AssetDropDetail = { path, x: next.clientX, y: next.clientY };
+    const detail: AssetDropDetail = { path, file, x: next.clientX, y: next.clientY };
     target.dispatchEvent(new CustomEvent(ASSET_DROP_EVENT, { bubbles: true, detail }));
   };
   const key = (next: KeyboardEvent) => {

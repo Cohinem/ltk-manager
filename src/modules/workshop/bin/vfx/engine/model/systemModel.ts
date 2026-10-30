@@ -5,11 +5,20 @@ import type {
   EmitterModel,
   Stepping,
   SystemModel,
+  SystemSoundsModel,
   ValueCurve,
 } from "./model";
 
 /** The stepping of a system at Very High effects quality under the schema's default `flags`. */
 export const DEFAULT_STEPPING: Stepping = { rate: 30, oncePerFrame: false, everyFrame: true };
+
+/** The sounds of a system that names none. */
+export const NO_SOUNDS: SystemSoundsModel = {
+  soundOnCreate: null,
+  soundPersistent: null,
+  voiceOverOnCreate: null,
+  voiceOverPersistent: null,
+};
 
 /** A system with nothing in it, which is what an unreadable object draws as. */
 export function emptySystem(entry: string | null): SystemModel {
@@ -22,6 +31,8 @@ export function emptySystem(entry: string | null): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: DEFAULT_STEPPING,
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 

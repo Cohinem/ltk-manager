@@ -9,6 +9,7 @@ use ltk_meta::{Bin, PropertyKind};
 
 use super::*;
 use crate::game::FakeContent;
+use crate::{FixFacts, SkinAudioRepair};
 use ltk_manager_base::config::Config;
 
 const WAD: &str = "Ahri.wad.client";
@@ -27,6 +28,21 @@ const SKIN7_SKL_BYTES: &[u8] = b"skin 7 skeleton!";
 const SKIN7_SKN_BYTES: &[u8] = b"skin 7 simple skin";
 const CUSTOM_SKL_BYTES: &[u8] = b"custom skeleton";
 const CUSTOM_SKN_BYTES: &[u8] = b"custom simple skin";
+
+const ANIMATIONS: &str = "data/characters/ahri/animations/skin0.bin";
+const BASE_SFX_AUDIO: &str =
+    "ASSETS/Sounds/Wwise2016/SFX/Characters/Ahri/Skins/Base/Ahri_Base_SFX_audio.bnk";
+const BASE_SFX_EVENTS: &str =
+    "ASSETS/Sounds/Wwise2016/SFX/Characters/Ahri/Skins/Base/Ahri_Base_SFX_events.bnk";
+const BASE_VO_AUDIO: &str =
+    "ASSETS/Sounds/Wwise2016/VO/en_US/Characters/Ahri/Skins/Base/Ahri_Base_VO_audio.wpk";
+const SKIN7_SFX_AUDIO: &str =
+    "ASSETS/Sounds/Wwise2016/SFX/Characters/Ahri/Skins/Skin07/Ahri_Skin07_SFX_audio.bnk";
+const SKIN7_SFX_EVENTS: &str =
+    "ASSETS/Sounds/Wwise2016/SFX/Characters/Ahri/Skins/Skin07/Ahri_Skin07_SFX_events.bnk";
+const BASE_EVENT: &str = "Play_sfx_Ahri_BasicAttack_OnCast";
+const SKIN7_MAPPED_EVENT: &str = "Play_sfx_AhriSkin07_BasicAttack_OnCast";
+const SKIN7_DANCE_EVENT: &str = "Play_sfx_AhriSkin07_Dance3D_buffactivate";
 
 fn string(value: &str) -> PropertyValueEnum {
     PropertyValueEnum::String(values::String::new(value.to_owned()))
@@ -71,7 +87,67 @@ fn skin_bin(skin: u32, skl: &str, skn: &str, extra: Vec<(&str, PropertyValueEnum
 }
 
 fn base() -> Vec<u8> {
-    skin_bin(0, BASE_SKL, BASE_SKN, Vec::new())
+    let audio = audio(
+        &["Ahri"],
+        vec![base_sfx_unit(), voice_over_unit("Ahri_Base_VO")],
+    );
+    skin_bin(0, BASE_SKL, BASE_SKN, vec![("SkinAudioProperties", audio)])
+}
+
+fn strings(values: &[&str]) -> PropertyValueEnum {
+    list(
+        PropertyKind::String,
+        values.iter().map(|value| string(value)).collect(),
+    )
+}
+
+/// A `BankUnit` named `name` that lists `paths` and `events`.
+fn unit(name: &str, paths: &[&str], events: &[&str], voice_over: bool) -> PropertyValueEnum {
+    embed(
+        "BankUnit",
+        vec![
+            ("name", string(name)),
+            ("bankPath", strings(paths)),
+            ("events", strings(events)),
+            (
+                "voiceOver",
+                PropertyValueEnum::Bool(values::Bool::new(voice_over)),
+            ),
+        ],
+    )
+}
+
+fn base_sfx_unit() -> PropertyValueEnum {
+    unit(
+        "Ahri_Base_SFX",
+        &[BASE_SFX_AUDIO, BASE_SFX_EVENTS],
+        &[BASE_EVENT],
+        false,
+    )
+}
+
+fn skin7_sfx_unit() -> PropertyValueEnum {
+    unit(
+        "Ahri_Skin07_SFX",
+        &[SKIN7_SFX_AUDIO, SKIN7_SFX_EVENTS],
+        &[SKIN7_MAPPED_EVENT, SKIN7_DANCE_EVENT],
+        false,
+    )
+}
+
+fn voice_over_unit(name: &str) -> PropertyValueEnum {
+    unit(name, &[BASE_VO_AUDIO], &["Play_vo_Ahri_Attack"], true)
+}
+
+/// A `SkinAudioProperties` with the tags `tags` and the units `units`.
+fn audio(tags: &[&str], units: Vec<PropertyValueEnum>) -> PropertyValueEnum {
+    embed(
+        "SkinAudioProperties",
+        vec![
+            ("TagEventList", strings(tags)),
+            ("BankUnits", list(PropertyKind::Embedded, units)),
+        ],
+    )
 }
 
 /// An install with Ahri's base skin and skin 7, with their meshes.
@@ -310,4 +386,403 @@ fn names_other_skin_searches_past_first_match() {
         "aatroxskin",
         ""
     ));
+}
+
+/// The bytes of Ahri's base animation bin, with one clip that plays `event`.
+fn animations(event: &str) -> Vec<u8> {
+    let clip = embed("SoundEventData", vec![("mSoundName", string(event))]);
+    let object = BinObject::builder(
+        BinHash::from("Characters/Ahri/Animations/Skin0"),
+        named("animationGraphData"),
+    )
+    .property(
+        named("mClipDataMap"),
+        list(PropertyKind::Embedded, vec![clip]),
+    )
+    .build();
+
+    let bin = Bin::new([object], std::iter::empty::<&str>());
+    let mut out = std::io::Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    out.into_inner()
+}
+
+/// A custom base skin with the audio `audio`.
+fn with_audio(audio: PropertyValueEnum) -> Vec<(String, Vec<u8>)> {
+    custom(vec![("SkinAudioProperties", audio)])
+}
+
+/// Returns the ids of the findings of the rule in `run`.
+fn ids_of(run: &crate::Run) -> Vec<crate::ProblemId> {
+    run.problems
+        .iter()
+        .filter(|problem| problem.rule == ID)
+        .map(|problem| problem.id.clone())
+        .collect()
+}
+
+/// Checks `files` and applies the fix of every finding of the rule.
+fn repaired(tmp: &tempfile::TempDir, files: &ProjectFiles) -> crate::FixReport {
+    let run = files.checked();
+    let ids = ids_of(&run);
+    assert!(!ids.is_empty(), "the fixture should be reported");
+
+    crate::apply(
+        tmp.path(),
+        &run,
+        &ids,
+        &Config::default(),
+        None,
+        Some(game()),
+    )
+    .unwrap()
+}
+
+fn on_disk_path(tmp: &tempfile::TempDir, chunk: &str) -> std::path::PathBuf {
+    tmp.path()
+        .join("content")
+        .join("base")
+        .join(in_layer(chunk).replace('/', std::path::MAIN_SEPARATOR_STR))
+}
+
+fn on_disk(tmp: &tempfile::TempDir, chunk: &str) -> Vec<u8> {
+    fs::read(on_disk_path(tmp, chunk)).unwrap()
+}
+
+/// The tags and the unit names of the skin object of the bin `bytes`.
+fn audio_of(bytes: &[u8]) -> (Vec<String>, Vec<String>) {
+    let bin = parse_bin(bytes).unwrap();
+    let object = &bin.objects()[&skin_object("ahri", 0)];
+    let audio = super::embed(object.properties.get(&named("SkinAudioProperties"))).unwrap();
+
+    let tags = super::items(audio.properties.get(&named("TagEventList")))
+        .iter()
+        .filter_map(|tag| text(Some(tag)).map(str::to_owned))
+        .collect();
+    let units = super::items(audio.properties.get(&named("BankUnits")))
+        .iter()
+        .filter_map(|unit| super::embed(Some(unit)))
+        .filter_map(|unit| text(unit.properties.get(&named("Name"))).map(str::to_owned))
+        .collect();
+    (tags, units)
+}
+
+/// The event that the clip of the animation bin `bytes` plays.
+fn clip_event(bytes: &[u8]) -> String {
+    let bin = parse_bin(bytes).unwrap();
+    let object = bin.objects().values().next().unwrap();
+    let clips = super::items(object.properties.get(&named("mClipDataMap")));
+    let clip = super::embed(clips.first()).unwrap();
+    text(clip.properties.get(&named("mSoundName")))
+        .unwrap()
+        .to_owned()
+}
+
+fn facts_of(problem: &Problem) -> Option<&SkinAudioRepair> {
+    match problem.fix.as_ref()?.facts.as_ref()? {
+        FixFacts::SkinAudio(repair) => Some(repair),
+    }
+}
+
+fn owned(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| (*value).to_owned()).collect()
+}
+
+#[test]
+fn base_skin_with_other_skin_tag_and_bank_unit_reports_both() {
+    let (_tmp, files) = tree(
+        &with_audio(audio(&["Ahri", "AhriSkin7"], vec![skin7_sfx_unit()])),
+        Some(game()),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        [
+            "SkinAudioProperties.TagEventList names another skin: AhriSkin7. SkinAudioProperties.BankUnits.Name names another skin: Ahri_Skin07_SFX"
+        ]
+    );
+}
+
+#[test]
+fn skinhack_fix_removes_other_skin_bank_unit() {
+    let (tmp, files) = tree(
+        &with_audio(audio(&["Ahri"], vec![skin7_sfx_unit(), base_sfx_unit()])),
+        Some(game()),
+    );
+
+    let problems = found_in(&files);
+    let report = repaired(&tmp, &files);
+
+    assert_eq!(
+        problems[0].fix,
+        Some(FixPreview {
+            note: None,
+            facts: Some(FixFacts::SkinAudio(SkinAudioRepair {
+                removed_units: owned(&["Ahri_Skin07_SFX"]),
+                ..SkinAudioRepair::default()
+            })),
+            before: Some("Ahri_Skin07_SFX, Ahri_Base_SFX".to_owned()),
+            after: Some("Ahri_Base_SFX".to_owned()),
+        })
+    );
+    assert_eq!(report.applied, 1);
+    assert_eq!(audio_of(&on_disk(&tmp, SKIN0)).1, ["Ahri_Base_SFX"]);
+}
+
+#[test]
+fn skinhack_fix_removes_other_skin_tag() {
+    let (tmp, files) = tree(
+        &with_audio(audio(&["Ahri", "AhriSkin07"], vec![base_sfx_unit()])),
+        Some(game()),
+    );
+
+    let problems = found_in(&files);
+    let report = repaired(&tmp, &files);
+
+    assert_eq!(
+        problems[0].fix,
+        Some(FixPreview {
+            note: None,
+            facts: Some(FixFacts::SkinAudio(SkinAudioRepair {
+                removed_tags: owned(&["AhriSkin07"]),
+                ..SkinAudioRepair::default()
+            })),
+            before: Some("Ahri, AhriSkin07".to_owned()),
+            after: Some("Ahri".to_owned()),
+        })
+    );
+    assert_eq!(report.applied, 1);
+    assert_eq!(audio_of(&on_disk(&tmp, SKIN0)).0, ["Ahri"]);
+}
+
+#[test]
+fn skinhack_fix_keeps_base_and_voice_over_units() {
+    let units = vec![
+        skin7_sfx_unit(),
+        base_sfx_unit(),
+        voice_over_unit("Ahri_Base_VO"),
+    ];
+    let (tmp, files) = tree(&with_audio(audio(&["Ahri"], units)), Some(game()));
+
+    repaired(&tmp, &files);
+
+    assert_eq!(
+        audio_of(&on_disk(&tmp, SKIN0)).1,
+        ["Ahri_Base_SFX", "Ahri_Base_VO"]
+    );
+}
+
+#[test]
+fn skinhack_fix_adds_base_unit_if_none_remains() {
+    let units = vec![skin7_sfx_unit(), voice_over_unit("Ahri_Base_VO")];
+    let (tmp, files) = tree(&with_audio(audio(&["Ahri"], units)), Some(game()));
+
+    let problems = found_in(&files);
+    repaired(&tmp, &files);
+
+    assert_eq!(
+        facts_of(&problems[0]),
+        Some(&SkinAudioRepair {
+            removed_units: owned(&["Ahri_Skin07_SFX"]),
+            added_units: owned(&["Ahri_Base_SFX"]),
+            ..SkinAudioRepair::default()
+        })
+    );
+    assert_eq!(
+        audio_of(&on_disk(&tmp, SKIN0)).1,
+        ["Ahri_Base_VO", "Ahri_Base_SFX"]
+    );
+}
+
+#[test]
+fn skinhack_fix_rewrites_clip_event_with_base_event() {
+    let mut layer = with_audio(audio(&["Ahri", "AhriSkin07"], vec![skin7_sfx_unit()]));
+    layer.push((in_layer(ANIMATIONS), animations(SKIN7_MAPPED_EVENT)));
+    let (tmp, files) = tree(&layer, Some(game()));
+
+    let problems = found_in(&files);
+    let report = repaired(&tmp, &files);
+
+    assert_eq!(
+        facts_of(&problems[0]),
+        Some(&SkinAudioRepair {
+            removed_units: owned(&["Ahri_Skin07_SFX"]),
+            removed_tags: owned(&["AhriSkin07"]),
+            added_units: owned(&["Ahri_Base_SFX"]),
+            renamed_events: 1,
+            ..SkinAudioRepair::default()
+        })
+    );
+    assert_eq!(report.applied, 1);
+    assert_eq!(clip_event(&on_disk(&tmp, ANIMATIONS)), BASE_EVENT);
+}
+
+#[test]
+fn skinhack_fix_keeps_clip_event_without_base_event() {
+    let mut layer = with_audio(audio(
+        &["Ahri", "AhriSkin07"],
+        vec![skin7_sfx_unit(), base_sfx_unit()],
+    ));
+    layer.push((in_layer(ANIMATIONS), animations(SKIN7_DANCE_EVENT)));
+    let (tmp, files) = tree(&layer, Some(game()));
+
+    let problems = found_in(&files);
+    let report = repaired(&tmp, &files);
+
+    assert_eq!(
+        problems[0].fix,
+        Some(FixPreview {
+            note: None,
+            facts: Some(FixFacts::SkinAudio(SkinAudioRepair {
+                removed_units: owned(&["Ahri_Skin07_SFX"]),
+                removed_tags: owned(&["AhriSkin07"]),
+                silent_clip_events: 1,
+                ..SkinAudioRepair::default()
+            })),
+            before: Some("Ahri, AhriSkin07".to_owned()),
+            after: Some("Ahri".to_owned()),
+        })
+    );
+    assert_eq!(clip_event(&on_disk(&tmp, ANIMATIONS)), SKIN7_DANCE_EVENT);
+    assert!(
+        report
+            .files
+            .iter()
+            .all(|file| file.path != in_layer(ANIMATIONS)),
+        "the animation bin was written: {:?}",
+        report.files
+    );
+}
+
+#[test]
+fn skinhack_fix_removes_shipped_bank_of_removed_unit() {
+    let bank = SKIN7_SFX_AUDIO.to_ascii_lowercase();
+    let mut layer = with_audio(audio(&["Ahri"], vec![skin7_sfx_unit(), base_sfx_unit()]));
+    layer.push((in_layer(&bank), b"BKHD".to_vec()));
+    let (tmp, files) = tree(&layer, Some(game()));
+
+    let report = repaired(&tmp, &files);
+
+    assert_eq!(report.applied, 1);
+    assert!(
+        !on_disk_path(&tmp, &bank).exists(),
+        "the bank is still there"
+    );
+}
+
+#[test]
+fn skinhack_fix_refuses_mesh_evidence() {
+    let (_tmp, files) = tree(
+        &[(
+            in_layer(SKIN0),
+            skin_bin(
+                0,
+                SKIN7_SKL,
+                SKIN7_SKN,
+                vec![("SkinAudioProperties", audio(&["AhriSkin7"], Vec::new()))],
+            ),
+        )],
+        Some(game()),
+    );
+
+    let problems = found_in(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
+}
+
+#[test]
+fn skinhack_fix_refuses_champion_skin_name_evidence() {
+    let (_tmp, files) = tree(
+        &custom(vec![
+            ("ChampionSkinName", string("AhriSkin07")),
+            ("SkinAudioProperties", audio(&["AhriSkin7"], Vec::new())),
+        ]),
+        Some(game()),
+    );
+
+    let problems = found_in(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
+}
+
+#[test]
+fn skinhack_fix_skips_bin_changed_since_check() {
+    let (tmp, files) = tree(
+        &with_audio(audio(&["Ahri", "AhriSkin7"], vec![base_sfx_unit()])),
+        Some(game()),
+    );
+    let run = files.checked();
+    let ids = ids_of(&run);
+
+    let changed = skin_bin(
+        0,
+        CUSTOM_SKL,
+        CUSTOM_SKN,
+        vec![(
+            "SkinAudioProperties",
+            audio(&["Ahri", "AhriSkin8"], vec![base_sfx_unit()]),
+        )],
+    );
+    fs::write(on_disk_path(&tmp, SKIN0), &changed).unwrap();
+
+    let report = crate::apply(
+        tmp.path(),
+        &run,
+        &ids,
+        &Config::default(),
+        None,
+        Some(game()),
+    )
+    .unwrap();
+
+    assert_eq!((report.applied, report.skipped), (0, 1));
+    assert_eq!(on_disk(&tmp, SKIN0), changed);
+}
+
+#[test]
+fn skinhack_fixed_bin_is_not_reported() {
+    let mut layer = with_audio(audio(
+        &["Ahri", "AhriSkin07"],
+        vec![skin7_sfx_unit(), voice_over_unit("Ahri_Base_VO")],
+    ));
+    layer.push((in_layer(ANIMATIONS), animations(SKIN7_MAPPED_EVENT)));
+    let (tmp, files) = tree(&layer, Some(game()));
+
+    repaired(&tmp, &files);
+    let again = ProjectFiles::read(tmp.path(), &Config::default(), Some(game())).unwrap();
+
+    assert!(found_in(&again).is_empty());
+}
+
+#[test]
+fn skinhack_fix_writes_held_archive() {
+    let (_tmp, files) = tree(
+        &with_audio(audio(
+            &["Ahri", "AhriSkin07"],
+            vec![skin7_sfx_unit(), base_sfx_unit()],
+        )),
+        Some(game()),
+    );
+    let run = files.checked();
+    let ids = ids_of(&run);
+
+    let (report, writes) = crate::apply_held(
+        files,
+        Vec::new(),
+        &run,
+        &ids,
+        &Config::default(),
+        None,
+        Some(game()),
+    )
+    .unwrap();
+
+    assert_eq!(report.applied, 1);
+    let written = writes.bytes("base", &in_layer(SKIN0)).unwrap();
+    assert_eq!(
+        audio_of(written),
+        (vec!["Ahri".to_owned()], vec!["Ahri_Base_SFX".to_owned()])
+    );
 }

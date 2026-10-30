@@ -25,8 +25,9 @@ import {
   type Motion,
   type Point,
 } from "../../model/rig";
+import { NO_SOUNDS } from "../../model/systemModel";
 import { multiplyInto, turnInto } from "../../utils/basis";
-import { createDriver, type Driver } from "../driver";
+import { createDriver, type Driver, type RunEvent } from "../driver";
 import { drawnPlace, drawnPlaceInto, frameOf } from "../particleRead";
 import { FRAME_SLOTS, type Pool } from "../pool";
 
@@ -147,6 +148,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     projection: null,
     childSet: null,
     fields: null,
+    audio: null,
     depthBias: [0, 0],
     depthPushPull: 0,
     backfaceCull: true,
@@ -164,6 +166,8 @@ function system(...emitters: EmitterModel[]): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 
@@ -1724,5 +1728,102 @@ describe("the births log", () => {
 
     driver.seek(1.5);
     expect(driver.births()).toHaveLength(1);
+  });
+});
+
+describe("run events", () => {
+  /** Every event the next `frames` frames of `driver` report, each a sixtieth of a second. */
+  function heard(driver: Driver, frames: number): RunEvent[] {
+    const events: RunEvent[] = [];
+    for (let at = 0; at < frames; at += 1) events.push(...driver.advance(1 / 60));
+    return events;
+  }
+
+  function kinds(events: readonly RunEvent[], kind: RunEvent["kind"]): RunEvent[] {
+    return events.filter((event) => event.kind === kind);
+  }
+
+  it("reports the system start and each emitter's first emission once on a forward run", () => {
+    const driver = driverFor(system(emitter(), emitter({ disabled: true })), 3);
+
+    expect(heard(driver, 30)).toEqual([
+      { kind: "systemStart" },
+      { kind: "emitterStart", emitter: 0 },
+    ]);
+  });
+
+  it("reports nothing that a seek passes", () => {
+    const driver = driverFor(system(emitter({ lifetime: 0.2 })), 3);
+    driver.seek(0.5);
+
+    expect(heard(driver, 1)).toEqual([]);
+  });
+
+  it("reports nothing for an emitter that the ChanceToNotExist roll removes", () => {
+    const driver = driverFor(system(emitter({ chanceToNotExist: 1, lifetime: 0.2 })), 3);
+
+    expect(heard(driver, 30)).toEqual([{ kind: "systemStart" }]);
+  });
+
+  it("reports an emitter's end once, after its first emission", () => {
+    const driver = driverFor(system(emitter({ lifetime: 0.2 })), 3);
+    const events = heard(driver, 60);
+
+    expect(kinds(events, "emitterEnd")).toEqual([{ kind: "emitterEnd", emitter: 0 }]);
+    expect(events.findIndex((event) => event.kind === "emitterStart")).toBeLessThan(
+      events.findIndex((event) => event.kind === "emitterEnd"),
+    );
+  });
+
+  it("reports a new system start and first emission on every replay of a looping rig", () => {
+    const driver = driverFor(system(emitter()), 3);
+    driver.steer({ motion: { kind: "still" }, life: "loop", height: 0 });
+
+    /* The span is the endless emitter's five seconds and one of particle life. */
+    const events = heard(driver, 361);
+
+    expect(kinds(events, "systemStart")).toHaveLength(2);
+    expect(kinds(events, "emitterStart")).toHaveLength(2);
+  });
+
+  it("reports a new system start after a restart", () => {
+    const driver = driverFor(system(emitter()), 3);
+    heard(driver, 30);
+    driver.restart();
+
+    expect(heard(driver, 1)).toEqual([
+      { kind: "systemStart" },
+      { kind: "emitterStart", emitter: 0 },
+    ]);
+  });
+
+  it("reports the system stop once, at the rig's stop", () => {
+    const driver = driverFor(system(emitter()), 3);
+    driver.steer({ motion: { kind: "still" }, life: "once", height: 0, stopAt: 0.5 });
+
+    expect(kinds(heard(driver, 29), "systemStop")).toEqual([]);
+    expect(kinds(heard(driver, 30), "systemStop")).toEqual([{ kind: "systemStop" }]);
+  });
+
+  it("reports the birth of a child system", () => {
+    const embers = system(emitter({ rate: constant(30), particleLifetime: constant(0.5) }));
+    const parent = emitter({
+      rate: constant(1),
+      lifetime: 0.1,
+      particleLifetime: constant(1),
+      childSet: {
+        children: [embers],
+        bones: [],
+        probability: constant(0),
+        onDeath: false,
+        inheritance: null,
+      },
+    });
+    const driver = driverFor(system(parent), 5);
+
+    const births = kinds(heard(driver, 30), "childBirth");
+
+    expect(births).toHaveLength(1);
+    expect(births[0]).toMatchObject({ kind: "childBirth", birth: { path: "0.0" } });
   });
 });

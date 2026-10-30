@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 
 use crate::mods::ModLibrary;
+use crate::mods::archive::repair::Repair;
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::AppResult;
@@ -84,7 +85,7 @@ impl ModLibrary {
                 // the one budget the pass is measuring.
                 let at = Instant::now();
                 let outcome = if repair {
-                    self.repair_mod_within(config, mod_id, &budget)
+                    self.repair_mod_within(config, mod_id, Repair::Fixes, &budget)
                         .map(|report| format!("{} applied", report.applied))
                 } else {
                     self.check_mod_health_within(config, mod_id, &budget)

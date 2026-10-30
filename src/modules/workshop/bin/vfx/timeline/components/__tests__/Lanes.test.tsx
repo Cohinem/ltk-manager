@@ -10,6 +10,7 @@ import { useWorkshopLayoutStore } from "@/stores";
 
 import { BLEND_MODE, DRAG_MOTION, LINGER_TYPE, STENCIL_MODE } from "../../../engine/model/enums";
 import { type EmitterModel, POINT_SHAPE, type SystemModel } from "../../../engine/model/model";
+import { NO_SOUNDS } from "../../../engine/model/systemModel";
 import { createDriver } from "../../../engine/simulation/driver";
 import { type EmitterChoice, EmitterChoiceContext } from "../../../inspector/state/emitterChoice";
 import type { EmitterCardData } from "../../../inspector/utils/emitterTypes";
@@ -65,6 +66,8 @@ function system(...emitters: EmitterModel[]): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 

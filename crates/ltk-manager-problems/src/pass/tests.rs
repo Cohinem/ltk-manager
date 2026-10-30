@@ -16,8 +16,9 @@ use ltk_meta::{Bin, BinObject, BinOverride};
 use parking_lot::Mutex;
 
 use super::*;
-use crate::bank_units::{BANK_PATH, BANK_UNIT, BankUnits};
+use crate::bank_units::BankUnits;
 use crate::{Applied, FixError, FixRun, Problem, RuleFailure, RuleMeta};
+use ltk_manager_audio::{BANK_PATH, BANK_UNIT};
 use ltk_manager_base::budget::{self, Budget};
 use ltk_manager_base::config::Config;
 

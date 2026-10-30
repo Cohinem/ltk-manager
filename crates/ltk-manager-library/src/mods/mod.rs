@@ -45,7 +45,7 @@ pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
 pub use health::sweep::{HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
 pub use health::timing::{HealthTiming, ModTiming};
-pub use health::{HealthCheckReadiness, ModHealth, ModHealthVerdict};
+pub use health::{HealthCheckReadiness, ModHealth, ModHealthVerdict, OfferedAlternative};
 pub use index::document::ModArchiveFormat;
 pub use index::layout_migration::LayoutMigrationState;
 pub use layout::{StorageLayout, is_library_entry};

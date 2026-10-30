@@ -23,6 +23,7 @@ import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
 import { m } from "@/i18n";
+import { useOfferedCommands } from "@/modules/editor";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
 import { useDeclarationsOn } from "../../bin/documents/hooks/useDeclared";
@@ -86,6 +87,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const pinnedIds = usePinnedDocumentIds();
   const setDocumentPinned = useSetDocumentPinned();
   const activeDocumentPinned = activeDocumentId !== null && pinnedIds.includes(activeDocumentId);
+  const offered = useOfferedCommands(activeDocumentId);
 
   const layerPanelOpen = useLayerPanelOpen();
   const setLayerPanelOpen = useSetLayerPanelOpen();
@@ -100,6 +102,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     const testable = testState.kind === "idle";
 
     return [
+      ...offered,
       {
         id: "project.test",
         title: "Test the project",
@@ -328,6 +331,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     declarationsOn,
     layerCount,
     layerPanelOpen,
+    offered,
     openDocument,
     resetLayout,
     revealGameSearch,

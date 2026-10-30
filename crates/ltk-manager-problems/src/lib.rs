@@ -37,7 +37,8 @@ pub use engine::{
     analyze_project, analyze_within,
 };
 pub use fix::{
-    FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply, apply_held,
+    ChosenAlternative, FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply,
+    apply_alternative, apply_alternative_held, apply_held,
 };
 pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
@@ -232,6 +233,10 @@ pub struct FixPreview {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub note: Option<String>,
+    /// The facts of the repair that the frontend words as its note, keyed by the rule id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub facts: Option<FixFacts>,
     /// The value now, rendered. `None` where a container draws its count instead.
     pub before: Option<String>,
     /// The value after, rendered. `None` for the same reason as `before`.
@@ -242,9 +247,9 @@ impl FixPreview {
     /// A preview of one value becoming another.
     pub fn value(before: impl Into<String>, after: impl Into<String>) -> Self {
         Self {
-            note: None,
             before: Some(before.into()),
             after: Some(after.into()),
+            ..Self::default()
         }
     }
 
@@ -255,8 +260,7 @@ impl FixPreview {
     pub fn note(note: impl Into<String>) -> Self {
         Self {
             note: Some(note.into()),
-            before: None,
-            after: None,
+            ..Self::default()
         }
     }
 
@@ -269,9 +273,92 @@ impl FixPreview {
         Self {
             note,
             before: Some(before.into()),
-            after: None,
+            ..Self::default()
         }
     }
+}
+
+/// The facts of one repair, which the frontend words as the note of the repair.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum FixFacts {
+    /// The `bin/skinhack` repair that removes the audio of another skin.
+    SkinAudio(SkinAudioRepair),
+}
+
+/// The changes of the `bin/skinhack` repair to the audio of one base skin.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct SkinAudioRepair {
+    /// The `Name` of each removed `BankUnits` entry.
+    pub removed_units: Vec<String>,
+    /// Each removed `TagEventList` entry.
+    pub removed_tags: Vec<String>,
+    /// The `Name` of each bank unit of the game's base skin that the repair adds.
+    pub added_units: Vec<String>,
+    /// The event fields renamed to their base event.
+    pub renamed_events: u32,
+    /// The clip event fields kept, because no base event has the base name.
+    pub silent_clip_events: u32,
+    /// The VFX event fields kept, because no base event has the base name.
+    pub silent_vfx_events: u32,
+}
+
+/// The id of one alternative fix, unique among the alternatives of its rule.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct AlternativeId(String);
+
+impl AlternativeId {
+    /// Returns the id `id`.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    /// Returns the id as a string.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for AlternativeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// A repair that a problem offers beside its fix, which only an explicit press applies.
+///
+/// [`Run::live_fixable`] leaves every alternative out, so neither the repair of a mod nor
+/// "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct FixAlternative {
+    /// The id that the frontend keys the title and the note of the repair by, with the rule id.
+    pub id: AlternativeId,
+    /// `true` while the repair is not proven in a match.
+    pub experimental: bool,
+    /// The facts that the note of the repair states, beside the note that its id keys.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub caveats: Vec<AlternativeCaveat>,
+    /// The values that the repair would change.
+    pub fix: FixPreview,
+}
+
+/// A fact about one alternative fix, which the frontend words in the note of the repair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum AlternativeCaveat {
+    /// The bank contains an Attenuation object, and the conversion writes the version 145 flag
+    /// that the bank has no value for as zero.
+    AttenuationFlagZeroed,
 }
 
 /// What one problem says, as against where it is.
@@ -290,15 +377,16 @@ pub struct Detail {
     pub message: Option<String>,
     /// What a repair would change. `None` where the rule has no repair.
     pub fix: Option<FixPreview>,
+    /// The repairs offered beside [`fix`](Self::fix), each applied only when it is pressed.
+    pub alternatives: Vec<FixAlternative>,
 }
 
 impl Detail {
     /// A problem that is nothing but its message.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
-            mismatch: None,
             message: Some(message.into()),
-            fix: None,
+            ..Self::default()
         }
     }
 }
@@ -323,6 +411,10 @@ pub struct Problem {
     pub message: Option<String>,
     /// What a repair would change, drawn before it is applied.
     pub fix: Option<FixPreview>,
+    /// The repairs offered beside `fix`, each applied only when it is pressed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub alternatives: Vec<FixAlternative>,
 }
 
 /// A rule that could not finish, and why.
@@ -357,6 +449,7 @@ impl Report {
             mismatch: detail.mismatch,
             message: detail.message,
             fix: detail.fix,
+            alternatives: detail.alternatives,
         });
     }
 
@@ -759,6 +852,24 @@ pub trait Rule: Send + Sync {
     /// Reports the first file it could not read or write. What the run had
     /// already written stays written, and a second run picks up the rest.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError>;
+
+    /// Applies the alternative `alternative` to `problems`, and records every write in `run`.
+    ///
+    /// The rule re-derives the change from the file on disk, as [`fix`](Self::fix) does. The
+    /// default implementation skips every problem, for a rule that offers no alternative.
+    ///
+    /// # Errors
+    ///
+    /// Reports the first file it could not read or write.
+    fn fix_alternative(
+        &self,
+        alternative: &AlternativeId,
+        problems: &[&Problem],
+        run: &mut FixRun<'_>,
+    ) -> Result<Applied, FixError> {
+        let _ = alternative;
+        Ok(run.skip_all(problems))
+    }
 }
 
 /// What one rule's fix changed.

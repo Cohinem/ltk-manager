@@ -187,7 +187,7 @@ export function useBinDocument(
  * so an open with declarations on never draws read-only first. `declaring` is read once the
  * open lands.
  */
-async function openGated(
+export async function openGated(
   sandbox: SandboxRef,
   asset: AssetRef,
   entry: string | null,

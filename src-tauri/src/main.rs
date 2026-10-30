@@ -94,6 +94,7 @@ fn main() {
         .plugin(services::library::plugin())
         .plugin(services::objects::plugin())
         .plugin(services::preview::plugin())
+        .plugin(services::audio::plugin())
         .plugin(services::settings::plugin())
         .plugin(services::patcher::plugin())
         .plugin(services::launcher::plugin())

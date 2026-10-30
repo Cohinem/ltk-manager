@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DRAG_MOTION, RENDER_PHASE, SOFT_TARGET } from "../../../engine/model/enums";
 import type { EmitterModel, SystemModel } from "../../../engine/model/model";
+import { NO_SOUNDS } from "../../../engine/model/systemModel";
 import { emitterOf } from "../../../engine/simulation/__tests__/emitterFixture";
 import { passesOf } from "../passes";
 
@@ -15,6 +16,8 @@ function systemOf(...emitters: EmitterModel[]): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 

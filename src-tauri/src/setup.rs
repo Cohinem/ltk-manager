@@ -136,6 +136,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_assets::game_index::PathSearchGeneration::default());
     app.manage(ltk_manager_assets::game_wads::WadCache::default());
     app.manage(crate::services::preview::MapGeometryDocuments::default());
+    app.manage(crate::services::audio::AudioBankDocuments::default());
     app.manage(ltk_manager_game::material::defs::ShaderDefsCache::default());
     app.manage(crate::services::objects::ObjectIndexState::default());
     app.manage(ltk_manager_bin::object_index::ObjectSearchGeneration::default());
@@ -145,6 +146,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_bin::bin_document::BinDocuments::default());
     let sandboxes = ltk_manager_bin::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
+    app.manage(crate::services::audio::AudioIndexState::default());
+    let sounds = ltk_manager_audio::SoundCache::default();
+    app.manage(sounds.clone());
     app.manage(ltk_manager_assets::hashtables::BinHashTablesState::default());
     app.manage(crate::services::game::ExtractState::default());
     app.manage(crate::services::runeforge::RuneforgeState::default());
@@ -154,7 +158,10 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(
         crate::workshop::LayerWatches::new(
             Arc::clone(&events),
-            Arc::new(move |project| sandboxes.invalidate(project)),
+            Arc::new(move |project| {
+                sandboxes.invalidate(project);
+                sounds.invalidate_project(project);
+            }),
         )
         .with_sources(
             atlas::SOURCES_DIR,

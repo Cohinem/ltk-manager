@@ -25,6 +25,7 @@ export type SectionWidget =
   | "condition-rows"
   | "emitters"
   | "clips"
+  | "voice-lines"
   | "material-params"
   | "material-samplers"
   | "material-switches"
@@ -71,6 +72,10 @@ export interface ClassLayout {
   readonly sections: readonly LayoutSection[];
   /** The layout lists the fields the object does not author, each at its default. */
   readonly defaults?: boolean;
+  /** A stack layout whose widgets take edits in place, as an editable shell's do. */
+  readonly editable?: boolean;
+  /** The sections draw without headers, for a layout whose one widget is the whole view. */
+  readonly headless?: boolean;
 }
 
 /** The frame `layout` draws in, which is the stack unless it names a shell. */
@@ -193,6 +198,7 @@ export const skinLayout: ClassLayout = {
       as: "fields",
       under: ["bankUnits"],
     },
+    { title: m.workshop_bin_section_voice_lines_label, fields: ["mContextualActionData"] },
     { title: m.workshop_bin_section_health_bar_label, fields: ["healthBarData"] },
   ],
 };
@@ -251,6 +257,26 @@ export const animationGraphLayout: ClassLayout = {
       title: m.workshop_bin_section_clips_label,
       fields: ["mClipDataMap", "mTrackDataMap", "mMaskDataMap", "mSyncGroupDataMap"],
       as: "clips",
+    },
+  ],
+};
+
+/**
+ * The contextual voice of a unit, drawn as its voice lines: a header per situation and a line
+ * per rule. "Voice lines" in docs/ux/CONTEXTUAL_VOICE.md.
+ *
+ * The lines are read typed, through their own command, so the section places the fields the
+ * widget draws and Other holds the rest. The widget is the whole view, so no header frames it.
+ */
+export const voiceLinesLayout: ClassLayout = {
+  title: m.workshop_bin_layout_voice_lines_label,
+  editable: true,
+  headless: true,
+  sections: [
+    {
+      title: m.workshop_bin_section_voice_lines_label,
+      fields: ["mSituations", "mCooldown", "mHealthPercentThreshold", "mObjectPath"],
+      as: "voice-lines",
     },
   ],
 };
@@ -379,6 +405,7 @@ const LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("TftSkinCharacterDataProperties"), skinLayout],
   [nameHash("VfxSystemDefinitionData"), vfxLayout],
   [nameHash("AnimationGraphData"), animationGraphLayout],
+  [nameHash("ContextualActionData"), voiceLinesLayout],
   [nameHash("Map"), mapLayout],
   [nameHash("MapSkin"), mapSkinLayout],
   [nameHash("MapContainer"), mapContainerLayout],
@@ -434,6 +461,8 @@ export interface PlacedSection {
   readonly defaults: readonly DefaultField[];
   /** The last section, which holds what no other named. */
   readonly other: boolean;
+  /** The section draws without a header, as `ClassLayout.headless` sets. */
+  readonly headless: boolean;
 }
 
 /**
@@ -480,6 +509,7 @@ export function placeRows(
       under: section.under ?? [],
       defaults: sectionDefaults,
       other: false,
+      headless: layout.headless === true,
     });
   }
 
@@ -491,6 +521,7 @@ export function placeRows(
     under: [],
     defaults: defaults.filter((field) => !taken.has(field.hash)),
     other: true,
+    headless: layout.headless === true,
   });
   return placed;
 }
@@ -566,6 +597,8 @@ const DESCENT: Record<SectionWidget, Descent> = {
   emitters: ["all", ["CustomMaterial"], "all"],
   /* The graph is read typed, through its own command, and not through the rows. */
   clips: [],
+  /* The voice lines are read typed, through their own command. */
+  "voice-lines": [],
   /* Each list's elements, then each element's fields, which are the table's columns. */
   "material-params": ["all", "all"],
   "material-samplers": ["all", "all"],

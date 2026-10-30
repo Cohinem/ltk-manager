@@ -169,8 +169,17 @@ export function ClassView({
      what this carries is what the first drawn one will. */
   const shown: LayoutFrame = frame ?? "stack";
   const view = useMemo<ViewContext>(
-    () => ({ document, asset, classHash, entry, objectName, onNotOpen, frame: shown }),
-    [document, asset, classHash, entry, objectName, onNotOpen, shown],
+    () => ({
+      document,
+      asset,
+      classHash,
+      entry,
+      objectName,
+      onNotOpen,
+      frame: shown,
+      onShowInProperties,
+    }),
+    [document, asset, classHash, entry, objectName, onNotOpen, shown, onShowInProperties],
   );
 
   /* One preview for both frames, which the hero or the shell's pane adopts, so crossing

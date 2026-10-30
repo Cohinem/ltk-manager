@@ -199,6 +199,63 @@ describe("readVfxSystem", () => {
     expect(readVfxSystem(system([])).buildUpTime).toBe(0);
   });
 
+  it("reads the system's four sound fields, an empty string as no sound", () => {
+    const sounding: VfxSystem = {
+      ...system([]),
+      root: struct(nameHash("VfxSystemDefinitionData"), {
+        soundOnCreateDefault: { type: "string", value: "Play_sfx_Ahri_Q_cast" },
+        soundPersistentDefault: { type: "string", value: "" },
+        voiceOverOnCreateDefault: { type: "string", value: "Play_vo_Ahri_Q" },
+        voiceOverPersistentDefault: { type: "string", value: "Play_vo_Ahri_hum" },
+      }),
+    };
+
+    expect(readVfxSystem(sounding).sounds).toEqual({
+      soundOnCreate: "Play_sfx_Ahri_Q_cast",
+      soundPersistent: null,
+      voiceOverOnCreate: "Play_vo_Ahri_Q",
+      voiceOverPersistent: "Play_vo_Ahri_hum",
+    });
+    expect(readVfxSystem(system([])).sounds).toEqual({
+      soundOnCreate: null,
+      soundPersistent: null,
+      voiceOverOnCreate: null,
+      voiceOverPersistent: null,
+    });
+  });
+
+  it("reads soundsEndOnEmitterEnd off the system's flags, and on at their default", () => {
+    const flagged = (flags: number): VfxSystem => ({
+      ...system([]),
+      root: struct(nameHash("VfxSystemDefinitionData"), { flags: number(flags) }),
+    });
+
+    expect(readVfxSystem(flagged(0x10)).soundsEndOnEmitterEnd).toBe(true);
+    expect(readVfxSystem(flagged(0xc4)).soundsEndOnEmitterEnd).toBe(false);
+    expect(readVfxSystem(system([])).soundsEndOnEmitterEnd).toBe(true);
+  });
+
+  it("reads an emitter's Audio, and none for an emitter writing no Audio or only empty names", () => {
+    const audio = (onCreate: string, persistent: string) =>
+      struct(nameHash("VfxEmitterAudio"), {
+        SoundOnCreate: { type: "string", value: onCreate },
+        SoundPersistent: { type: "string", value: persistent },
+      });
+    const read = readVfxSystem(
+      system([
+        emitter({ Audio: audio("Play_sfx_spark", "") }),
+        emitter({ Audio: audio("", "") }),
+        emitter({}),
+      ]),
+    );
+
+    expect(read.emitters.map((each) => each.audio)).toEqual([
+      { soundOnCreate: "Play_sfx_spark", soundPersistent: null },
+      null,
+      null,
+    ]);
+  });
+
   it("reads emitterLinger and the direction stretch, at their schema defaults where unwritten", () => {
     const [bare, written] = readVfxSystem(
       system([

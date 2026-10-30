@@ -11,7 +11,7 @@ publish = false
 # Derive `specta::Type` on the types that cross IPC, so the Tauri shell can export bindings.
 ts = ["dep:specta", "ltk-manager-base/ts"]
 # The fixture builders the tests of the crates above share.
-test-util = ["dep:tempfile"]
+test-util = ["dep:tempfile", "dep:ltk_wwise"]
 
 [dependencies]
 ltk-manager-base = { workspace = true }
@@ -52,6 +52,7 @@ xxhash-rust = { workspace = true }
 zip = { workspace = true }
 specta = { workspace = true, optional = true }
 tempfile = { workspace = true, optional = true }
+ltk_wwise = { workspace = true, optional = true }
 
 [dev-dependencies]
 ltk_primitives = { workspace = true }

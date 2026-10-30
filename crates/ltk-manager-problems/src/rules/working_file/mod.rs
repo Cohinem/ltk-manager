@@ -67,6 +67,7 @@ impl Rule for WorkingFile {
                             "Excluded by {} in the recommended {MODIGNORE_FILE_NAME}",
                             rule.pattern()
                         ))),
+                        alternatives: Vec::new(),
                     },
                 );
             }

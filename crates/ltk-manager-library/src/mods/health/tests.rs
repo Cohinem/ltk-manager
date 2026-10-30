@@ -203,6 +203,7 @@ fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
             found: "Hash".to_owned(),
         }],
         unfixable: Some("A why-not an older build wrote".to_owned()),
+        alternatives: Vec::new(),
     };
     let file = VerdictFile {
         verdicts: std::iter::once((
@@ -278,6 +279,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
                     fixable: 0,
                     mismatches: Vec::new(),
                     unfixable: None,
+                    alternatives: Vec::new(),
                 }],
                 checked_at: "2026-08-28T10:00:00Z".to_owned(),
                 basis: HealthCheckBasis::default(),
@@ -316,6 +318,7 @@ fn a_rule_the_build_dropped_keeps_the_severity_it_was_stored_with() {
                     fixable: 0,
                     mismatches: Vec::new(),
                     unfixable: None,
+                    alternatives: Vec::new(),
                 }],
                 checked_at: "2026-08-28T10:00:00Z".to_owned(),
                 basis: HealthCheckBasis::default(),
@@ -476,6 +479,58 @@ fn a_mod_whose_findings_are_all_informative_reads_healthy() {
         verdict.counts.infos, 1,
         "the finding is still counted, it just says nothing is wrong"
     );
+}
+
+/// The drawer offers an alternative on its finding, so the brief carries the alternative
+/// and the problem it applies to, and the store keeps both.
+#[test]
+fn a_brief_carries_the_alternatives_of_its_findings_through_the_store() {
+    let alternative = problems::FixAlternative {
+        id: problems::AlternativeId::new("convert"),
+        experimental: true,
+        caveats: Vec::new(),
+        fix: problems::FixPreview::value("134", "145"),
+    };
+    let mut report = problems::Report::default();
+    report.problem(
+        problems::RuleId("audio/bank-version"),
+        problems::ProblemSeverity::Warning,
+        problems::Site::file(
+            "base",
+            "Aatrox.wad.client/assets/sounds/ashe_sfx_events.bnk",
+        ),
+        problems::Detail {
+            alternatives: vec![alternative.clone()],
+            ..problems::Detail::new("dropped")
+        },
+    );
+    let (found, failed) = report.finish();
+    let run = Run {
+        at: chrono::Utc::now(),
+        rules: problems::rules::all()
+            .iter()
+            .map(|rule| rule.info())
+            .collect(),
+        objects: Vec::new(),
+        problems: found.clone(),
+        failed,
+    };
+
+    let verdict = ModHealthVerdict::from_run("id-1", &run, HealthCheckBasis::default());
+
+    let offered = &verdict.rules[0].alternatives;
+    assert_eq!(offered.len(), 1);
+    assert_eq!(offered[0].problem, found[0].id);
+    assert_eq!(offered[0].file, "ashe_sfx_events.bnk");
+    assert_eq!(offered[0].alternative, alternative);
+
+    let storage = tempfile::tempdir().unwrap();
+    let file = VerdictFile {
+        verdicts: std::iter::once(("id-1".to_owned(), verdict.clone())).collect(),
+    };
+    file.save(storage.path()).unwrap();
+    let loaded = VerdictFile::load(storage.path());
+    assert_eq!(loaded.verdicts["id-1"].rules[0].alternatives, *offered);
 }
 
 /// The severity is what decides it, so the same shape one rung up is broken.

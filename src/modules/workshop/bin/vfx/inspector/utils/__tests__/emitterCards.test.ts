@@ -4,6 +4,7 @@ import type { BinRow, BinRows, BinValue } from "@/lib/tauri";
 
 import type { EmitterModel, SystemModel } from "../../..";
 import { nameHash } from "../../../../shared/utils/binHash";
+import { NO_SOUNDS } from "../../../engine/model/systemModel";
 import { childCardOf, childFieldReads, childListReads } from "../emitterCards";
 import type { ChildChoice } from "../emitterTypes";
 
@@ -56,6 +57,8 @@ const SYSTEM: SystemModel = {
   dragMotion: 0,
   buildUpTime: 0,
   stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+  sounds: NO_SOUNDS,
+  soundsEndOnEmitterEnd: true,
 };
 
 const CHILD: ChildChoice = { path: "3.0", parent: null, system: SYSTEM, emitter: SPARK_MODEL };

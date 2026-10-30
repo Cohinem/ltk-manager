@@ -590,7 +590,7 @@ impl ArchiveChunks {
 /// The kind a path's extension names, the way the tree reads it.
 fn kind_of(path: &str) -> WorkshopFileKind {
     let extension = path.rsplit_once('.').map_or("", |(_, ext)| ext);
-    LeagueFileKind::from_extension(extension).into()
+    WorkshopFileKind::from_extension(extension)
 }
 
 /// Sixteen hex digits into the hash they spell.

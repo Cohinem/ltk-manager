@@ -1,6 +1,6 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { CaretRightIcon, CheckIcon } from "@phosphor-icons/react";
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type ReactNode, useId } from "react";
 
 import { twMerge } from "@/utils";
 
@@ -106,6 +106,8 @@ export interface MenuItemProps extends Omit<BaseMenu.Item.Props, "className"> {
   icon?: ReactNode;
   shortcut?: string;
   variant?: MenuItemVariant;
+  /** Why the item is disabled, drawn under its label while `disabled` is set. */
+  reason?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -116,15 +118,27 @@ const MenuItemIcon = ({ children }: { children: ReactNode }) => (
 );
 
 const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
-  ({ icon, shortcut, variant = "default", className, children, ...props }, ref) => {
+  ({ icon, shortcut, variant = "default", reason, className, children, ...props }, ref) => {
+    const reasonId = useId();
+    const shownReason = props.disabled === true && reason != null;
+
     return (
       <BaseMenu.Item
         ref={ref}
         className={twMerge(popupItem, popupItemTone[variant], className)}
+        aria-describedby={shownReason ? reasonId : undefined}
         {...props}
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
-        <span className={popupItemLabel(children)}>{children}</span>
+        {!shownReason && <span className={popupItemLabel(children)}>{children}</span>}
+        {shownReason && (
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className={popupItemLabel(children)}>{children}</span>
+            <span id={reasonId} className="text-meta text-surface-400">
+              {reason}
+            </span>
+          </span>
+        )}
         {shortcut && <Kbd shortcut={shortcut} />}
       </BaseMenu.Item>
     );
@@ -213,6 +227,7 @@ MenuRadioGroup.displayName = "Menu.RadioGroup";
 // RadioItem
 export interface MenuRadioItemProps extends Omit<BaseMenu.RadioItem.Props, "className"> {
   icon?: ReactNode;
+  shortcut?: string;
   className?: string;
   children?: ReactNode;
 }
@@ -223,7 +238,7 @@ export interface MenuRadioItemProps extends Omit<BaseMenu.RadioItem.Props, "clas
  * answers two questions rather than overloading one slot.
  */
 const MenuRadioItem = forwardRef<HTMLDivElement, MenuRadioItemProps>(
-  ({ icon, className, children, ...props }, ref) => {
+  ({ icon, shortcut, className, children, ...props }, ref) => {
     return (
       <BaseMenu.RadioItem
         ref={ref}
@@ -232,6 +247,7 @@ const MenuRadioItem = forwardRef<HTMLDivElement, MenuRadioItemProps>(
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
         <span className={popupItemLabel(children)}>{children}</span>
+        {shortcut && <Kbd shortcut={shortcut} />}
         <BaseMenu.RadioItemIndicator className={popupItemMark}>
           <CheckIcon className="size-3.5" weight="bold" />
         </BaseMenu.RadioItemIndicator>
@@ -244,13 +260,14 @@ MenuRadioItem.displayName = "Menu.RadioItem";
 // CheckboxItem
 export interface MenuCheckboxItemProps extends Omit<BaseMenu.CheckboxItem.Props, "className"> {
   icon?: ReactNode;
+  shortcut?: string;
   className?: string;
   children?: ReactNode;
 }
 
 /** A switch in a popup, whose trailing check says whether it is on. */
 const MenuCheckboxItem = forwardRef<HTMLDivElement, MenuCheckboxItemProps>(
-  ({ icon, className, children, ...props }, ref) => {
+  ({ icon, shortcut, className, children, ...props }, ref) => {
     return (
       <BaseMenu.CheckboxItem
         ref={ref}
@@ -259,6 +276,7 @@ const MenuCheckboxItem = forwardRef<HTMLDivElement, MenuCheckboxItemProps>(
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
         <span className={popupItemLabel(children)}>{children}</span>
+        {shortcut && <Kbd shortcut={shortcut} />}
         <BaseMenu.CheckboxItemIndicator className={popupItemMark}>
           <CheckIcon className="size-3.5" weight="bold" />
         </BaseMenu.CheckboxItemIndicator>

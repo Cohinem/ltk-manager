@@ -429,3 +429,37 @@ or delivered.
 **Build attestation** - a statement of the manager's release version and commit, signed by the
 release workflow and baked into the build. The delivery service registers an install only with an
 attestation that verifies, and denies builds by their attested version.
+
+## Audio
+
+The format words come from `ltk_wwise`: bank, media bank, event bank, package, media, source ID,
+object, hierarchy and event. The manager adds the terms below, all of them in
+`crates/ltk-manager-audio`.
+
+**Bank set** - the files that a list of `BankUnit`s names, opened through the sandbox in the order
+in which the client reads them. A `.wpk` path is mounted as a package and every other path is read
+as a bank. A file that no store contains, or that fails to read, stays in the set as a missing or a
+failed file. A voice-over path is read under the client's locale first.
+
+**Sound lookup** - the resolution of an event of a bank set into its play tree, through the
+`event_tree` query of `ltk_wwise`. It visits each object once and takes the first bank of the set
+that contains an ID.
+
+**Play tree** - what one event plays: its actions, and under each Play action the tree of sounds and
+containers. A node keeps its container kind and what picks its children: a random container keeps
+its playlist and a switch container its default switch. A sound names the file of the set that
+contains its media.
+
+**Audio index** - the game-wide table of event names and source IDs, built once per game build. It
+names the events that no bank unit of a set lists.
+
+**Sound cue** - a sound that the viewport plays from a clip event or a VFX field, resolved through
+the sound lookup.
+
+**Event bank document** - an event bank open for edits, `EventBankDocument`: the bank, the media
+files that an import added media to, its undo history and the bytes that a save writes. Each
+`BankEdit` changes, adds or removes whole objects of the opened bank, checked against the bank set,
+and is one undo step over the bank and its media files.
+
+**Media file** - a media bank or a package of the bank set that an event bank document holds,
+`MediaFile`, with the media that an import added to it.

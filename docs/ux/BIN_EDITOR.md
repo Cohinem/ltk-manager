@@ -1246,6 +1246,10 @@ does not name falls into a last section, Other, drawn as the field rows of those
 among them opening in place. So a field the game adds in a patch is on screen the day the schema
 changes, and a layout is a placement rather than a whitelist.
 
+A headless layout draws its sections without headers or folds, for a layout whose one widget is
+the whole view, such as Voice lines. Its Other draws as field rows when it holds a field, and
+draws nothing when it is empty.
+
 A layout can also list the fields that the object does not author. The particle system's layout
 does this, because a system file authors only a few of its fields. Each of those fields draws at
 its schema default in the section of field rows that names it, or in Other, and an edit adds it to
@@ -3320,6 +3324,30 @@ text. A click picks a suggestion. `Escape` discards the draft, as in any field.
 A picked path is written with its source's spelling: the author's casing for a project file, and
 lowercase for a game file. The game lowercases a path before it hashes it, so both spellings
 reference the same chunk.
+
+### A sound field
+
+A string that holds an event name is edited in a sound field: the edit field of a path field, with
+event names below it. The sound fields are `SoundEventData.mSoundName` of a clip event,
+`soundOnCreateDefault` and `soundPersistentDefault` of a `VfxSystemDefinitionData`, and
+`SoundOnCreate` and `SoundPersistent` of a `VfxEmitterAudio`.
+
+| Draft                 | The list shows                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Unchanged, or cleared | A group per bank unit of the bin's character skin, with the events that it lists     |
+| Typed                 | The unit events that match the terms, then **Other game events**: the game's matches |
+
+The scope is the bin's character. For a bin under `data/characters/<name>/`, the units are those
+of `skins/skinN.bin` with the bin's own skin number, then those of `skins/skin0.bin`, so
+`animations/skin7.bin` lists the skin 7 units first and the base units after. A bin without a skin
+number reads the base skin, and a bin outside the characters folder lists only the game's matches.
+A skin bin that the project edits lists the project's units in place of the game's.
+
+Terms match as in a path field. An event that an earlier group lists is not listed again. Rust
+searches the game's event names, at most 30 shortest first, and the list counts the rest.
+
+`Enter` picks the highlighted suggestion, the top one while the draft is search terms. A typed name
+that no group lists is written as typed.
 
 ### Adding a property
 

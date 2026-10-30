@@ -12,7 +12,14 @@ use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 use super::*;
 use crate::ProjectFiles;
 use crate::game::FakeContent;
-use ltk_manager_assets::test_util::{audio_bank, make_packed_chunk_fantome_zip, resolver_naming};
+use crate::{AlternativeCaveat, ChosenAlternative, FixAlternative};
+use ltk_manager_assets::test_util::{
+    BUILT_BANK_ID, LEGACY_EVENT_BANK, audio_bank_bytes, make_packed_chunk_fantome_zip,
+    resolver_naming,
+};
+use ltk_manager_audio::ltk_wwise::bank::{BankHeader, RawSection, Section};
+use ltk_manager_audio::ltk_wwise::hierarchy::{Object, ObjectKind};
+use ltk_manager_audio::ltk_wwise::{BankId, Hierarchy, MediaIndex, SourceId};
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
 
@@ -26,10 +33,10 @@ const BANK_IN_LAYER: &str = "Aatrox.wad.client/assets/sounds/wwise2016/sfx/ashe_
 const BIN_IN_LAYER: &str = "Aatrox.wad.client/data/characters/ashe/skins/skin0.bin";
 
 /// The version most legacy banks in the wild carry.
-const LEGACY: u32 = 134;
+const LEGACY: BankVersion = BankVersion::V134;
 
-/// The chunk holding the objects that carry events and sounds.
-const HIERARCHY: ChunkId = *b"HIRC";
+/// The oldest version the game's reader reads.
+const FLOOR: BankVersion = BankVersion(118);
 
 /* The bin shape a request for a bank travels in. Written out here rather than
 read from the rule, so a wrong constant there fails rather than agrees. */
@@ -43,10 +50,23 @@ const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
 
-/// A bank at `version` carrying `chunks`, each an id and a body length.
-fn bank(version: u32, chunks: &[(ChunkId, usize)]) -> Vec<u8> {
-    let chunks: Vec<(&[u8; 4], usize)> = chunks.iter().map(|(id, size)| (id, *size)).collect();
-    audio_bank(version, &chunks)
+/// A bank at `version` containing `sections`.
+fn bank(version: BankVersion, sections: Vec<Section>) -> Vec<u8> {
+    let mut bank = Bank::new(BankHeader::new(version, BankId(BUILT_BANK_ID)));
+    *bank.sections_mut() = sections;
+    audio_bank_bytes(&bank)
+}
+
+/// An empty hierarchy, the section that carries events and sounds.
+fn hierarchy() -> Section {
+    Section::Hierarchy(Hierarchy::new())
+}
+
+/// A media index containing one media of `len` zero bytes.
+fn media(len: usize) -> Section {
+    let mut media = MediaIndex::new();
+    media.insert(SourceId(1), vec![0; len]);
+    Section::Media(media)
 }
 
 /// A skin bin whose one bank unit asks for `paths`.
@@ -128,7 +148,7 @@ fn found(bytes: &[u8]) -> Vec<Problem> {
 
 /// A bank the reader refuses, in the shape the whole check exists for.
 fn silent_bank() -> Vec<u8> {
-    bank(LEGACY, &[(HIERARCHY, 64)])
+    bank(LEGACY, vec![hierarchy()])
 }
 
 // ---- what the reader refuses ---------------------------------------------
@@ -156,19 +176,19 @@ fn a_legacy_bank_carrying_its_hierarchy_is_reported() {
 /// itself ships hundreds.
 #[test]
 fn a_legacy_bank_carrying_only_its_media_reports_nothing() {
-    assert!(found(&bank(LEGACY, &[(*b"DIDX", 24), (*b"DATA", 512)])).is_empty());
+    assert!(found(&bank(LEGACY, vec![media(512)])).is_empty());
 }
 
 /// A legacy bank holding nothing past its header loads too, because the reader
 /// consumes the header before the loop that judges the rest.
 #[test]
 fn a_legacy_bank_that_is_only_a_header_reports_nothing() {
-    assert!(found(&bank(LEGACY, &[])).is_empty());
+    assert!(found(&bank(LEGACY, Vec::new())).is_empty());
 }
 
 #[test]
 fn a_bank_at_the_version_the_reader_takes_as_current_reports_nothing() {
-    assert!(found(&bank(CURRENT_VERSION, &[(HIERARCHY, 64)])).is_empty());
+    assert!(found(&bank(BankVersion::CURRENT, vec![hierarchy()])).is_empty());
 }
 
 /// The one-sided predicate. A bank above the version written down here is a
@@ -176,15 +196,15 @@ fn a_bank_at_the_version_the_reader_takes_as_current_reports_nothing() {
 /// false positive the whole check exists to avoid.
 #[test]
 fn a_bank_newer_than_the_version_written_down_reports_nothing() {
-    assert!(found(&bank(CURRENT_VERSION + 1, &[(HIERARCHY, 64)])).is_empty());
-    assert!(found(&bank(CURRENT_VERSION + 40, &[(HIERARCHY, 64)])).is_empty());
+    assert!(found(&bank(BankVersion(146), vec![hierarchy()])).is_empty());
+    assert!(found(&bank(BankVersion(185), vec![hierarchy()])).is_empty());
 }
 
 /// Below the floor the reader refuses whatever the bank carries, so the media
 /// shape that saves a legacy bank does not save this one.
 #[test]
 fn a_bank_below_the_floor_is_reported_whatever_it_carries() {
-    let problems = found(&bank(LEGACY_FLOOR - 1, &[(*b"DIDX", 24), (*b"DATA", 512)]));
+    let problems = found(&bank(BankVersion(117), vec![media(512)]));
 
     assert_eq!(problems.len(), 1);
     let message = problems[0].message.as_deref().unwrap_or_default();
@@ -193,28 +213,63 @@ fn a_bank_below_the_floor_is_reported_whatever_it_carries() {
 
 #[test]
 fn a_bank_at_the_floor_carrying_only_media_reports_nothing() {
-    assert!(found(&bank(LEGACY_FLOOR, &[(*b"DIDX", 24), (*b"DATA", 512)])).is_empty());
+    assert!(found(&bank(FLOOR, vec![media(512)])).is_empty());
 }
 
-/// Chunks are not always contiguous in the wild. A walk that cannot account
-/// for every byte has landed somewhere it cannot read, so it says nothing
-/// rather than reporting what it found there.
+/// A bank whose chunks do not line up is one the client fails to read too, so the rule
+/// reports it with the reader's error rather than saying nothing.
 #[test]
-fn a_bank_whose_chunks_do_not_line_up_reports_nothing() {
-    let mut bytes = bank(LEGACY, &[(*b"DIDX", 24)]);
+fn a_bank_whose_chunks_do_not_line_up_is_reported() {
+    let mut bytes = bank(LEGACY, vec![media(24)]);
     bytes.extend_from_slice(&[0u8; 10]);
-    bytes.extend_from_slice(&HIERARCHY);
-    bytes.extend_from_slice(&64u32.to_le_bytes());
-    bytes.resize(bytes.len() + 64, 0);
 
-    assert!(found(&bytes).is_empty());
+    let problems = found(&bytes);
+
+    assert_eq!(problems.len(), 1);
+    let message = problems[0].message.as_deref().unwrap_or_default();
+    assert!(message.contains("cannot read"), "{message}");
 }
 
-/// A chunk id the reader's own loop does not handle is the same case: the walk
-/// cannot say what it is looking at.
+/// A chunk beyond the media is what the reader refuses at a legacy version, whatever its
+/// tag.
 #[test]
-fn a_bank_holding_a_chunk_nothing_recognizes_reports_nothing() {
-    assert!(found(&bank(LEGACY, &[(*b"ZZZZ", 16)])).is_empty());
+fn a_legacy_bank_holding_a_chunk_beyond_its_media_is_reported() {
+    let problems = found(&bank(
+        LEGACY,
+        vec![Section::Raw(RawSection {
+            tag: *b"ZZZZ",
+            data: vec![0; 16],
+        })],
+    ));
+
+    assert_eq!(problems.len(), 1);
+    let message = problems[0].message.as_deref().unwrap_or_default();
+    assert!(message.contains("ZZZZ"), "{message}");
+}
+
+/// Story 13: the 18 version 125 banks of the corpus fail to read in the client and in
+/// `ltk_wwise` alike, with a chunk that runs past the end of the file.
+#[test]
+fn a_version_125_bank_the_reader_cannot_read_is_reported_with_removal() {
+    let mut bytes = bank(BankVersion::V125, Vec::new());
+    bytes.extend_from_slice(b"HIRC");
+    bytes.extend_from_slice(&64u32.to_le_bytes());
+    let (_tmp, files) = project_with(&bytes, &[], Some(FakeContent::empty()));
+
+    let problems = found_in(&files);
+
+    assert_eq!(problems.len(), 1);
+    let message = problems[0].message.as_deref().unwrap_or_default();
+    assert!(
+        message.contains("ends after the end of the bank"),
+        "{message}"
+    );
+    assert!(problems[0].fix.is_some(), "removal is offered");
+    assert!(
+        problems[0].alternatives.is_empty(),
+        "{:?}",
+        problems[0].alternatives
+    );
 }
 
 /// The shape the bounded read does not resolve: the hierarchy sits behind a
@@ -222,10 +277,7 @@ fn a_bank_holding_a_chunk_nothing_recognizes_reports_nothing() {
 /// the whole file says what is there.
 #[test]
 fn a_hierarchy_behind_a_large_media_blob_is_still_reported() {
-    let problems = found(&bank(
-        LEGACY,
-        &[(*b"DIDX", 24), (*b"DATA", 32 * 1024), (HIERARCHY, 64)],
-    ));
+    let problems = found(&bank(LEGACY, vec![media(32 * 1024), hierarchy()]));
 
     assert_eq!(problems.len(), 1);
 }
@@ -235,7 +287,7 @@ fn a_hierarchy_behind_a_large_media_blob_is_still_reported() {
 /// and no byte of it is ever read.
 #[test]
 fn a_large_media_only_bank_reports_nothing() {
-    assert!(found(&bank(LEGACY, &[(*b"DIDX", 24), (*b"DATA", 32 * 1024)])).is_empty());
+    assert!(found(&bank(LEGACY, vec![media(32 * 1024)])).is_empty());
 }
 
 /// A file named `.bnk` that is not one is a rule failure rather than silence,
@@ -285,10 +337,7 @@ fn an_archive_reports_what_its_tree_reports() {
 /// The same, for the shape that has to fall back to the whole file.
 #[test]
 fn an_archive_falls_back_to_the_whole_chunk_the_same_way_a_tree_does() {
-    let bytes = bank(
-        LEGACY,
-        &[(*b"DIDX", 24), (*b"DATA", 32 * 1024), (HIERARCHY, 64)],
-    );
+    let bytes = bank(LEGACY, vec![media(32 * 1024), hierarchy()]);
 
     let archive_dir = tempfile::tempdir().unwrap();
     let archive = archive_dir.path().join("behind-media.fantome");
@@ -462,4 +511,268 @@ fn a_second_repair_over_a_removed_bank_skips_it() {
 
     assert_eq!(applied.applied, 0);
     assert_eq!(applied.skipped, 1);
+}
+
+// ---- the conversion ---------------------------------------------------------
+
+const EVENTS_V134: &[u8] = LEGACY_EVENT_BANK;
+
+/// A version 134 event bank containing one music track, a kind `Bank::upgrade` refuses.
+fn music_bank() -> Vec<u8> {
+    let mut hierarchy = Hierarchy::new();
+    hierarchy.push(
+        Object::new(
+            ObjectKind::MUSIC_TRACK,
+            0x0BAD_F00Du32.to_le_bytes().to_vec(),
+        )
+        .unwrap(),
+    );
+    bank(LEGACY, vec![Section::Hierarchy(hierarchy)])
+}
+
+fn conversion_of(problem: &Problem) -> Option<&FixAlternative> {
+    problem
+        .alternatives
+        .iter()
+        .find(|alternative| alternative.id.as_str() == CONVERT)
+}
+
+/// Stories 1, 2 and 4: removal stays the repair, and conversion is offered beside it.
+#[test]
+fn a_legacy_event_bank_offers_removal_and_an_experimental_conversion() {
+    let (_tmp, files) = project_with(
+        EVENTS_V134,
+        &[BANK_IN_WAD],
+        Some(FakeContent::containing(&[BANK_IN_WAD])),
+    );
+
+    let problems = found_in(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some(), "removal is offered");
+    let conversion = conversion_of(&problems[0]).expect("conversion is offered");
+    assert!(conversion.experimental);
+}
+
+/// Story 7: the version 145 attenuation has a flag that the version 134 payload has no value
+/// for, and the conversion writes it as zero.
+#[test]
+fn a_conversion_of_a_bank_containing_an_attenuation_states_the_lost_flag() {
+    let (_tmp, files) = project_with(EVENTS_V134, &[], Some(FakeContent::empty()));
+
+    let problems = found_in(&files);
+
+    let conversion = conversion_of(&problems[0]).expect("conversion is offered");
+    assert_eq!(
+        conversion.caveats,
+        [AlternativeCaveat::AttenuationFlagZeroed]
+    );
+    assert_eq!(conversion.fix.before.as_deref(), Some("134"));
+    assert_eq!(conversion.fix.note, None);
+}
+
+#[test]
+fn a_conversion_of_a_bank_without_an_attenuation_states_no_loss() {
+    let (_tmp, files) = project_with(&silent_bank(), &[], Some(FakeContent::empty()));
+
+    let problems = found_in(&files);
+
+    let conversion = conversion_of(&problems[0]).expect("conversion is offered");
+    assert!(conversion.caveats.is_empty(), "{:?}", conversion.caveats);
+}
+
+/// Story 6: the message of a bank that the conversion refuses states the reason.
+#[test]
+fn a_bank_holding_a_music_track_offers_removal_only_and_states_the_refusal() {
+    let (_tmp, files) = project_with(&music_bank(), &[], Some(FakeContent::empty()));
+
+    let problems = found_in(&files);
+
+    assert!(problems[0].fix.is_some(), "removal is offered");
+    assert!(
+        problems[0].alternatives.is_empty(),
+        "{:?}",
+        problems[0].alternatives
+    );
+    let message = problems[0].message.as_deref().unwrap_or_default();
+    assert!(message.contains("MusicTrack"), "{message}");
+}
+
+/// Story 5: a bank unit asks for the bank and the game does not contain its path, so removal
+/// refuses and conversion is the only repair.
+#[test]
+fn conversion_is_the_only_repair_where_removal_refuses() {
+    let (_tmp, files) = project_with(EVENTS_V134, &[BANK_IN_WAD], Some(FakeContent::empty()));
+
+    let problems = found_in(&files);
+
+    assert_eq!(problems[0].fix, None);
+    assert!(conversion_of(&problems[0]).is_some());
+}
+
+fn convert(tmp: &tempfile::TempDir, problems: &[Problem]) -> Applied {
+    let chosen: Vec<&Problem> = problems.iter().collect();
+    let mut run = fix_run(tmp.path(), Some(FakeContent::empty()));
+    let applied = AudioBankVersion::new()
+        .fix_alternative(&AlternativeId::new(CONVERT), &chosen, &mut run)
+        .unwrap();
+    run.finish().unwrap();
+    applied
+}
+
+fn bank_on_disk(tmp: &tempfile::TempDir) -> Vec<u8> {
+    fs::read(
+        tmp.path()
+            .join("content")
+            .join("base")
+            .join(BANK_IN_LAYER.replace('/', std::path::MAIN_SEPARATOR_STR)),
+    )
+    .unwrap()
+}
+
+fn read_bank(bytes: &[u8]) -> Bank {
+    Bank::from_reader(&mut std::io::Cursor::new(bytes)).unwrap()
+}
+
+/// The IDs of every event in `bank`.
+fn event_ids(bank: &Bank) -> Vec<u32> {
+    bank.hierarchy()
+        .unwrap()
+        .of_kind(ObjectKind::EVENT)
+        .map(|event| event.id().0)
+        .collect()
+}
+
+/// Stories 8 and 12: the converted bank reads back, passes the client's check and keeps
+/// its event IDs.
+#[test]
+fn applying_the_conversion_writes_a_version_145_bank_that_keeps_its_events() {
+    let (tmp, files) = project_with(EVENTS_V134, &[BANK_IN_WAD], Some(FakeContent::empty()));
+    let problems = found_in(&files);
+
+    let applied = convert(&tmp, &problems);
+
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 1,
+            skipped: 0
+        }
+    );
+    let converted = read_bank(&bank_on_disk(&tmp));
+    assert_eq!(converted.header().version, BankVersion::CURRENT);
+    assert_eq!(converted.check(), Ok(()));
+    let events = event_ids(&converted);
+    assert!(!events.is_empty());
+    assert_eq!(events, event_ids(&read_bank(EVENTS_V134)));
+}
+
+/// A bank with media beside its hierarchy gains header padding when it is written, and
+/// the conversion still reads back.
+#[test]
+fn applying_the_conversion_to_a_bank_with_media_writes_a_bank_that_reads_back() {
+    let bytes = bank(LEGACY, vec![hierarchy(), media(100)]);
+    let (tmp, files) = project_with(&bytes, &[], Some(FakeContent::empty()));
+    let problems = found_in(&files);
+
+    assert_eq!(convert(&tmp, &problems).applied, 1);
+    let converted = read_bank(&bank_on_disk(&tmp));
+    assert_eq!(converted.check(), Ok(()));
+    assert_eq!(
+        converted.media().unwrap().get(SourceId(1)),
+        Some(&[0u8; 100][..])
+    );
+}
+
+/// Story 9: a conversion refused at the press leaves the mod untouched.
+#[test]
+fn a_refused_conversion_leaves_the_file_unchanged() {
+    let (tmp, files) = project_with(EVENTS_V134, &[], Some(FakeContent::empty()));
+    let problems = found_in(&files);
+    place(tmp.path(), BANK_IN_LAYER, &music_bank());
+
+    let applied = convert(&tmp, &problems);
+
+    assert_eq!(applied.applied, 0);
+    assert_eq!(applied.skipped, 1);
+    assert_eq!(bank_on_disk(&tmp), music_bank());
+}
+
+/// Story 10: a bank the client accepts is never converted.
+#[test]
+fn a_bank_the_client_accepts_is_never_converted() {
+    let (tmp, files) = project_with(EVENTS_V134, &[], Some(FakeContent::empty()));
+    let problems = found_in(&files);
+    let accepted = bank(LEGACY, vec![media(64)]);
+    place(tmp.path(), BANK_IN_LAYER, &accepted);
+
+    assert_eq!(convert(&tmp, &problems).applied, 0);
+    assert_eq!(bank_on_disk(&tmp), accepted);
+}
+
+/// Story 11: an archive-storage mod converts through the in-memory run.
+#[test]
+fn an_archive_converts_through_the_in_memory_run() {
+    let archive_dir = tempfile::tempdir().unwrap();
+    let archive = archive_dir.path().join("events.fantome");
+    make_packed_chunk_fantome_zip(&archive, "Events", BANK_IN_WAD, EVENTS_V134);
+    let project = ProjectFiles::in_archive(
+        &archive,
+        &Config::default(),
+        Budget::repair(),
+        &resolver_naming(&[BANK_IN_WAD]),
+        Some(FakeContent::empty()),
+    )
+    .unwrap();
+    let run = project.checked();
+    let problem = run
+        .problems
+        .iter()
+        .find(|problem| problem.rule == ID)
+        .unwrap()
+        .id
+        .clone();
+
+    let (report, writes) = crate::apply_alternative_held(
+        project,
+        Vec::new(),
+        &run,
+        ChosenAlternative {
+            problem: &problem,
+            alternative: &AlternativeId::new(CONVERT),
+        },
+        &Config::default(),
+        None,
+        Some(FakeContent::empty()),
+    )
+    .unwrap();
+
+    assert_eq!(report.applied, 1);
+    let converted = read_bank(writes.bytes("base", BANK_IN_LAYER).unwrap());
+    assert_eq!(converted.header().version, BankVersion::CURRENT);
+    assert_eq!(converted.check(), Ok(()));
+}
+
+/// An alternative that the problem does not offer is never applied.
+#[test]
+fn an_alternative_the_problem_does_not_offer_is_not_applied() {
+    let (tmp, files) = project_with(&music_bank(), &[], Some(FakeContent::empty()));
+    let run = files.checked();
+    let problem = run.problems[0].id.clone();
+
+    let report = crate::apply_alternative(
+        tmp.path(),
+        &run,
+        ChosenAlternative {
+            problem: &problem,
+            alternative: &AlternativeId::new(CONVERT),
+        },
+        &Config::default(),
+        None,
+        Some(FakeContent::empty()),
+    )
+    .unwrap();
+
+    assert_eq!(report.applied, 0);
+    assert_eq!(bank_on_disk(&tmp), music_bank());
 }

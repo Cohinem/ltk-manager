@@ -15,6 +15,7 @@
   "common_crash_title": "The manager hit a problem",
   "common_dismiss_action": "Dismiss",
   "common_error_code_label": "Error code: {code}",
+  "common_experimental_label": "Experimental",
   "common_filter_champion_empty": "No champions found",
   "common_filter_champion_search_placeholder": "Search champions",
   "common_filter_clear_action": "Clear filters",
@@ -34,6 +35,7 @@
       }
     }
   ],
+  "common_menubar_overflow_label": "More menus",
   "common_number_decrease_action": "Decrease value",
   "common_number_increase_action": "Increase value",
   "common_number_step_hint": "Up/Down to step. Ctrl/Cmd for fine steps, Shift for coarse steps. Enter to apply, Escape to cancel.",

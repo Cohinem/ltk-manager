@@ -19,6 +19,7 @@ import type { OpenIntent } from "../../../palette/utils/types";
 import { stirImages } from "../../../preview/hooks/useImageSlot";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { createGuideStore, GuideStoreContext } from "../../../shared/state/treeGuides";
+import { NAME_COLS_VAR } from "../../../shared/utils/propertyRows";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { binSaveKey } from "../../../state";
 import { rowTag } from "../../values/utils/kindTag";
@@ -321,7 +322,7 @@ export function BinTree({
               )}
               style={
                 {
-                  "--bin-name-cols": nameCols,
+                  [NAME_COLS_VAR]: nameCols,
                   maxHeight:
                     maxRows === undefined ? undefined : rowHeight * maxRows + SCROLLER_PADDING,
                 } as CSSProperties

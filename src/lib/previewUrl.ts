@@ -12,6 +12,9 @@ const WIDTH_PARAMETER = "w";
 /** The query parameter naming the buffer the scheme answers in place of an image. */
 const FORM_PARAMETER = "as";
 
+/** The query parameter naming the media of the `sound` form, as `SOURCE_PARAMETER` in `protocol.rs`. */
+const SOURCE_PARAMETER = "source";
+
 /** Asks a mip chain for the texture's own BC1 or BC3 blocks, as `BLOCKS_PARAMETER` in `protocol.rs`. */
 const BLOCKS_PARAMETER = "bc";
 
@@ -100,6 +103,14 @@ export function previewFontUrl(asset: AssetRef): string {
  */
 export function previewFileUrl(asset: AssetRef): string {
   return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=file`;
+}
+
+/**
+ * Returns the URL that the media `source` of a package, a bank or a WEM arrives on, decoded to
+ * Ogg Vorbis or WAV. A WEM ignores `source`.
+ */
+export function previewSoundUrl(asset: AssetRef, source: number): string {
+  return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=sound&${SOURCE_PARAMETER}=${source}`;
 }
 
 /** `previewFileUrl` for a component, a new URL each time the file changes on disk. */

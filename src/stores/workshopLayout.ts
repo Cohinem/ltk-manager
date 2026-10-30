@@ -123,6 +123,10 @@ interface PreviewDisplay {
   inspectorDefaults: boolean;
   /** The particle graph draws its minimap while a part of the graph is outside the view. */
   graphMinimap: boolean;
+  /** A viewport plays the sound events of what it plays. */
+  previewSound: boolean;
+  /** The gain of every viewport's sound, from 0 to 1. */
+  previewSoundVolume: number;
 }
 /** A preview display preference that is a switch. */
 type PreviewFlag = {
@@ -229,6 +233,8 @@ interface WorkshopLayoutStore extends PreviewDisplay {
    * the switch above the list takes them off it.
    */
   forwardLookingMeta: boolean;
+  /** The inspector pane beside the event tree of an event bank is shown. */
+  audioInspector: boolean;
   /** The shared geometry and artwork preferences of the explorers. */
   explorerView: ExplorerView;
   explorerTileSize: ExplorerTileSize;
@@ -261,6 +267,7 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setSearchGame: (searchGame: boolean) => void;
   setSearchObjects: (searchObjects: boolean) => void;
   setForwardLookingMeta: (forwardLookingMeta: boolean) => void;
+  setAudioInspector: (audioInspector: boolean) => void;
   setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
 
@@ -314,6 +321,9 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   timelineSnap: true,
   inspectorDefaults: false,
   graphMinimap: true,
+  previewSound: false,
+  /* `PREVIEW_VOLUME` of the audio module, kept a literal so the store loads no player. */
+  previewSoundVolume: 0.2,
 };
 
 /* What the Project editor card shows. The rest of this store is geometry, which is
@@ -330,6 +340,17 @@ const PROJECT_EDITOR_DEFAULTS = {
 
 type ProjectEditorKey = keyof typeof PROJECT_EDITOR_DEFAULTS;
 
+/* The viewport preferences the settings page shows beside the Project editor card's. */
+const VIEWPORT_SETTING_DEFAULTS = {
+  previewSound: PREVIEW_DISPLAY_DEFAULTS.previewSound,
+  previewSoundVolume: PREVIEW_DISPLAY_DEFAULTS.previewSoundVolume,
+} satisfies Pick<PreviewDisplay, "previewSound" | "previewSoundVolume">;
+
+/** Every key of this store that the settings page addresses as `layout.<key>`. */
+const LAYOUT_SETTING_DEFAULTS = { ...PROJECT_EDITOR_DEFAULTS, ...VIEWPORT_SETTING_DEFAULTS };
+
+type LayoutSettingKey = keyof typeof LAYOUT_SETTING_DEFAULTS;
+
 export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   persist(
     (set) => ({
@@ -342,6 +363,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       showLayerStats: true,
       wadSort: "name",
       previewCheckered: true,
+      audioInspector: false,
       explorerView: "tree",
       explorerTileSize: 128,
       explorerRowHeight: 24,
@@ -384,13 +406,14 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setSearchGame: (searchGame) => set({ searchGame }),
       setSearchObjects: (searchObjects) => set({ searchObjects }),
       setForwardLookingMeta: (forwardLookingMeta) => set({ forwardLookingMeta }),
+      setAudioInspector: (audioInspector) => set({ audioInspector }),
       setPreviewDisplay: (display) => set(display),
     }),
     {
       name: "ltk-workshop-layout",
-      version: 9,
+      version: 11,
       partialize: ({ previewTargetHandle: _session, ...kept }) => kept,
-      migrate: (persisted) => {
+      migrate: (persisted, version) => {
         const state = {
           ...keepUnversioned<
             WorkshopLayoutStore & {
@@ -427,6 +450,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
           state.previewWireOverlay = true;
         }
         if (state.previewTargetHandle) state.previewTargetHandle = false;
+        if (version < 11) state.audioInspector = false;
         return state;
       },
     },
@@ -437,6 +461,7 @@ export {
   EXPLORER_ROW_HEIGHTS,
   EXPLORER_TILE_SIZES,
   EXPLORER_TREE_ROW_HEIGHTS,
+  LAYOUT_SETTING_DEFAULTS,
   PREVIEW_DISPLAY_DEFAULTS,
   PROJECT_EDITOR_DEFAULTS,
 };
@@ -451,6 +476,7 @@ export type {
   ExplorerTreeRowHeight,
   ExplorerView,
   LayerPanelSide,
+  LayoutSettingKey,
   PreviewDisplay,
   PreviewEffectsQuality,
   PreviewFlag,
@@ -509,6 +535,8 @@ export const useSetSearchObjects = () => useWorkshopLayoutStore((s) => s.setSear
 export const useForwardLookingMeta = () => useWorkshopLayoutStore((s) => s.forwardLookingMeta);
 export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);
+export const useAudioInspector = () => useWorkshopLayoutStore((s) => s.audioInspector);
+export const useSetAudioInspector = () => useWorkshopLayoutStore((s) => s.setAudioInspector);
 export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
 export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);
@@ -554,5 +582,7 @@ export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timeli
 export const useTimelineSnap = () => useWorkshopLayoutStore((s) => s.timelineSnap);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useGraphMinimap = () => useWorkshopLayoutStore((s) => s.graphMinimap);
+export const usePreviewSound = () => useWorkshopLayoutStore((s) => s.previewSound);
+export const usePreviewSoundVolume = () => useWorkshopLayoutStore((s) => s.previewSoundVolume);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
 export const usePreviewFlag = (flag: PreviewFlag) => useWorkshopLayoutStore((s) => s[flag]);

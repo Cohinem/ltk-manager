@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                       |
-| ---------- | ------------------------------------------------------------ |
-| 2026-10-12 | A missing linked object is a rule, in place of the badge     |
-| 2026-10-06 | A page's own actions follow the items in the status bar      |
-| 2026-09-12 | An unbidden panel is told from one the reader opened         |
-| 2026-09-07 | The panel names a selection, and select mode is retired      |
-| 2026-09-04 | The list ends in a line the informative findings fold under  |
-| 2026-09-03 | An archive repair reads the archive where it lies            |
-| 2026-09-02 | A press about one mod opens the panel on that mod            |
-| 2026-09-02 | A pick no longer withholds the panel from a press            |
-| 2026-09-02 | The library is checked by hand, over all of it or a pick     |
-| 2026-09-02 | The announcement is spent on the findings, not on the launch |
+| Date       | Change                                                      |
+| ---------- | ----------------------------------------------------------- |
+| 2026-10-30 | A base skin with another skin's audio only is repairable    |
+| 2026-10-29 | A finding offers an alternative repair on a separate press  |
+| 2026-10-12 | A missing linked object is a rule, in place of the badge    |
+| 2026-10-06 | A page's own actions follow the items in the status bar     |
+| 2026-09-12 | An unbidden panel is told from one the reader opened        |
+| 2026-09-07 | The panel names a selection, and select mode is retired     |
+| 2026-09-04 | The list ends in a line the informative findings fold under |
+| 2026-09-03 | An archive repair reads the archive where it lies           |
+| 2026-09-02 | A press about one mod opens the panel on that mod           |
+| 2026-09-02 | A pick no longer withholds the panel from a press           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -42,6 +42,7 @@ This table holds every major feature of Mod health. A status word has one meanin
 | The verdict model     | Available | `ModHealthVerdict`: health, fixable count, live counts                                 |
 | The check             | Available | `check_mod_health`, both storages, never writes the mod                                |
 | The repair            | Available | `repair_mod`, both storages, applies every live fix                                    |
+| Alternative repairs   | Available | `repair_mod_alternative`, one alternative of one finding, never part of a repair       |
 | The verdict store     | Available | `mod-health-verdicts.json` beside the index, one row per mod                           |
 | The badge             | Available | On the card, only when something is wrong                                              |
 | The popover           | Available | Plain counts, Repair, re-check, and when it was checked                                |
@@ -668,6 +669,37 @@ installed, and nothing else. It is revealed by the pointer rather than drawn on 
 a column of twenty identical buttons beside the one that repairs them all is a list of decisions
 where the reader wanted a list of mods. An unrepairable row is given none, since it has no press
 that could work.
+
+### An alternative repair
+
+A finding can offer a repair beside its fix, called an alternative. Repair, Repair all and the
+launch ask apply the fixes only, so an alternative is applied only by a press of the alternative.
+
+| What the line draws | Where it comes from                                            |
+| ------------------- | -------------------------------------------------------------- |
+| The file name       | The finding's site, so two findings of one rule are told apart |
+| The press           | The alternative's title, such as "Convert to version 145"      |
+| Experimental        | The chip, while the alternative is not proven in a match       |
+| The note            | What the alternative changes, and what it cannot recover       |
+
+The line sits under its rule in the folded-open row. A mod whose only repair is an alternative
+reads `unrepairable`, because the verdict counts fixes, and the line is still drawn.
+
+`audio/bank-version` is the one rule that offers an alternative. It converts a rejected legacy
+event bank to version 145 with `Bank::upgrade`, and removal stays its fix. The conversion is
+offered only where a dry run reads back and passes the client's check, and it is the only repair
+of a bank that a bank unit asks for and the game does not contain. It stays experimental until the
+upgrade check of the in-game audio checks (#954) passes.
+
+### A skinhack of audio only
+
+`bin/skinhack` has a fix if every hit of the finding is audio: a bank unit or a tag of another
+skin in the base skin. The fix removes them, so a mod with no other finding reads `repairable`,
+and the launch ask offers Repair before the patcher's scan turns the overlay off. A mesh hit or a
+`ChampionSkinName` hit has no fix, and the mod reads `broken`. The repair is a fix and not an
+alternative, because the game ships the base skin's audio that it leaves. Under the rule of a
+mod that Repair reaches, the drawer draws a note that says what Repair removes. Read "The skinhack
+rule" in [PROJECT_PROBLEMS.md](PROJECT_PROBLEMS.md#the-skinhack-rule) for what it writes.
 
 ## Launching with something broken
 
