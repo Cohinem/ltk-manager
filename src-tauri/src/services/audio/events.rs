@@ -4,8 +4,8 @@ use ltk_hash::WadHash;
 use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    AudioEventList, AudioFile, AudioIndex, EventBank, EventTree, ObjectId, ObjectProperties,
-    OpenedBank,
+    AudioEventList, AudioFile, AudioIndex, EditContext, EventBank, EventTree, ObjectId,
+    ObjectProperties, OpenedBank,
 };
 use ltk_manager_base::error::AppError;
 use ltk_manager_bin::bin_document::RowNames;
@@ -142,6 +142,18 @@ pub(super) fn with_event_bank<T>(
     game: Option<&AudioIndex>,
     read: impl FnOnce(&EventBank) -> AppResult<T>,
 ) -> AppResult<T> {
+    with_edit_context(app, sandbox, source, game, |bank, _| read(bank))
+}
+
+/// Opens the event bank of `source` as [`with_event_bank`] does, and runs `read` on it with the
+/// context that an edit of the bank checks against: its set, the indexes and the sandbox files.
+pub(super) fn with_edit_context<T>(
+    app: &AppHandle,
+    sandbox: &SandboxRef,
+    source: BankSource,
+    game: Option<&AudioIndex>,
+    read: impl FnOnce(&EventBank, &EditContext<'_>) -> AppResult<T>,
+) -> AppResult<T> {
     let contents = match &source {
         BankSource::Asset(asset) => {
             let config = app.state::<SettingsState>().config();
@@ -152,7 +164,7 @@ pub(super) fn with_event_bank<T>(
     let project = sandbox.project().map(project_audio_index);
     let indexes: Vec<&AudioIndex> = project.iter().chain(game).collect();
 
-    let bank = with_site_names(app, sandbox, |names, rows| {
+    with_site_names(app, sandbox, |names, rows| {
         let opened = match (source, contents) {
             (BankSource::Opened(opened), _) => opened,
             (BankSource::Asset(asset), contents) => OpenedBank {
@@ -161,13 +173,18 @@ pub(super) fn with_event_bank<T>(
                     asset,
                     contents: contents.unwrap_or_default(),
                 },
+                media: Vec::new(),
+                names: Vec::new(),
             },
         };
         with_audio_files(app, sandbox, |files, locale| {
-            EventBank::open(opened, &indexes, files, locale, names)
+            let bank = EventBank::open(opened, &indexes, files, locale, names);
+            let context = EditContext::new(bank.set())
+                .with_indexes(&indexes)
+                .with_files(files);
+            read(&bank, &context)
         })
-    })??;
-    read(&bank)
+    })??
 }
 
 /// Returns the game path of the bank `asset`.

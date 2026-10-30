@@ -133,6 +133,10 @@ pub(crate) fn cached_sound(
 
 /// Returns the decoded media `source` of `asset`, from the cache of the app.
 ///
+/// A media file that an open event bank document imported media into is read as the document
+/// holds it, so an unsaved import plays. The source ID of an imported media is drawn from the
+/// hash of its WEM, so a cached decode of the ID is of the same media.
+///
 /// # Errors
 ///
 /// The errors of [`cached_sound`].
@@ -142,6 +146,9 @@ pub(crate) fn decoded_sound(
     source: SourceId,
 ) -> Result<Arc<Decoded>, SoundFailure> {
     cached_sound(&app.state::<SoundCache>(), asset, source, || {
+        if let Some(bytes) = app.state::<AudioBankDocuments>().media_bytes(asset) {
+            return Ok(bytes);
+        }
         asset.read(
             &app.state::<SettingsState>().config(),
             &app.state::<WadCache>(),

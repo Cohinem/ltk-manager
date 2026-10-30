@@ -40,12 +40,15 @@ pub use bin_audio::{
 pub use cache::SoundCache;
 pub use contextual::{ContextualMatch, contextual_names};
 pub use decode::{AudioFormat, DecodeError, DecodeFailure, Decoded, decode};
-pub use edit::{BankEdit, BankEditError, EventBankDocument, NodeProperty};
+pub use edit::{
+    BankEdit, BankEditError, ContainerKind, EditContext, EventBankDocument, MediaFile, NewNode,
+    NodeParent, NodeProperty,
+};
 pub use events::{
     AudioEvent, AudioEventList, BankNode, BankSetOrigin, EventAction, EventBank, EventContext,
     EventNode, EventPlaylistItem, EventStatus, EventSwitchPick, EventTree, MediaContainer,
-    MediaLocation, ObjectProperties, OpenedBank, PlaylistWeight, PlaylistWeights, PropertyValue,
-    SetFile, SetFileState, SoundStream, action_label,
+    MediaLocation, ObjectProperties, OpenedBank, OpenedFile, PlaylistWeight, PlaylistWeights,
+    PropertyValue, SetFile, SetFileState, SoundStream, action_label,
 };
 pub use files::{AudioFile, AudioFiles, ReadSeek};
 pub use game::{GameFile, HEAD_BYTES, read_game};

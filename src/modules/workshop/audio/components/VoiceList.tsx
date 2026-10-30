@@ -208,7 +208,7 @@ export function VoiceList({
     const parent = editableParent(row);
     if (editing === null || parent === null || row.kind !== "voice") return;
 
-    void editing.edit({ kind: "removeChild", container: parent.id, child: row.line.voice.node.id });
+    void editing.edit({ kind: "delete", object: row.line.voice.node.id, parent: parent.id });
   }
 
   /** Applies the edit key of `event` to `row`. Returns `true` if the key was an edit key. */

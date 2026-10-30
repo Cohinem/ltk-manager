@@ -179,7 +179,7 @@ export function EventTree({
     const child = rowObject(row);
     const removable = container !== null && child !== null && isEditable(editing, container.id);
     if (event.key === "Delete" && removable) {
-      void editing.edit({ kind: "removeChild", container: container.id, child });
+      void editing.edit({ kind: "delete", object: child, parent: container.id });
       return true;
     }
 
@@ -323,7 +323,7 @@ export function EventTree({
           <RowAction
             label={m.audio_edit_remove_child_action()}
             icon={MinusCircleIcon}
-            onAct={() => void editing.edit({ kind: "removeChild", container: container.id, child })}
+            onAct={() => void editing.edit({ kind: "delete", object: child, parent: container.id })}
           />
         )}
         {player.failed.has(row.key) && (

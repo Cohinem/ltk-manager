@@ -466,7 +466,7 @@ function EventMenu({ row, parent, editing, onCopy, onAdd }: EventMenuProps) {
       )}
       {editing !== null && removable && (
         <ContextMenu.Item
-          onClick={() => void editing.edit({ kind: "removeChild", container: container.id, child })}
+          onClick={() => void editing.edit({ kind: "delete", object: child, parent: container.id })}
         >
           {m.audio_edit_remove_child_action()}
         </ContextMenu.Item>

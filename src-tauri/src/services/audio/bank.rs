@@ -9,7 +9,10 @@ use std::sync::Arc;
 use fs_err as fs;
 use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_audio::{AudioFile, BankEdit, BankNode, EventBankDocument, OpenedBank};
+use ltk_manager_audio::{
+    AudioFile, BankEdit, BankNode, EditContext, EventBankDocument, NodeParent, OpenedBank,
+    OpenedFile,
+};
 use ltk_manager_base::utils::fs::atomic_write;
 use ltk_manager_bin::bin_document::BASE_LAYER;
 use ltk_manager_bin::sandbox::{SandboxRef, SandboxState};
@@ -17,7 +20,7 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-use super::events::{bank_path, with_event_bank, BankSource};
+use super::events::{bank_path, with_edit_context, with_event_bank, BankSource};
 use super::index::game_audio_index;
 use super::references::with_site_names;
 use crate::error::{AppError, AppResult, IpcResult};
@@ -60,6 +63,20 @@ impl AudioBankDocuments {
         let open = open.lock();
         Ok(opened_of(&open))
     }
+
+    /// Returns the bytes of the media file `asset` as an open document holds them, with the
+    /// media that it imported, or `None` if no open document holds the file.
+    pub(crate) fn media_bytes(&self, asset: &AssetRef) -> Option<Vec<u8>> {
+        let open: Vec<_> = self.open.lock().values().cloned().collect();
+        open.iter().find_map(|open| {
+            let open = open.lock();
+            open.document
+                .media()
+                .iter()
+                .find(|file| file.asset() == asset)
+                .map(|file| file.bytes().to_vec())
+        })
+    }
 }
 
 fn opened_of(open: &OpenBank) -> OpenedBank {
@@ -69,6 +86,19 @@ fn opened_of(open: &OpenBank) -> OpenedBank {
             asset: open.asset.clone(),
             contents: open.document.bytes().to_vec(),
         },
+        media: open
+            .document
+            .media()
+            .iter()
+            .map(|file| OpenedFile {
+                path: file.path().to_owned(),
+                file: AudioFile {
+                    asset: file.asset().clone(),
+                    contents: file.bytes().to_vec(),
+                },
+            })
+            .collect(),
+        names: open.document.created_names().to_vec(),
     }
 }
 
@@ -150,9 +180,10 @@ pub async fn audio_bank_close(id: AudioBankId, app_handle: AppHandle) -> IpcResu
 
 /// Applies `edit` to the event bank open under `id` as one undo step.
 ///
-/// The bank set of the bank checks every new target, child and source. The first edit of a game
-/// chunk writes the chunk into the project layer of the sandbox, the selected layer or the base
-/// layer, and the document saves there after.
+/// The bank set of the bank checks every new target, child and source, and a new ID avoids
+/// every ID of the set and of the audio indexes. The first edit of a game chunk writes the chunk
+/// into the project layer of the sandbox, the selected layer or the base layer, and the document
+/// saves there after.
 ///
 /// # Errors
 ///
@@ -166,40 +197,117 @@ pub async fn audio_bank_edit(
     app_handle: AppHandle,
 ) -> IpcResult<AudioBankState> {
     off_thread(move || {
-        let open = app_handle.state::<AudioBankDocuments>().get(id)?;
-        let mut open = open.lock();
-        let copy = layer_copy(&open.sandbox, &open.asset, &open.path)?;
-        let before = open.document.revision();
-        let base = copy.as_ref().map(|_| open.document.bytes().to_vec());
-
-        let (game, _) = game_audio_index(&app_handle);
-        let sandbox = open.sandbox.clone();
-        let opened = opened_of(&open);
-        with_event_bank(
-            &app_handle,
-            &sandbox,
-            BankSource::Opened(opened),
-            game.as_deref(),
-            |bank| Ok(open.document.edit(&edit, bank.set())?),
-        )?;
-
-        if let (Some(target), Some(base)) = (copy, base) {
-            if open.document.revision() != before {
-                if let Err(error) = write_copy(&target, &base) {
-                    open.document.undo()?;
-                    return Err(error);
-                }
-                tracing::info!(
-                    ?target,
-                    "Copied a game event bank into the project on its first edit"
-                );
-                invalidate(&app_handle, &target);
-                open.asset = target;
-            }
-        }
-        Ok(state_of(id, &open))
+        change(&app_handle, id, |document, context| {
+            Ok(document.edit(&edit, context)?)
+        })
     })
     .await
+}
+
+/// Adds the WEM file at `file` as a new media of the bank set and a new sound under `parent` of
+/// the event bank open under `id`, as one undo step.
+///
+/// The media goes into the media bank or the package of the set, which the first import of a
+/// game file copies into the project layer as an edit copies the event bank. "New objects" in
+/// `docs/ux/AUDIO.md`.
+///
+/// # Errors
+///
+/// Fails if the file cannot be read, if it is not a Wwise Vorbis WEM that decodes, and for the
+/// reasons of [`audio_bank_edit`].
+#[tauri::command]
+#[specta::specta]
+pub async fn audio_bank_import(
+    id: AudioBankId,
+    parent: NodeParent,
+    file: String,
+    app_handle: AppHandle,
+) -> IpcResult<AudioBankState> {
+    off_thread(move || {
+        let wem = fs::read(&file)?;
+        change(&app_handle, id, |document, context| {
+            document.import(&parent, wem, context)?;
+            Ok(())
+        })
+    })
+    .await
+}
+
+/// Runs `apply` on the document open under `id`, and copies the game files that it changed into
+/// the project layer. A failed copy undoes the change.
+fn change(
+    app: &AppHandle,
+    id: AudioBankId,
+    apply: impl FnOnce(&mut EventBankDocument, &EditContext<'_>) -> AppResult<()>,
+) -> AppResult<AudioBankState> {
+    let open = app.state::<AudioBankDocuments>().get(id)?;
+    let mut open = open.lock();
+    let copy = layer_copy(&open.sandbox, &open.asset, &open.path, BANK_EXTENSION)?;
+    let before = open.document.revision();
+    let base = copy.as_ref().map(|_| open.document.bytes().to_vec());
+
+    let (game, _) = game_audio_index(app);
+    let sandbox = open.sandbox.clone();
+    let opened = opened_of(&open);
+    with_edit_context(
+        app,
+        &sandbox,
+        BankSource::Opened(opened),
+        game.as_deref(),
+        |_, context| apply(&mut open.document, context),
+    )?;
+    if open.document.revision() == before {
+        return Ok(state_of(id, &open));
+    }
+
+    if let Err(error) = copy_changed(app, &mut open, copy, base.as_deref()) {
+        open.document.undo()?;
+        return Err(error);
+    }
+    Ok(state_of(id, &open))
+}
+
+/// Writes the game bytes of each game file that the document changed into the project layer,
+/// and points the document at the copies.
+fn copy_changed(
+    app: &AppHandle,
+    open: &mut OpenBank,
+    bank: Option<AssetRef>,
+    base: Option<&[u8]>,
+) -> AppResult<()> {
+    if let (Some(target), Some(base)) = (bank, base) {
+        write_copy(&target, base)?;
+        tracing::info!(
+            ?target,
+            "Copied a game event bank into the project on its first edit"
+        );
+        invalidate(app, &target);
+        open.asset = target;
+    }
+
+    let sandbox = open.sandbox.clone();
+    for file in open.document.media_mut() {
+        if !matches!(file.asset(), AssetRef::GameChunk { .. }) {
+            continue;
+        }
+
+        let extension = if file.is_package() {
+            PACKAGE_EXTENSION
+        } else {
+            BANK_EXTENSION
+        };
+        let Some(target) = layer_copy(&sandbox, file.asset(), file.path(), extension)? else {
+            continue;
+        };
+        write_copy(&target, file.opened())?;
+        tracing::info!(
+            ?target,
+            "Copied a game media file into the project on its first import"
+        );
+        invalidate(app, &target);
+        file.set_asset(target);
+    }
+    Ok(())
 }
 
 /// Reverts the last edit of the event bank open under `id`, or redoes the last undone one.
@@ -225,12 +333,13 @@ pub async fn audio_bank_step(
     .await
 }
 
-/// Writes the event bank open under `id` to its file through a temporary file.
+/// Writes the event bank open under `id` and every media file that it changed, each through a
+/// temporary file.
 ///
 /// # Errors
 ///
-/// Fails if the bank is still a game chunk, if its file changed on disk since it was read or
-/// last saved, or if the write fails.
+/// Fails, and writes no file, if a file is still a game chunk or changed on disk since it was
+/// read or last saved. Fails if a write fails.
 #[tauri::command]
 #[specta::specta]
 pub async fn audio_bank_save(id: AudioBankId, app_handle: AppHandle) -> IpcResult<AudioBankState> {
@@ -241,16 +350,22 @@ pub async fn audio_bank_save(id: AudioBankId, app_handle: AppHandle) -> IpcResul
             return Ok(state_of(id, &open));
         }
 
-        let target = saved_file(&open.asset)?;
-        let on_disk = fs::read(&target)?;
-        if !open.document.is_base(&on_disk) {
-            return Err(AppError::ValidationFailed(format!(
-                "{} changed on disk since it was opened. Reopen the bank to edit it.",
-                target.display()
-            )));
+        let mut writes: Vec<(PathBuf, &[u8])> = Vec::new();
+        let document = &open.document;
+        if !document.is_base(document.bytes()) {
+            let target = saved_file(&open.asset)?;
+            check_on_disk(&target, |bytes| document.is_base(bytes))?;
+            writes.push((target, document.bytes()));
+        }
+        for file in document.media().iter().filter(|file| file.is_changed()) {
+            let target = saved_file(file.asset())?;
+            check_on_disk(&target, |bytes| file.is_base(bytes))?;
+            writes.push((target, file.bytes()));
         }
 
-        atomic_write(&target, open.document.bytes())?;
+        for (target, bytes) in writes {
+            atomic_write(&target, bytes)?;
+        }
         open.document.mark_saved();
         invalidate(&app_handle, &open.asset);
         Ok(state_of(id, &open))
@@ -258,7 +373,26 @@ pub async fn audio_bank_save(id: AudioBankId, app_handle: AppHandle) -> IpcResul
     .await
 }
 
-/// Lists the sounds and containers of the bank set of the event bank open under `id`, which an
+/// Fails if the file `target` holds bytes other than those that `is_base` takes.
+fn check_on_disk(target: &Path, is_base: impl FnOnce(&[u8]) -> bool) -> AppResult<()> {
+    let on_disk = fs::read(target)?;
+    if is_base(&on_disk) {
+        return Ok(());
+    }
+
+    Err(AppError::ValidationFailed(format!(
+        "{} changed on disk since it was opened. Reopen the bank to edit it.",
+        target.display()
+    )))
+}
+
+/// The extension of a bank that a chunk without a name is copied under.
+const BANK_EXTENSION: &str = "bnk";
+
+/// The extension of a package that a chunk without a name is copied under.
+const PACKAGE_EXTENSION: &str = "wpk";
+
+// Lists the sounds and containers of the bank set of the event bank open under `id`, which an
 /// edit adds as a child or a Play target.
 #[tauri::command]
 #[specta::specta]
@@ -280,11 +414,11 @@ pub async fn audio_bank_nodes(id: AudioBankId, app_handle: AppHandle) -> IpcResu
     .await
 }
 
-/// Returns the layer file that the first edit of `asset` copies the bank into, or `None` for an
+/// Returns the layer file that the first edit of `asset` copies the file into, or `None` for an
 /// asset that is a file already.
 ///
 /// The layer is the one that `sandbox` names, else the base layer. The path is the chunk's game
-/// path below its archive folder, or its hash and `.bnk` for a chunk without a name.
+/// path below its archive folder, or its hash and `extension` for a chunk without a name.
 ///
 /// # Errors
 ///
@@ -293,6 +427,7 @@ pub(super) fn layer_copy(
     sandbox: &SandboxRef,
     asset: &AssetRef,
     path: &str,
+    extension: &str,
 ) -> AppResult<Option<AssetRef>> {
     match asset {
         AssetRef::Layer { .. } | AssetRef::File { .. } => Ok(None),
@@ -310,11 +445,10 @@ pub(super) fn layer_copy(
                 SandboxRef::Project { project } => (project, BASE_LAYER),
                 SandboxRef::Layer { project, layer } => (project, layer.as_str()),
             };
-            let archive = archive_of(asset).ok_or_else(|| {
-                AppError::ValidationFailed("The event bank is in no archive".to_owned())
-            })?;
+            let archive = archive_of(asset)
+                .ok_or_else(|| AppError::ValidationFailed(format!("{path} is in no archive")))?;
             let file = if path == path_hash {
-                format!("{path_hash}.bnk")
+                format!("{path_hash}.{extension}")
             } else {
                 path.to_lowercase()
             };
