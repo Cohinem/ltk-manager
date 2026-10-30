@@ -242,7 +242,7 @@ export function AudioKeysDialog({ open, onClose, scope }: AudioKeysDialogProps) 
               <h3 className="text-xs font-medium tracking-wide text-surface-400 uppercase select-none">
                 {GROUP_TITLES[section.group]()}
               </h3>
-              <Grid columns="minmax(0, 1fr) max-content" gap={3} rowGap={1.5} align="center">
+              <Grid columns="minmax(0, 1fr) fit-content(50%)" gap={3} rowGap={1.5} align="center">
                 {section.bindings.map((binding) => (
                   <KeyRow
                     key={binding.id}
