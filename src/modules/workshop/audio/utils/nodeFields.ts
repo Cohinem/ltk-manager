@@ -34,6 +34,8 @@ export type FieldDetail =
 /** One field of an action or a node, as a child row draws it. */
 export interface NodeField {
   readonly name: FieldName;
+  /** The kind of object that holds the field, which tells a Play action's delay from a node's. */
+  readonly owner: FieldOwner["kind"];
   /** The value in the unit that the row shows: seconds for a delay, Wwise's weight. */
   readonly value: number;
   /** `true` if the object is in the opened bank at version 145, which an edit changes. */
@@ -74,6 +76,7 @@ export function nodeFields(
   if (node.kind === "sound") {
     fields.push({
       name: "source",
+      owner: "node",
       value: node.source,
       editable,
       target: { kind: "source", sound: node.id },
@@ -82,7 +85,7 @@ export function nodeFields(
   }
 
   for (const { property, value } of own?.values ?? []) {
-    fields.push(propertyField(node.id, property, value, editable));
+    fields.push(propertyField({ kind: "node", id: node.id }, property, value, editable));
   }
 
   const weight = container === null ? null : weightField(node.id, container, properties);
@@ -97,6 +100,7 @@ function actionFields(action: EventAction, own: ObjectProperties | undefined): N
   if (action.target !== null) {
     fields.push({
       name: "target",
+      owner: "action",
       value: action.target,
       editable,
       target: { kind: "target", action: action.id },
@@ -106,23 +110,29 @@ function actionFields(action: EventAction, own: ObjectProperties | undefined): N
 
   const delay = own?.values.find((value) => value.property === "delay");
   fields.push(
-    propertyField(action.id, "delay", delay?.value ?? action.delay / MS_PER_SECOND, editable),
+    propertyField(
+      { kind: "action", id: action.id },
+      "delay",
+      delay?.value ?? action.delay / MS_PER_SECOND,
+      editable,
+    ),
   );
 
   return fields;
 }
 
 function propertyField(
-  object: number,
+  object: { readonly kind: FieldOwner["kind"]; readonly id: number },
   property: NodeProperty,
   value: number | null,
   editable: boolean,
 ): NodeField {
   return {
     name: property,
+    owner: object.kind,
     value: value ?? PROPERTY_DEFAULTS[property],
     editable,
-    target: { kind: "property", object, property },
+    target: { kind: "property", object: object.id, property },
     detail: NO_DETAIL,
   };
 }
@@ -145,6 +155,7 @@ function weightField(
 
   return {
     name: "weight",
+    owner: "node",
     value: Number(weightText(item.weight)),
     editable: held.editable,
     target: { kind: "weight", container: container.id, child },

@@ -22,6 +22,7 @@ import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import type { TreePicks } from "../hooks/useTreePicks";
 import type { EventRow } from "../utils/eventTree";
+import { fieldTopic } from "../utils/fieldTopics";
 import { movedIndex, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import {
@@ -45,7 +46,7 @@ import {
   RowFrame,
   rowId,
 } from "./EventRowParts";
-import { ChildrenValue, FieldNameCell, fieldName, FieldValue } from "./FieldRows";
+import { ChildrenValue, FieldNameCell, FieldValue } from "./FieldRows";
 import { nodeKey } from "./nodeKeys";
 import { RowContent } from "./RowContent";
 
@@ -273,7 +274,10 @@ export function EventTree({
           {...frame}
           onEdit={editing !== null && row.field.editable ? () => enter(true) : undefined}
         >
-          <FieldNameCell name={fieldName(row)} lead={<Lead {...frame} expandable={false} />} />
+          <FieldNameCell
+            topic={fieldTopic(row.field)}
+            lead={<Lead {...frame} expandable={false} />}
+          />
           <FieldValue
             field={row.field}
             editing={editing}
@@ -288,7 +292,7 @@ export function EventTree({
     if (row.kind === "children") {
       return (
         <RowFrame {...frame}>
-          <FieldNameCell name={fieldName(row)} lead={<Lead {...frame} expandable />} />
+          <FieldNameCell topic={null} lead={<Lead {...frame} expandable />} />
           <ChildrenValue
             count={row.count}
             onAdd={

@@ -440,8 +440,12 @@ pane adds the fields that they hide.
 | Action header | The same, then the Play action: `target` and `delay`                               |
 | Event         | Each Play action, then the sound that the event row draws inline                   |
 
-- A container also lists its facts read-only: the playlist mode and the pick of a random
+- A container also lists its facts read-only: the playlist mode and the weight mode of a random
   container, and the switch group and the default switch of a switch container.
+- Each object's fields and facts are grouped under the section headers Media, Mix, Filters, Timing
+  and Selection, in that order. A section without a row is left out.
+- A row names its field in words, as "What an edit changes" lists. A hover on the name opens the
+  field card: what the field does in the game, its values, its default and its Wwise property.
 - The pane starts with the path from the Play action down to the row, as muted text that takes no
   press. It is the one place that the Voices view writes a path.
 - With several voice and header rows picked, the pane lists the properties that every pick has,
@@ -551,6 +555,10 @@ bank list their fields read-only, and their entry does not open.
 | `delay`      | `InitialDelay`, `DelayTime` of a Play | s                                               | 0       |
 | `loopCount`  | `Loop` of a sound                     | The plays, or "Loops forever" for 0             | 1       |
 | `weight`     | the playlist item's weight            | Wwise's weight, stored as 1000 times it         | 50      |
+
+A row names each field in words: Target, Source, Volume, Make-up gain, Pitch, Low-pass filter,
+High-pass filter, Initial delay, Delay for the delay of a Play, Loop count and Weight. The
+children row reads Children.
 
 A weight in a random container whose pick reads the weights also shows its share of the total
 weight of the playlist, as a percentage of picks. A target or a source that the tree does not

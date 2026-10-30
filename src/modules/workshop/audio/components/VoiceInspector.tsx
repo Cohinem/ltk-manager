@@ -1,6 +1,7 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { Fragment, type KeyboardEvent, useRef, useState } from "react";
 
+import { OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import type { ObjectProperties } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -8,6 +9,7 @@ import { twMerge } from "@/utils";
 import { nameColumnStyle, PROPERTY_ROW_CLASSES } from "../../shared/components/PropertyRowParts";
 import { useNodeNames } from "../state/nodeNames";
 import { eventLabel, objectLabel } from "../utils/eventTree";
+import { fieldGroups, type FieldTopic } from "../utils/fieldTopics";
 import {
   type InspectorFact,
   type InspectorSection,
@@ -18,6 +20,7 @@ import type { NodeField } from "../utils/nodeFields";
 import { nodeName, type NodeNames } from "../utils/nodeNames";
 import type { TreeEditing } from "../utils/treeEditing";
 import type { VoiceRow } from "../utils/voices";
+import { SECTION_TITLE } from "./FieldDoc";
 import { FieldNameCell, FieldValue } from "./FieldRows";
 import { NamedId } from "./RowContent";
 import { groupText } from "./VoiceRowParts";
@@ -35,13 +38,14 @@ interface VoiceInspectorProps {
 }
 
 /** The width of the name column of the inspector's field rows, in characters. */
-const NAME_COLS = 12;
+const NAME_COLS = 16;
 
 /**
  * The inspector pane of the Voices view: every field of the selected row's objects as field rows.
  *
  * It lists the subject's path as muted text, then one band per object of `inspectorSections`,
- * with the fields that the rows hide and the container facts. With several rows picked, it lists
+ * with the fields that the rows hide and the container facts under the section headers of
+ * `fieldGroups`. A field's name opens its field card on hover. With several rows picked, it lists
  * the properties that they share, and an edit applies to each pick. A field row is a tab stop,
  * and F2, Enter or a double click opens its entry. Per "Inspector" in docs/ux/AUDIO.md.
  */
@@ -59,7 +63,7 @@ export function VoiceInspector({
     <aside
       aria-label={m.audio_inspector_label()}
       data-ui="VoiceInspector"
-      className="flex w-80 shrink-0 flex-col overflow-auto border-l border-surface-700/60 text-row scrollbar-md select-none"
+      className="flex w-80 shrink-0 flex-col overflow-auto border-l border-surface-700/60 text-mono-row scrollbar-md select-none"
       style={nameColumnStyle(NAME_COLS)}
     >
       {only === undefined && (
@@ -169,7 +173,7 @@ interface SectionBandProps {
   readonly onCommitted: () => void;
 }
 
-/** One object's band: its name and ID, its field rows and its facts. */
+/** One object's band: its name and ID, then its fields and facts in sections. */
 function SectionBand({ section, first, editing, onCommitted }: SectionBandProps) {
   const names = useNodeNames();
   const { owner } = section;
@@ -186,42 +190,64 @@ function SectionBand({ section, first, editing, onCommitted }: SectionBandProps)
         !first && "border-t border-surface-700/40 pt-1.5",
       )}
     >
-      <span className="px-1.5 py-0.5">
+      <span className="px-1.5 py-0.5 font-medium">
         <NamedId name={name} id={id} />
       </span>
-      <FieldList fields={section.fields} editing={editing} onCommitted={onCommitted} />
-      {section.facts.map((fact) => (
-        <FactRow key={fact.kind} fact={fact} />
-      ))}
+      <GroupedFields
+        fields={section.fields}
+        facts={section.facts}
+        editing={editing}
+        onCommitted={onCommitted}
+      />
     </section>
   );
 }
 
-interface FieldListProps {
+interface GroupedFieldsProps {
   readonly fields: readonly NodeField[];
+  readonly facts: readonly InspectorFact[];
   readonly editing: TreeEditing | null;
   readonly onCommitted: () => void;
 }
 
-function FieldList({ fields, editing, onCommitted }: FieldListProps) {
-  const [entering, setEntering] = useState<string | null>(null);
+/** The fields and facts of one object under the headers of their sections, per `fieldGroups`. */
+function GroupedFields({ fields, facts, editing, onCommitted }: GroupedFieldsProps) {
+  const [entering, setEntering] = useState<FieldTopic | null>(null);
 
-  return fields.map((field) => (
-    <FieldRow
-      key={field.name}
-      field={field}
-      editing={editing}
-      entering={entering === field.name}
-      onEntering={(open) =>
-        setEntering((current) => (open ? field.name : current === field.name ? null : current))
-      }
-      onCommitted={onCommitted}
-    />
+  return fieldGroups(fields, facts).map(({ section, entries }) => (
+    <div key={section} data-ui="VoiceInspector:section" className="flex flex-col">
+      <h3 className={twMerge(OVERLINE, "flex min-h-6 items-end px-1.5 pt-1.5 pb-0.5")}>
+        {SECTION_TITLE[section]()}
+      </h3>
+      {entries.map((entry) => {
+        if (entry.kind === "fact") return <FactRow key={entry.topic} fact={entry.fact} />;
+
+        return (
+          <FieldRow
+            key={entry.topic}
+            field={entry.field}
+            topic={entry.topic}
+            editing={editing}
+            entering={entering === entry.topic}
+            onEntering={(open) =>
+              setEntering((current) =>
+                open ? entry.topic : current === entry.topic ? null : current,
+              )
+            }
+            onCommitted={onCommitted}
+          />
+        );
+      })}
+    </div>
   ));
 }
 
+/** The name classes of an inspector row, the label tier of the other inspectors. */
+const LABEL_CLASSES = "font-medium";
+
 interface FieldRowProps {
   readonly field: NodeField;
+  readonly topic: FieldTopic;
   readonly editing: TreeEditing | null;
   readonly entering: boolean;
   readonly onEntering: (open: boolean) => void;
@@ -229,7 +255,7 @@ interface FieldRowProps {
 }
 
 /** One field row of the inspector, a tab stop whose entry opens on F2, Enter or a double click. */
-function FieldRow({ field, editing, entering, onEntering, onCommitted }: FieldRowProps) {
+function FieldRow({ field, topic, editing, entering, onEntering, onCommitted }: FieldRowProps) {
   const row = useRef<HTMLDivElement>(null);
   const editable = editing !== null && field.editable;
 
@@ -261,7 +287,7 @@ function FieldRow({ field, editing, entering, onEntering, onCommitted }: FieldRo
         if (editable) onEntering(true);
       }}
     >
-      <FieldNameCell name={field.name} lead={null} />
+      <FieldNameCell topic={topic} lead={null} className={LABEL_CLASSES} />
       <FieldValue
         field={field}
         editing={editing}
@@ -273,13 +299,6 @@ function FieldRow({ field, editing, entering, onEntering, onCommitted }: FieldRo
     </div>
   );
 }
-
-const FACT_LABELS: Record<InspectorFact["kind"], () => string> = {
-  playlist: m.audio_inspector_playlist_label,
-  pick: m.audio_inspector_pick_label,
-  switchGroup: m.audio_inspector_switch_group_label,
-  defaultSwitch: m.audio_inspector_default_switch_label,
-};
 
 /** Returns the text of the value of `fact`. */
 function factText(fact: InspectorFact): string {
@@ -304,7 +323,7 @@ function FactRow({ fact }: { fact: InspectorFact }) {
 
   return (
     <div className={twMerge(PROPERTY_ROW_CLASSES, "pl-1.5")}>
-      <FieldNameCell name={FACT_LABELS[fact.kind]()} lead={null} />
+      <FieldNameCell topic={fact.kind} lead={null} className={LABEL_CLASSES} />
       <span className="w-5 shrink-0" />
       <span
         className={twMerge(
@@ -324,6 +343,8 @@ interface SharedViewProps {
   readonly editing: TreeEditing | null;
   readonly onReplay: (row: VoiceRow) => void;
 }
+
+const NO_FACTS: readonly InspectorFact[] = [];
 
 /** The fields that several picked rows share, per `sharedFields`. */
 function SharedView({ subjects, properties, editing, onReplay }: SharedViewProps) {
@@ -345,8 +366,9 @@ function SharedView({ subjects, properties, editing, onReplay }: SharedViewProps
         </p>
       )}
       <div className="flex flex-col px-1.5 pb-1.5">
-        <FieldList
+        <GroupedFields
           fields={fields}
+          facts={NO_FACTS}
           editing={editing}
           onCommitted={() => {
             if (first !== undefined) onReplay(first);

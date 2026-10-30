@@ -176,7 +176,7 @@ describe("FieldValue", () => {
     renderField("loopCount", edit);
 
     fireEvent.click(screen.getByRole("button", { name: "F2" }));
-    const loop = screen.getByRole("textbox", { name: "Loop Count" });
+    const loop = screen.getByRole("textbox", { name: "Loop count" });
     fireEvent.change(loop, { target: { value: "forever" } });
     fireEvent.keyDown(loop, { key: "Enter" });
 

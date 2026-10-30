@@ -15,6 +15,7 @@ import { voiceRows } from "../voices";
 function property(object: number, name: NodeProperty, value = 0): NodeField {
   return {
     name,
+    owner: "node",
     value,
     editable: true,
     target: { kind: "property", object, property: name },
@@ -45,6 +46,7 @@ describe("sharedFields", () => {
   it("keeps the properties that every list holds, with the values of the first", () => {
     const source: NodeField = {
       name: "source",
+      owner: "node",
       value: 10,
       editable: true,
       target: { kind: "source", sound: 1 },

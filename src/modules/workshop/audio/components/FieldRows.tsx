@@ -16,12 +16,12 @@ import { audioQueries, type BankRevision } from "../api/queries";
 import { useNodeNames } from "../state/nodeNames";
 import { matchingNodes } from "../utils/bankEdits";
 import { type EventRow, objectLabel } from "../utils/eventTree";
+import { type FieldTopic, fieldTopic } from "../utils/fieldTopics";
 import {
   type FieldDisplay,
   fieldDisplay,
   fieldEdit,
   fieldEntryText,
-  type FieldName,
   type FieldUnit,
   knobRange,
   type NodeField,
@@ -29,20 +29,8 @@ import {
 } from "../utils/nodeFields";
 import { nodeName, type NodeNames, nodeText } from "../utils/nodeNames";
 import type { TreeEditing } from "../utils/treeEditing";
+import { FieldDocName, topicLabel } from "./FieldDoc";
 import { NamedId } from "./RowContent";
-
-const FIELD_LABELS: Record<FieldName, () => string> = {
-  target: m.audio_edit_target_label,
-  source: m.audio_edit_source_label,
-  volume: m.audio_edit_volume_label,
-  makeUpGain: m.audio_edit_make_up_gain_label,
-  pitch: m.audio_edit_pitch_label,
-  lpf: m.audio_edit_lpf_label,
-  hpf: m.audio_edit_hpf_label,
-  delay: m.audio_edit_delay_label,
-  loopCount: m.audio_edit_loop_label,
-  weight: m.audio_edit_weight_label,
-};
 
 const UNIT_LABELS: Record<FieldUnit, () => string> = {
   dB: m.audio_edit_unit_db,
@@ -50,9 +38,6 @@ const UNIT_LABELS: Record<FieldUnit, () => string> = {
   "%": m.audio_edit_unit_percent,
   s: m.audio_edit_unit_seconds,
 };
-
-/** The name of the row that lists a container's children, as the field rows name theirs. */
-const CHILDREN_NAME = "children";
 
 /** The classes of a number read out in a row. DS-MONO-SIZE. */
 const NUMBER_CLASSES = "font-mono text-code text-surface-200 tabular-nums";
@@ -93,7 +78,7 @@ export function FieldValue({
 
   const editable = editing !== null && field.editable && !editing.locked(field.target);
   const range = knobRange(field.name);
-  const label = FIELD_LABELS[field.name]();
+  const label = topicLabel(fieldTopic(field));
   const shown = { ...field, value: draft?.value ?? field.value };
   const display = fieldDisplay(shown);
   const unit = display.kind === "quantity" && display.unit !== null ? display.unit : null;
@@ -251,16 +236,16 @@ function ObjectText({ id, node }: { id: number; node: EventNode | null }) {
 }
 
 interface FieldNameCellProps {
-  /** The name of the field, or null for a row without one. */
-  readonly name: string | null;
+  /** The field or the fact that the cell names and documents, or null for the children row. */
+  readonly topic: FieldTopic | null;
   /** The guides and the caret before the name. */
   readonly lead: ReactNode;
+  /** The classes of the name. */
+  readonly className?: string;
 }
 
 /** The name cell of a field row or a children row: the guides, the caret and the name. */
-export function FieldNameCell({ name, lead }: FieldNameCellProps) {
-  if (name === null) return null;
-
+export function FieldNameCell({ topic, lead, className }: FieldNameCellProps) {
   return (
     <span
       className={twMerge(
@@ -269,15 +254,22 @@ export function FieldNameCell({ name, lead }: FieldNameCellProps) {
       )}
     >
       {lead}
-      <span className="truncate text-surface-200">{name}</span>
+      {topic !== null && (
+        <FieldDocName topic={topic} className={twMerge("text-surface-200", className)} />
+      )}
+      {topic === null && (
+        <span className={twMerge("truncate text-surface-200", className)}>
+          {m.audio_field_children_label()}
+        </span>
+      )}
     </span>
   );
 }
 
 /** Returns the name of a field row or a children row, or null for any other row. */
 export function fieldName(row: EventRow): string | null {
-  if (row.kind === "field") return row.field.name;
-  if (row.kind === "children") return CHILDREN_NAME;
+  if (row.kind === "field") return topicLabel(fieldTopic(row.field));
+  if (row.kind === "children") return m.audio_field_children_label();
 
   return null;
 }
