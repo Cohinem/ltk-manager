@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                        |
 | ---------- | --------------------------------------------- |
+| 2026-10-30 | Fold the toolbar into a menu bar              |
 | 2026-10-30 | Merge Voices and Structure into one tree      |
 | 2026-10-30 | Add one keymap, drags, drops and type-ahead   |
 | 2026-10-30 | Replace the context badge with Played by      |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-30 | Add new objects and selection                 |
 | 2026-10-30 | Replace the document head with a toolbar      |
 | 2026-10-30 | Add the Voices view                           |
-| 2026-10-30 | Edit fields as rows, add the knob             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -28,30 +28,26 @@ from the game browser alike. A chunk without a name opens into it when its magic
 a bank or a RIFF `WAVE` file.
 
 The document draws its controls in one row, the toolbar row of its editor group, and its content
-under it. The tab shows the file name. The toolbar contains, from the left:
+under it. The tab shows the file name. The row contains, from the left:
 
 ```
-[Save][Undo][Redo] | [Media|Events] [Filter events......] 45 events [Unit v] [:]
+File  Edit  Insert  View  Playback  Bank  EXPERIMENTAL   [Media|Events] [Filter events...] 45 events
 ```
 
-- Save, Undo and Redo of an event bank that takes edits, per "Editing". Each tooltip shows its
-  key. Save is enabled while the bank holds unsaved edits, and Undo and Redo while the document
-  has a step in their direction.
+- The menu bar, per "Menu bar". The Experimental chip follows the titles in a bank that takes
+  edits, per "New objects".
 - The Media and Events switch of a bank with a hierarchy. Events is the view that opens in a bank
   without media. A file without a hierarchy shows the media table alone.
-- The tools of the open view: the filter and the count of events or media. The count is hidden
-  in a narrow group. The Events view then shows the count of picked rows, `+ New event` and the
-  Inspector button, per "Selection", "New objects" and "Inspector".
-- The bank unit button of a bank or a package, per "Bank units".
-- The kebab. It contains Bank details, the ways the file leaves the tab (Copy into the layer,
-  Extract, Save a copy), and inside a project Find references, which opens the References
-  document on the game path that the bank units name the file by.
+- The tools of the open view: the filter and the count of events or media. In the Events view the
+  count reads the picked rows when more than one is picked, per "Selection". The count is hidden
+  in a narrow group. The name entry of New event and the picker of Use in... open after the count
+  while they are in use.
 
-Bank details opens a popover with the `BKHD` facts of a bank: its version, bank type, alignment,
-header ID and the ID of its file name where it has one, then its size and its media count. A
-package or a WEM shows File details: its kind, size and media count.
+Bank details opens a popover under the row with the `BKHD` facts of a bank: its version, bank
+type, alignment, header ID and the ID of its file name where it has one, then its size and its
+media count. A package or a WEM shows File details: its kind, size and media count.
 
-Under the toolbar, a notice band shows what needs action:
+Under the row, a notice band shows what needs action:
 
 - A file that does not read shows the reader's error in a danger notice. The error names the
   offset where the reader knows one.
@@ -64,16 +60,47 @@ Under the toolbar, a notice band shows what needs action:
 - While the audio index of the game builds, the Media view of a bank or a package shows an info
   notice. The Events view shows its own, per "Names".
 
+### Menu bar
+
+The menu bar is the shared `Menubar` of `src/components`, built on the Base UI menubar. Each item
+names a command of the keymap (`AUDIO_MENU_SPEC` in `utils/audioMenus.ts`), so an item shows the
+glyph, the words and the key that the palette and the sheet show, and it is enabled while the
+command applies. A command of a surface that the file does not have is left out: a file without a
+hierarchy lists no Insert or Bank items of the event tree, and no Save, Undo or Redo.
+
+| Menu     | Items                                                                                                                 |
+| -------- | --------------------------------------------------------------------------------------------------------------------- |
+| File     | Save. Copy into the layer, Extract and Save a copy, as the tab offers them. Bank or File details                      |
+| Edit     | Undo, Redo. Duplicate, Wrap in container, Cut, Paste into container, Delete. Copy ID. Rename, Reset field. Select all |
+| Insert   | New event, Add child... New sound, Container (random, sequence or switch), Import .wem...                             |
+| View     | Media and Events as a choice, Inspector as a switch. Expand all, Collapse all. Focus filter, Keys and gestures        |
+| Playback | Play or stop, Play event, Stop all. Loop as a switch. Volume up, Volume down, and the preview volume                  |
+| Bank     | The bank units, per "Bank units", and Find references. Replace media from file..., Use in...                          |
+
+A disabled item shows its reason under its words where the reader cannot see it: a command of the
+event tree in the Media view reads "Applies in the Events view", an edit of a bank that takes no
+edits names the bank's version, and a command that waits for a pick names the pick. Expand all
+opens at most 200 events, because each open event reads its tree.
+
+The bar follows the WAI-ARIA menubar pattern. Alt alone or F10 moves focus to the first title from
+anywhere in the document, and the same key moves it back. Left and Right move between the titles,
+Down opens a menu, a letter moves to the title or the item that starts with it, and Escape closes
+the menu and then returns focus to where it was. While a menu is open, a hover on another title
+opens that one. A chosen item returns focus to where it was before the bar took it, so a command
+of the tree acts on the tree's pick.
+
+In a narrow group the titles move, from Bank backwards, into one overflow menu before the filter
+narrows. The filter keeps a width of 14rem until every title is in the overflow menu, and then
+narrows to 8rem and no further.
+
 ## Bank units
 
-The bank unit button in the toolbar of a bank or a package names the `BankUnit` that names the
-opened file in its `bankPath`, such as `Rumble_Base_SFX`. The units come from the bins of the
-open project and then from the audio index of the game. If units of several names name the
-file, the button adds the count of the other names, such as `Ahri_Base_VO +2`. If no unit names it,
-the button reads Bank units. An event bank, a media bank and a package each have the button, so
-any file of a unit reaches the others.
+The Bank menu of a bank or a package lists the `BankUnit` objects that name the opened file in
+their `bankPath`, such as `Rumble_Base_SFX`. The units come from the bins of the open project and
+then from the audio index of the game. An event bank, a media bank and a package each have the
+menu, so any file of a unit reaches the others.
 
-The button opens a menu with one group per unit. A unit that several bins declare with the same
+The menu holds one group per unit. A unit that several bins declare with the same
 name, the same paths and the same voice-over flag is one group. A base voice-over bank that every
 skin bin of a champion declares is one group with a list of bins, not one group per bin. A file
 that two units name has two groups.
@@ -99,7 +126,8 @@ units in a submenu, each an item that opens the list row.
 The menu reads before the audio index of the game is ready. It lists the project's units, says
 that the index builds, and fills in when the build finishes. A loose file outside a project names
 itself by its file name, so no unit names it. The items need a project, which owns the editor
-tabs. Outside one, they are disabled.
+tabs. Outside one, they are disabled. Inside a project, Find references follows the units and
+opens the References document on the game path that the bank units name the file by.
 
 ## Media table
 
@@ -137,7 +165,7 @@ region announces the source ID that plays.
 
 The player plays every media at the preview volume, as its file holds it, with no property of a
 bank. The preview volume starts at 0.2 on each start of the app, `-` and `=` move it by 0.05, and
-the toolbar shows it as a percent beside the Loop switch. Loop, or `Ctrl+L`, plays each media of a
+the Playback menu shows it as a percent under Loop. Loop, or `Ctrl+L`, plays each media of a
 press again from its start until it stops.
 The webview applies none of the game mixer gain, so shipped media at full volume is much louder
 than in a match. The player is a channel of the
@@ -382,7 +410,7 @@ the media table's player, with the properties of its path, per "Playback of prop
 
 ### Inspector
 
-The Inspector button of the toolbar shows a pane on the right of the tree. The pane is remembered
+View - Inspector shows a pane on the right of the tree. The pane is remembered
 per user. It lists every field of the selected row's object as field rows, with the knobs, the
 value entry and the units of "Editing". The rows stay editable in place, and the pane adds the
 fields that they hide.
@@ -465,7 +493,7 @@ shows its icon, and its key where it has one.
 Inside a project, an event bank opens as a document that takes edits. The tab takes the unsaved
 dot, `Ctrl+S` saves it, and `Ctrl+Z`, `Ctrl+Shift+Z` and `Ctrl+Y` step its history. The game
 sandbox takes no edit. Every read of the tree applies the unsaved edits, so a press plays the
-edited bank before a save. The Save, Undo and Redo buttons of the toolbar do the same as the keys.
+edited bank before a save. Save, Undo and Redo of the Edit and File menus do the same as the keys.
 The event tree edits the document, and the document stays open while the Media view shows. The
 field rows below are those of the inspector, and "Edits" lists those of the tree rows. The keys
 are in "Keys and gestures".
@@ -587,9 +615,9 @@ container shows Remove from container on hover.
 
 ### New objects
 
-New objects are experimental until the in-game checks of #954 confirm them in a match. Toolbar
-`+ New event` carries the Experimental chip, and the context menu holds these actions in one group
-under one chip. An add row reads a plain `+ Add`, and its tooltip says that the actions are
+New objects are experimental until the in-game checks of #954 confirm them in a match. One
+Experimental chip after the titles of the menu bar marks them in the bar, and the context menu holds
+these actions in one group under one chip. An add row reads a plain `+ Add`, and its tooltip says that the actions are
 experimental. An edit of an existing value carries no mark.
 
 An event ends in an add row, and so does the header of a random or sequence container, of an
@@ -604,7 +632,7 @@ layers name the children again. The row reads `+ Add`, and a press, Enter or Ctr
 | Existing  | Move existing here: the node leaves its parent for this | Play existing: a new Play action plays it |
 
 New sound opens the media picker of "Edits" over every media of the set. Existing opens the node
-picker. Toolbar `+ New event` opens a name entry in its place. Enter creates the event, and Escape
+picker. Insert - New event opens a name entry after the filter. Enter creates the event, and Escape
 or a press outside drops the entry.
 
 A context menu holds the actions on the picked rows. Each item shows its icon and its key.
@@ -694,7 +722,7 @@ than the reader expects.
 
 ### Using an event
 
-Use in... on a named event opens a picker in place of `+ New event`. It lists every sound field of
+Use in... on a named event opens a picker after the filter. It lists every sound field of
 the project's bins that an event can be set in: `SoundEventData.mSoundName` of a clip event,
 `soundOnCreateDefault` and `soundPersistentDefault` of a `VfxSystemDefinitionData`, and
 `SoundOnCreate` and `SoundPersistent` of a `VfxEmitterAudio`. A field shows its object and its
@@ -740,7 +768,7 @@ media are not built.
 A press picks one row. Ctrl+click adds or drops a row, Shift+click and Shift+Up or Down pick the
 range from the last row picked without Shift, Ctrl+A picks every drawn row, and Escape keeps the
 row under the keyboard alone. A switch state of sounds, an add row and a loading row take no pick. The
-toolbar shows the count of picked rows when it is more than one.
+count after the filter reads the picked rows when more than one is picked.
 
 Delete, Duplicate, Wrap in container and Copy take every picked row, and each is one undo step. A
 row below another picked row is left to it. Space plays the picked rows together. A knob edit of a
@@ -811,8 +839,8 @@ many octaves as `LPF` spans. This is an approximation, and the field card of eac
 
 The keys of the media table, the event tree and the Voice lines view come from one keymap,
 `AUDIO_KEYMAP` in `utils/keymap.ts`. The key handlers resolve a press through it, and the context
-menus, the toolbar tooltips, the palette and the shortcut sheet read their keys from it. `?`, the
-keyboard mark in the toolbar and Keys and gestures in the kebab open the sheet, which lists the
+menu bar, the context menus, the palette and the shortcut sheet read their keys from it. `?` and
+View - Keys and gestures open the sheet, which lists the
 keys of the views of the document. The palette lists the commands of the active audio document
 under Audio, each with its key, while the command applies.
 
