@@ -20,6 +20,19 @@ const JSON_MANIFEST: &str = r#"{
   ]
 }"#;
 
+const JSON_MANIFEST_AS_YAML: &str = "version: 1
+modules:
+  - name: first
+    entries:
+      Characters/Aatrox:
+        mass: 1.5
+        title: '0x71ad094e'
+        flag: 'true'
+        note: '1.0'
+      '0x71ad094e':
+        count: 3
+";
+
 const TOML_MANIFEST: &str = r#"
 version = 1
 
@@ -27,6 +40,13 @@ version = 1
 target = "data/aatrox.bin"
 "Characters/Aatrox" = { mass = 1.5 }
 "#;
+
+const TOML_MANIFEST_AS_YAML: &str = "version: 1
+modules:
+  - target: data/aatrox.bin
+    Characters/Aatrox:
+      mass: 1.5
+";
 
 fn layer(files: &[(&str, &str)]) -> TempDir {
     let dir = tempfile::tempdir().unwrap();
@@ -65,16 +85,21 @@ fn strip_origins(mut value: Value) -> Value {
     value
 }
 
+/// The result of [`loaded`] for a layer of `files`, whose manifest is `game_data.yaml`.
+fn loaded_from(files: &[(&str, &str)]) -> String {
+    loaded(&layer(files).path().join("game_data.yaml"))
+}
+
 #[test]
 fn convert_layer_replaces_json_manifest_with_equal_yaml() {
     let dir = layer(&[("game_data.json", JSON_MANIFEST)]);
-    let before = loaded(&dir.path().join("game_data.json"));
+    let expected = loaded_from(&[("game_data.yaml", JSON_MANIFEST_AS_YAML)]);
 
     let removed = convert_layer(dir.path()).unwrap();
 
     assert_eq!(removed, [dir.path().join("game_data.json")]);
     assert!(!dir.path().join("game_data.json").exists());
-    assert_eq!(loaded(&dir.path().join("game_data.yaml")), before);
+    assert_eq!(loaded(&dir.path().join("game_data.yaml")), expected);
 }
 
 #[test]
@@ -95,12 +120,12 @@ fn convert_layer_keeps_scalars_that_read_as_other_types_as_strings() {
 #[test]
 fn convert_layer_replaces_toml_manifest_with_equal_yaml() {
     let dir = layer(&[("game_data.toml", TOML_MANIFEST)]);
-    let before = loaded(&dir.path().join("game_data.toml"));
+    let expected = loaded_from(&[("game_data.yaml", TOML_MANIFEST_AS_YAML)]);
 
     convert_layer(dir.path()).unwrap();
 
     assert!(!dir.path().join("game_data.toml").exists());
-    assert_eq!(loaded(&dir.path().join("game_data.yaml")), before);
+    assert_eq!(loaded(&dir.path().join("game_data.yaml")), expected);
 }
 
 #[test]
@@ -127,7 +152,16 @@ fn convert_layer_converts_json_sources_of_json_manifest() {
             r#"{"version": 1, "Characters/Aatrox": {"mass": 2.0}}"#,
         ),
     ]);
-    let before = loaded(&dir.path().join("game_data.json"));
+    let expected = loaded_from(&[
+        (
+            "game_data.yaml",
+            "version: 1\nmodules:\n  - target: data/a.bin\n    source: edits/a.yaml\n",
+        ),
+        (
+            "edits/a.yaml",
+            "version: 1\nCharacters/Aatrox:\n  mass: 2.0\n",
+        ),
+    ]);
 
     let removed = convert_layer(dir.path()).unwrap();
 
@@ -137,7 +171,7 @@ fn convert_layer_converts_json_sources_of_json_manifest() {
 
     let text = fs::read_to_string(dir.path().join("game_data.yaml")).unwrap();
     assert!(text.contains("edits/a.yaml"), "{text}");
-    assert_eq!(loaded(&dir.path().join("game_data.yaml")), before);
+    assert_eq!(loaded(&dir.path().join("game_data.yaml")), expected);
 }
 
 #[test]
