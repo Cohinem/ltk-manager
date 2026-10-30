@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                     |
 | ---------- | ------------------------------------------ |
+| 2026-10-30 | Replace media, follow units, use events    |
 | 2026-10-30 | Add derived node names                     |
 | 2026-10-30 | Add new objects and selection              |
 | 2026-10-30 | Replace the document head with a toolbar   |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-30 | Pick by playlist, default switch and delay |
 | 2026-10-29 | Add ability sound                          |
 | 2026-10-29 | Add bank units and contextual event names  |
-| 2026-10-29 | Add the waveform column                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -566,6 +566,8 @@ An edit is refused with the reason in a toast, and the bank is unchanged:
   container
 - An imported file that is not a WEM, whose codec is not Wwise Vorbis, or whose media does not
   decode, and an import into a set with no media bank and no package
+- A replacement whose file gives no Vorbis WEM, of a media that the opened event bank holds
+  itself, or of a media that a sound of another bank reads from a bank, whose size would change
 
 A refused entry opens again with the typed text, marked, until Escape drops it. An entry whose
 text holds no number stays open and marked on Enter, and a press outside drops it.
@@ -620,9 +622,19 @@ A context menu holds the actions on the picked rows. Each item shows its icon an
 | Wrap in container | none       | Puts the picked nodes of one parent into a new container of a kind         |
 | Delete            | Delete     | Deletes each picked row from its parent                                    |
 | Copy              | Ctrl+C     | Copies the event names and object IDs of the picked rows, one on each line |
+| Rename            | none       | Opens the name entry of the picked event with its name                     |
+| Use in...         | none       | Opens the sound field picker of "Using an event" for the picked event      |
+| Replace media...  | none       | Replaces the media of the picked sound from a file, per "Replacing media"  |
 
 Duplicate on an event opens the name entry with the name and `_copy`, and the new event copies
-every action and every node below them.
+every action and every node below them. Rename gives the event the ID of the new name in its place
+in the file, and keeps its actions.
+
+**Play targets.** A Play action names the bank that holds its target. A retarget to an object of
+another file of the set writes the bank ID of that file into the action. `ltk_wwise` 0.2.0 keeps
+the field private, so the edit writes the four bytes before the last field of the encoded action
+and checks that `Action::play_bank` reads the new ID back. A retarget inside one file keeps the
+bank ID that the action has.
 
 **IDs.** A new event's ID is the FNV-1 hash of its name, because a bin names an event by its name.
 A name whose ID an object of the set or an event name of the audio indexes holds is refused. Every
@@ -657,11 +669,75 @@ playlist order and weights. A node that a Play action plays is wrapped alone, an
 plays the container.
 
 **From file.** The import reads the file as a WEM, refuses any codec other than Wwise Vorbis, and
-decodes it with the decoder of the Media view. Only Vorbis plays in the game. Converting another
-format is #955. The media goes into the media bank of the set if the template sound plays from a
+decodes it with the decoder of the Media view. Only Vorbis plays in the game. The import takes
+no other format. The media goes into the media bank of the set if the template sound plays from a
 bank, and into the package if it streams, and into the other file if the set has no such file. The
 sound's `in_memory_size` is the length of the WEM. A game media file is copied into the project
 layer on its first import, as a game event bank is on its first edit.
+
+### Bank unit events
+
+An edit that creates, renames or deletes an event updates the `events` list of the bank units that
+name the bank, as a second change of the same action:
+
+- Every unit of the project's bins that names the bank takes the change. If no project bin names
+  it, the first ranked unit of the game takes it, and its bin is copied into the project layer
+  first, as a game bank is on its first edit.
+- A created event's name joins the end of the list, and a name that the list holds already is
+  skipped. A renamed event's item takes the new name in its place. A deleted event's item leaves.
+- The change is one `EditProperty` of the bin document (ADR-0051), which is one step of that bin's
+  history. The bank document holds the bin open and keeps that step beside its own, so one undo
+  reverts both. A save of the bank writes the bin too, and closing the bank drops the bin's
+  unsaved change.
+- A unit that cannot be updated, such as a unit of a `PTCH` bin, is logged, and the bank edit
+  stays.
+
+A bin tab open on the same file shows the change, because both read one tree. Its own undo then
+reverts the step too, so a mix of undo in the bin tab and in the bank can revert another change
+than the reader expects.
+
+### Using an event
+
+Use in... on a named event opens a picker in place of `+ New event`. It lists every sound field of
+the project's bins that an event can be set in: `SoundEventData.mSoundName` of a clip event,
+`soundOnCreateDefault` and `soundPersistentDefault` of a `VfxSystemDefinitionData`, and
+`SoundOnCreate` and `SoundPersistent` of a `VfxEmitterAudio`. A field shows its object and its
+path, and the event it plays now, and the empty fields come first. The text filters by bin,
+object or path. Enter sets the field to the event's name, as one undo step of the bank, with the
+bin held as for "Bank unit events". Escape closes the picker. A field of a game bin is not listed.
+
+Create event from a sound field of a bin is not built yet.
+
+### Replacing media
+
+Replace media from file... on a sound row of either view replaces the media that the sound plays,
+at its source ID, so every sound that plays it plays the new media. The action is experimental
+until #954.
+
+- The file dialog takes a `.wem`, which is used as it is, and a `.wav`, `.ogg` or `.flac`, which
+  converts to a Vorbis WEM through the Wwise console of Settings > Workshop > Audio. Without that
+  path such a file is refused with a pointer to the setting. Only Vorbis plays in the game, so the
+  WEM is refused for any other codec.
+- The conversion runs `WwiseConsole.exe create-new-project` and then `convert-external-source`
+  with a `.wsources` list of the one file and the `Vorbis Quality High` conversion, in a temporary
+  folder. The commands follow the Wwise command line reference. They have not been run against
+  the Wwise version that writes bank version 145.
+- The media is replaced in the file of the set that holds it, the package first and else the
+  media bank. That file joins the document and is copied into the project layer on its first
+  change, as an import copies it.
+- Each sound of the opened bank that plays the media takes the new `in_memory_size`: the length of
+  the WEM for a sound of a bank's media index, and the prefetched length for a prefetched sound,
+  whose start in its bank is replaced with the start of the new WEM. A streamed sound keeps its
+  fields. `plugin_id` is Vorbis.
+- Before it writes, the replacement reads what it changes. If several sounds play the media, if a
+  sound of another bank plays it, or if the codec, the channel count or the rate changes, a
+  confirm lists the sounds by ID and the changed facts.
+- One replacement is one undo step over the bank and the media file. A delete of the last sound
+  that plays a replaced media keeps the replacement.
+
+The media table of a package or a media bank has no document of its own, so its rows take no
+replacement. Revert of one row, the durations before and after, and a warning for a much longer
+media are not built.
 
 ### Selection
 
