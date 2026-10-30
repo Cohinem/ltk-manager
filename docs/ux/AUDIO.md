@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                        |
 | ---------- | --------------------------------------------- |
+| 2026-10-30 | Merge Voices and Structure into one tree      |
 | 2026-10-30 | Add one keymap, drags, drops and type-ahead   |
 | 2026-10-30 | Replace the context badge with Played by      |
 | 2026-10-30 | Group voices under headers, add the inspector |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-30 | Replace the document head with a toolbar      |
 | 2026-10-30 | Add the Voices view                           |
 | 2026-10-30 | Edit fields as rows, add the knob             |
-| 2026-10-30 | Add event bank editing                        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -31,7 +31,7 @@ The document draws its controls in one row, the toolbar row of its editor group,
 under it. The tab shows the file name. The toolbar contains, from the left:
 
 ```
-[Save][Undo][Redo] | [Media|Events] [Voices|Structure] [Filter events......] 45 events [Unit v] [:]
+[Save][Undo][Redo] | [Media|Events] [Filter events......] 45 events [Unit v] [:]
 ```
 
 - Save, Undo and Redo of an event bank that takes edits, per "Editing". Each tooltip shows its
@@ -39,9 +39,9 @@ under it. The tab shows the file name. The toolbar contains, from the left:
   has a step in their direction.
 - The Media and Events switch of a bank with a hierarchy. Events is the view that opens in a bank
   without media. A file without a hierarchy shows the media table alone.
-- The tools of the open view: the Voices and Structure switch of the Events view, the filter and
-  the count of events or media. The count is hidden in a narrow group. The Events view then
-  shows the count of picked rows and `+ New event`, per "Selection" and "New objects".
+- The tools of the open view: the filter and the count of events or media. The count is hidden
+  in a narrow group. The Events view then shows the count of picked rows, `+ New event` and the
+  Inspector button, per "Selection", "New objects" and "Inspector".
 - The bank unit button of a bank or a package, per "Bank units".
 - The kebab. It contains Bank details, the ways the file leaves the tab (Copy into the layer,
   Extract, Save a copy), and inside a project Find references, which opens the References
@@ -163,11 +163,9 @@ no name hashes to shows `#` and its decimal ID. Named events come first, by name
 unnamed ones, by ID. The filter keeps the events whose name or decimal ID contains its text, and
 the events that reach a node whose name or ID contains it, per "Node names".
 
-The Events view has two views of the events. The Voices view is the default and lists the sounds
-that each event can play, per "Voices". The Voices and Structure switch in the toolbar changes to
-the Structure view, which lists the full tree of each event, per "Rows". Both views keep the same
-expanded events, the same selection and the same player. The names, the bank set, "What plays"
-and the row actions apply to both views.
+The Events view draws one tree. An expanded event lists its actions, a header for each container
+and switch state under them, and its voices at the leaves, per "Rows". A voice is one sound that
+an event can play. The names, the bank set, "What plays" and the row actions apply to every row.
 
 ### Names
 
@@ -240,51 +238,121 @@ A project layer's copy of a file comes before the game's, as the client reads th
 
 ### Rows
 
-The Structure view draws these rows:
+The tree draws these rows:
 
-| Row       | Shows                                                                        |
-| --------- | ---------------------------------------------------------------------------- |
-| Event     | The name, the action count and the status                                    |
-| Action    | The name or class, such as Play, Stop or SetVolume, the ID, target, delay    |
-| Container | The name and the ID, and the rule of what plays                              |
-| Sound     | The name, the ID and the file name of the file that contains the media       |
-| Other     | The object kind and the ID, marked as not playing. Music objects say "music" |
-| Missing   | The ID of an object that no bank of the set contains                         |
-| Field     | One field of the action or the node above it: a name and the value           |
-| Children  | The children of the container above it, and their count                      |
-
-An action class outside the table of Wwise classes shows as `0x` and four hex digits. An action
-with a delay shows it in milliseconds. An event's tree is read when the event expands or plays, so
-a bank of hundreds of events lists at once.
-
-An action and a node are each one line. An expanded action lists its fields, then the object that
-it plays. An expanded sound or container lists its fields, and a container then lists a
-`children` row, which expands into its children. A field row reads like a property row of a bin,
-per "The property row" in docs/ux/BIN_EDITOR.md: the name and the value, with the values of all
-field rows in one column. A field row shows no kind of the value in the bank. The value is plain
-text in its authoring unit, and an ID shows the name of the object or the media that it points at.
+| Row           | Shows                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Event         | The name, the action count, the status, and `Play +250 ms` for one Play action        |
+| Action header | Play, the target, the delay and the voice count, for each Play of an event of several |
+| Header        | A container or a switch state: its name, the voice count and its knobs                |
+| Voice         | A sound: the play button, the name and the media, and its knobs                       |
+| Action        | An action that plays no tree, such as Stop or SetSwitch: the class, target and delay  |
+| Add           | `+ Add`, under a header that adds a child and at the end of an event                  |
+| Empty         | No actions, under an event without an action                                          |
 
 ```
-v > Play_sfx_Rumble_Death3D_cast              1 action
-    v > Death3D_cast / Play #91827  Death3D_cast / Random #500572873
-          target            Death3D_cast / Random  #500572873
-          delay             0 s
-        v > Death3D_cast / Random  #500572873  one child plays, picked by weight
-              volume      (o)  -3.0 dB
-              pitch       (o)  +120 cents
-              lpf         (o)  0 %
-              children         1 child
-            v > Death3D_cast #1  #546979792  Rumble_Base_SFX_audio.wem
-                  source       Rumble_Base_SFX_audio.wem  #4047148852
-                  loopCount    Plays once
-                  weight  (o)  50  100% of picks
+v Play_sfx_Rumble_BasicAttack_OnHit  2 actions  Play +0 ms
+|-- v OnHit / Switch  4 voices  group #1153642577    (o) 0.0 dB
+|   |-- v default · Random by weight  2 voices       (o) 0.0 dB   (o) 0 cents
+|   |   |-- > OnHit #1  #3125548773  audio.bnk       (o) 0.0 dB   (o) 0 cents  (o) 50  50%
+|   |   |-- > OnHit #2  #3125548774  audio.bnk       (o) 0.0 dB   (o) 0 cents  (o) 50  50%
+|   |   |-- + Add
+|   |-- > #2 · Random  2 voices
+|-- Stop  OnHit / Random #500572873  +200 ms
+|-- + Add
+v Play_sfx_Rumble_Death3D_cast  1 action  Play +250 ms
+|-- > Death3D_cast #1  #546979792  audio.bnk         (o) -3.0 dB
+|-- + Add
 ```
+
+The node of the one Play action of an event is listed under the event, and the event row names
+the Play and its delay. An event of several Play actions has one action header per Play, and the
+node of each Play is listed under its header. Every other action is an action row, in the order
+that the client runs the actions. An event's tree is read when the event expands or plays, so a
+bank of hundreds of events lists at once.
 
 | Status         | Tone    | When                                                        |
 | -------------- | ------- | ----------------------------------------------------------- |
 | Media missing  | Warning | A sound names a media that no file of the set contains      |
 | Object missing | Warning | An action or a target names an object that no bank contains |
 | Decode error   | Error   | An object does not decode. The row gives its ID and error   |
+
+### Group headers
+
+A header row has the shape and the value columns of a voice row: the caret, the play button, the
+name, the voice count, and the knobs of its container. A header's knobs edit the container's own
+fields. A header shows `volume` and `pitch`, the `weight` if the pick of its parent reads weights,
+and `delay`, LPF and HPF if they are not 0. A press on the play button plays what the header
+plays.
+
+| Container          | Name on the header                                          |
+| ------------------ | ----------------------------------------------------------- |
+| Random container   | Random by weight if its pick reads the weights, else Random |
+| Sequence container | Sequence                                                    |
+| Switch container   | Switch, then its switch group as `group #id`                |
+| Layer container    | Layer                                                       |
+| Actor-mixer        | Actor-mixer                                                 |
+
+- Every container is a header, nested as deep as the bank holds it. A container whose derived
+  name has a stem draws the stem before its name, unless the header above it, or else the event,
+  has the same stem. The tooltip of the name gives the name and the ID of the container.
+- A container other than a switch whose only child is a container has a compact header: its name
+  is muted and it shows no voice count. Its child is the header below it.
+- A switch container lists one header per switch state. The default state comes first and is
+  open, and is named `default`, or `first child` for a switch without a default switch. Each
+  other child is a state of its own, named `#n` after its place among the children, and starts
+  folded. No table names a switch, so a state is named by its place. A state of one container is
+  the header of that container, named after both, such as `default · Random`, with the
+  container's knobs. A state of sounds is named alone and has no knobs.
+- An action header names Play, the target and the delay of its action.
+- A random container lists its children in playlist order, and every other container in file
+  order.
+- Left folds a header on its name cell and Right opens a folded one. A fold is kept while the
+  document is open.
+
+### Lanes
+
+The rows of the tree draw bracket lanes in place of plain guides. A lane runs from below a
+header's caret down the rows of the header, and on the last row it stops at the row's middle and
+turns toward the row. Nested headers draw nested lanes. The lane of the selected row's header
+takes the accent. While the pointer is over a row, the lane of its header lifts a rung from the
+header down to that row. The bin tree keeps its plain guides.
+
+### Voice rows
+
+| Cell     | Shows                                                                       |
+| -------- | --------------------------------------------------------------------------- |
+| (play)   | The play button of the voice                                                |
+| Media    | The sound's name and ID, the file that contains the media                   |
+| `volume` | The knob and the value in dB                                                |
+| `pitch`  | The knob and the value in cents                                             |
+| `weight` | The knob, the weight and its share, if the pick of the parent reads weights |
+| `delay`  | The value in seconds, if it is not 0                                        |
+| LPF, HPF | A smaller knob and the value in %, if it is not 0                           |
+
+The cells of the headers, the voices and the actions of one event line up. A column that one row
+of the event shows is drawn on every row of the event, and it stays empty on a row without that
+value.
+
+A sound whose media is missing shows its name greyed and the Media missing status. An object
+that no bank contains, and an object that does not play, show the reason in place of the media.
+
+### Action rows
+
+An action row draws the fields of its action that the event tree carries, from the action types
+of `ltk_wwise` 0.2.0:
+
+| Field  | Shows                                                              |
+| ------ | ------------------------------------------------------------------ |
+| Class  | The class name, such as Stop, Pause, Resume, SetSwitch or SetState |
+| Target | The derived name of the object that it targets and `#` and its ID  |
+| Delay  | `+` and the `DelayTime` in ms, if it is not 0                      |
+
+An action class outside the table of Wwise classes shows as `0x` and four hex digits. An action
+that no bank contains shows `Action #id missing` in place of its class. The fade time of a Stop and the switch
+or the state that a SetSwitch or a SetState sets are not drawn, because the event tree does not
+carry the props of an action other than its delay. A Play whose target the walk visited before
+is an action row too.
 
 ### What plays
 
@@ -300,129 +368,32 @@ A press on a row plays what one press of the game plays from that row:
 | Sound              | Its media                                                                  |
 
 A random container that does not use weights picks every playlist item with the same chance. A
-child outside the playlist does not play. A switch row says whether the default switch plays or
-the first child. The press does not read a switch or a state that the game sets, and it does not
-avoid a repeat or shuffle the playlist.
+child outside the playlist does not play. A switch state header plays the nodes of its state.
+The press does not read a switch or a state that the game sets, and it does not avoid a repeat
+or shuffle the playlist. An action row does not play.
 
 An event plays the picks of all its Play actions, and each pick starts after the `DelayTime` of
-its action. The random range of a delay is not read. A press on an action or a node row does not
+its action. The random range of a delay is not read. A press on a header or a voice row does not
 wait the `DelayTime` of the action. A seek on the waveform moves every voice of the press to the
 playhead without its delay. A press stops what the press before it started, so a second press on
-a random container plays another variation. A sound whose media is missing and an object that does
-not play give nothing to play and show no play button. Every voice plays at the volume of the
-media table's player, with the properties of its path, per "Playback of properties".
-
-### Keyboard
-
-The tree of the Structure view is one tab stop. Focus selects the first row if no row is
-selected. Its keys are in "Keys and gestures".
-
-### Row actions
-
-An event's context menu contains Copy event name, which copies `#` and the ID for an unnamed
-event. Inside a project it also contains Show contextual rule, which opens the `ContextualActionData`
-object in its Voice lines view at the first rule that plays the event, and Show in bank unit, which opens the bin at the
-`events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu contains Copy object ID. A sound whose media is found also
-contains Show media, which opens the document of the file that contains the media, switches it to the
-Media view and selects the row of the source ID.
-
-In the Voices view, an event row takes the menu of an event, a header row the menu of its container,
-or of its action when the action plays a sound, and a voice row the menu of its sound. A header row
-also offers Show in inspector while the inspector is hidden. An editable bank adds the actions of
-"New objects" to each menu. Every item of a menu shows its icon, and its key where it has one.
-
-## Voices
-
-The Voices view lists what an event plays rather than how Wwise holds it. A voice is one sound that
-an event can play. An expanded event lists one group header for each container that holds voices,
-and one row for each voice under its header.
-
-```
-v Play_sfx_Rumble_BasicAttack_OnHit   1 action  +250 ms
-|-- v Switch default · Random  4 voices          (o) 0.0 dB  (o) 0 cents
-|   |-- > OnHit #1  #3125548773  audio.bnk       (o) 0.0 dB  (o) 0 cents
-|   |-- > OnHit #2  #3125548774  audio.bnk       (o) 0.0 dB  (o) 0 cents
-|   |-- + Add
-|-- > Switch #2 · Random  4 voices
-|-- + Add
-```
-
-### Group headers
-
-A header row has the shape and the value columns of a voice row: the caret, the play button, the
-name, the voice count, and the knobs of its container. A header's knobs edit the container's own
-fields. A header shows `volume` and `pitch`, the `weight` if the pick of its parent reads weights,
-and `delay`, LPF and HPF if they are not 0. A press on the play button plays what the container
-plays.
-
-| Container          | Name on the header                                               |
-| ------------------ | ---------------------------------------------------------------- |
-| Random container   | Random by weight if its pick reads the weights, else Random      |
-| Sequence container | Sequence                                                         |
-| Switch container   | Switch and the ID of its default switch, or Switch (first child) |
-| Layer container    | Layer                                                            |
-| Actor-mixer        | Actor-mixer                                                      |
-
-- A container whose derived name has a stem draws the stem before its name, unless the header
-  above it, or else the event, has the same stem. The tooltip of the name gives the name and the
-  ID of the container.
-- A container whose only child is a container of another kind than switch has no header. Its name
-  is drawn muted before the name of the header below it, such as `Actor-mixer / Random`. Its fields
-  are edited in the inspector.
-- A switch container has one header per switch state. The default state comes first and is open.
-  Each other child is a state of its own, named `Switch #n` after its place among the children,
-  and starts folded. No table names a switch, so a state is named by its place. A state of one
-  container names the state, then the container, such as `Switch default · Random`. A state of
-  sounds names the state alone, and its knobs are those of the switch.
-- The delay of the Play action of an event with one Play action is drawn on the event row, such
-  as `+250 ms`. An event with several Play actions has one header per action, named after its
-  target, with the delay of the action. The header of an action whose node gives one header is
-  that header.
-- A random container lists its children in playlist order, and every other container in file
-  order.
-- Left folds a header on its name cell and Right opens a folded one. A fold is kept while the
-  document is open.
-
-### Lanes
-
-The rows of the Voices view draw bracket lanes in place of plain guides. A lane runs from below a
-header's caret down the rows of the header, and on the last row it stops at the row's middle and
-turns toward the row. Nested headers draw nested lanes. The lane of the selected row's header
-takes the accent. While the pointer is over a row, the lane of its header lifts a rung from the
-header down to that row. The Structure view and the bin tree keep their plain guides.
-
-### Voice rows
-
-| Cell     | Shows                                                                       |
-| -------- | --------------------------------------------------------------------------- |
-| (play)   | The play button of the voice                                                |
-| Media    | The sound's name and ID, the file that contains the media                   |
-| `volume` | The knob and the value in dB                                                |
-| `pitch`  | The knob and the value in cents                                             |
-| `weight` | The knob, the weight and its share, if the pick of the parent reads weights |
-| `delay`  | The value in seconds, if it is not 0                                        |
-| LPF, HPF | A smaller knob and the value in %, if it is not 0                           |
-
-The cells of the headers and the voices of one event line up. A column that one row of the event
-shows is drawn on every header and voice row of the event, and it stays empty on a row without
-that value.
-
-A sound whose media is missing shows its name greyed and the Media missing status. An object
-that no bank contains, and an object that does not play, show the reason in place of the media.
+a random container plays another variation. A sound whose media is missing and an object that
+does not play give nothing to play and show no play button. Every voice plays at the volume of
+the media table's player, with the properties of its path, per "Playback of properties".
 
 ### Inspector
 
-The Inspector button of the toolbar shows a pane on the right of the Voices view. The pane is
-remembered per user. It lists every field of the selected row's objects as field rows, with the
-knobs, the value entry and the units of "Editing". The rows above stay editable in place, and the
-pane adds the fields that they hide.
+The Inspector button of the toolbar shows a pane on the right of the tree. The pane is remembered
+per user. It lists every field of the selected row's object as field rows, with the knobs, the
+value entry and the units of "Editing". The rows stay editable in place, and the pane adds the
+fields that they hide.
 
 | Selected row  | The pane lists                                                                     |
 | ------------- | ---------------------------------------------------------------------------------- |
 | Voice         | The sound: `source` and its media, every property, and `weight` in a random parent |
-| Header        | The container, then each container that the header names muted, and its switch     |
-| Action header | The same, then the Play action: `target` and `delay`                               |
-| Event         | Each Play action, then the sound that the event row draws inline                   |
+| Header        | The container, or the switch of a switch state of sounds                           |
+| Action header | The Play action: `target` and `delay`                                              |
+| Action        | The action: `target` and `delay`, read-only for a class other than Play            |
+| Event         | Each Play action                                                                   |
 
 - A container also lists its facts read-only: the playlist mode and the weight mode of a random
   container, and the switch group and the default switch of a switch container.
@@ -430,8 +401,8 @@ pane adds the fields that they hide.
   and Selection, in that order. A section without a row is left out.
 - A row names its field in words, as "What an edit changes" lists. A hover on the name opens the
   field card: what the field does in the game, its values, its default and its Wwise property.
-- The pane starts with the path from the Play action down to the row, as muted text that takes no
-  press. It is the one place that the Voices view writes a path.
+- The pane starts with the path from the action down to the row, as muted text that takes no
+  press. It is the one place that the tree writes a path.
 - With several voice and header rows picked, the pane lists the properties that every pick has,
   with the values of the first. An edit applies to each pick as "Selection" describes.
 - Each field row is a tab stop. F2, Enter or a double click opens its entry, and the row takes
@@ -439,21 +410,18 @@ pane adds the fields that they hide.
 
 ### States
 
-- An event that plays one sound without a container draws the cells of the sound on its own row,
-  and the row does not expand. The row reads the event's tree when it scrolls into view.
-- An event whose actions are all of another class than Play lists one row, No voices, with a Show
-  structure press that switches to the Structure view.
+- An event without an action lists one row, No actions.
 - The game sandbox takes no edit. The knobs are disabled, and no picker opens.
 
 ### Edits
 
-The Voices view sends the edits of "Editing" to the same document, with the same undo history and
-the same marks. A knob turns and an entry opens as "Knob" describes.
+The tree sends the edits of "Editing" to the document, with its undo history and its marks. A
+knob turns and an entry opens as "Knob" describes.
 
 - When an edit of a cell of a voice row lands, the voice plays once at the volume of the player. An
-  edit of a header's cell plays the event once. The replay plays with the edited properties, per
-  "Playback of properties". An edit of an object that a playing voice reads does not replay, as
-  the voice follows the edit.
+  edit of a header, an action or an event plays the event once. The replay plays with the edited
+  properties, per "Playback of properties". An edit of an object that a playing voice reads does
+  not replay, as the voice follows the edit.
 - A double click or F2 on the media cell opens the media picker in place of the name. It lists the
   media of the bank set that the sound can read: the media of the banks for a sound of a bank's
   media index, and the media of the packages for a streamed sound. A prefetched sound takes no
@@ -462,17 +430,35 @@ the same marks. A knob turns and an entry opens as "Knob" describes.
   once, from the first. A highlighted media plays. Enter points the `source` of the sound at the
   highlighted media and plays it, and Escape closes the picker. Replacing the file of a media is
   not part of the picker.
-- A header whose container takes a child has a `+ Add` row under its rows, and an expanded event
-  ends in its own. A press or Enter on one opens the menu of "New objects".
-- Delete deletes the picked voices and headers from their parents, and Alt+Up and Alt+Down move
-  the selected voice or header in the playlist of a random parent. A weight is edited in its cell.
-- A Play is retargeted through its `target` field in the inspector. Every other change of the tree
-  is made in the Structure view.
+- F2 or Enter on the name cell of an action header opens the entry of its `target`, which
+  retargets the Play. The `target` field of the inspector does the same.
+- A header that adds a child has a `+ Add` row under its rows, and an expanded event ends in its
+  own. A switch adds from its default state, because a child added to a switch joins its default
+  switch. A press or Enter on one opens the menu of "New objects".
+- Delete deletes the picked rows from their parents. Alt+Up and Alt+Down and a drag move the
+  selected voice or header in the playlist of a random parent. Wrap in container, Cut, Paste and
+  Duplicate take the picked rows, per "New objects". A weight is edited in its cell.
 
 ### Keyboard
 
-The list is one tab stop. Focus selects the first row if no row is selected. Its keys are in
+The tree is one tab stop. Focus selects the first row if no row is selected. Its keys are in
 "Keys and gestures".
+
+### Row actions
+
+An event's context menu contains Copy event name, which copies `#` and the ID for an unnamed
+event. Inside a project it also contains Show contextual rule, which opens the `ContextualActionData`
+object in its Voice lines view at the first rule that plays the event, and Show in bank unit,
+which opens the bin at the `events[i]` row of the first ranked unit that lists the event's name.
+An action's and an object's menu contains Copy object ID. A sound whose media is found also
+contains Show media, which opens the document of the file that contains the media, switches it
+to the Media view and selects the row of the source ID.
+
+An event row takes the menu of an event, an action header and an action row the menu of the
+action, a header the menu of its container, or of its switch for a switch state of sounds, and a
+voice row the menu of its sound. A header row also offers Show in inspector while the inspector is
+hidden. An editable bank adds the actions of "New objects" to each menu. Every item of a menu
+shows its icon, and its key where it has one.
 
 ## Editing
 
@@ -480,9 +466,9 @@ Inside a project, an event bank opens as a document that takes edits. The tab ta
 dot, `Ctrl+S` saves it, and `Ctrl+Z`, `Ctrl+Shift+Z` and `Ctrl+Y` step its history. The game
 sandbox takes no edit. Every read of the tree applies the unsaved edits, so a press plays the
 edited bank before a save. The Save, Undo and Redo buttons of the toolbar do the same as the keys.
-The Voices and Structure views edit the one document, and the document stays open while the Media
-view shows. The rows below are those of the Structure view, and "Voices" lists those of the
-Voices view. The keys of both are in "Keys and gestures".
+The event tree edits the document, and the document stays open while the Media view shows. The
+field rows below are those of the inspector, and "Edits" lists those of the tree rows. The keys
+are in "Keys and gestures".
 
 Each edit decodes the objects it changes, changes them and encodes them at the bank's version, or
 adds or removes whole objects, so every other object keeps its bytes. Only the objects of the
@@ -503,10 +489,10 @@ bank list their fields read-only, and their entry does not open.
 | ---------------------------- | -------------------------------------------------------------------------- |
 | Play action                  | `target`, the object ID it plays. `delay`                                  |
 | Sound                        | `source`, the source ID of its media, and the properties of the next table |
-| Container                    | The properties of the next table but `loopCount`, then `children`          |
+| Container                    | The properties of the next table but `loopCount`                           |
 | Child of a random container  | `weight`, and its place in the playlist                                    |
-| Container that takes a child | The add row under `children`, per "New objects"                            |
-| Child of any container       | Remove from container, which deletes it as "New objects" describes         |
+| Container that takes a child | The add row under its header, per "New objects"                            |
+| Sound in a container         | Remove from container on its row, which deletes it as "New objects" says   |
 
 | Field        | Wwise property                        | Shows                                           | Default |
 | ------------ | ------------------------------------- | ----------------------------------------------- | ------- |
@@ -522,8 +508,7 @@ bank list their fields read-only, and their entry does not open.
 | `weight`     | the playlist item's weight            | Wwise's weight, stored as 1000 times it         | 50      |
 
 A row names each field in words: Target, Source, Volume, Make-up gain, Pitch, Low-pass filter,
-High-pass filter, Initial delay, Delay for the delay of a Play, Loop count and Weight. The
-children row reads Children.
+High-pass filter, Initial delay, Delay for the delay of a Play, Loop count and Weight.
 
 A weight in a random container whose pick reads the weights also shows its share of the total
 weight of the playlist, as a percentage of picks. A target or a source that the tree does not
@@ -594,11 +579,11 @@ text holds no number stays open and marked on Enter, and a press outside drops i
 
 ### Add rows
 
-The add row of a container sits at the end of its `children` row, and opening it expands the
-container and the row. A double click on the count of the `children` row also opens it. The node
-picker of Existing lists the sounds and containers of the bank set by name and ID, filtered by
-name, kind or ID as the text is typed. Enter adds the highlighted one and Escape closes the picker. A child row and the
-`children` row also show their action on hover: Remove from container, and Add child.
+The add row of a container sits at the end of the rows of its header, and Add on a row opens the
+nearest add row above it, else the event's, and expands the event. The node picker of Existing
+lists the sounds and containers of the bank set by name and ID, filtered by name, kind or ID as
+the text is typed. Enter adds the highlighted one and Escape closes the picker. A voice row in a
+container shows Remove from container on hover.
 
 ### New objects
 
@@ -607,9 +592,9 @@ New objects are experimental until the in-game checks of #954 confirm them in a 
 under one chip. An add row reads a plain `+ Add`, and its tooltip says that the actions are
 experimental. An edit of an existing value carries no mark.
 
-An event ends in an add row, and so does the `children` row of a random, sequence or switch
-container and of an actor-mixer. A layer container has no add row, because its layers name the
-children again. The row reads `+ Add`, and a press, Enter or Ctrl+Enter opens its menu:
+An event ends in an add row, and so does the header of a random or sequence container, of an
+actor-mixer and of the default state of a switch. A layer container has no add row, because its
+layers name the children again. The row reads `+ Add`, and a press, Enter or Ctrl+Enter opens its menu:
 
 | Item      | Under a container                                       | Under an event                            |
 | --------- | ------------------------------------------------------- | ----------------------------------------- |
@@ -618,7 +603,7 @@ children again. The row reads `+ Add`, and a press, Enter or Ctrl+Enter opens it
 | Container | An empty random, sequence or switch container           | The same, played by a new Play action     |
 | Existing  | Move existing here: the node leaves its parent for this | Play existing: a new Play action plays it |
 
-New sound opens the media picker of "Voices" over every media of the set. Existing opens the node
+New sound opens the media picker of "Edits" over every media of the set. Existing opens the node
 picker. Toolbar `+ New event` opens a name entry in its place. Enter creates the event, and Escape
 or a press outside drops the entry.
 
@@ -721,7 +706,7 @@ Create event from a sound field of a bin is not built yet.
 
 ### Replacing media
 
-Replace media from file... on a sound row of either view replaces the media that the sound plays,
+Replace media from file... on a voice row replaces the media that the sound plays,
 at its source ID, so every sound that plays it plays the new media. The action is experimental
 until #954.
 
@@ -754,7 +739,7 @@ media are not built.
 
 A press picks one row. Ctrl+click adds or drops a row, Shift+click and Shift+Up or Down pick the
 range from the last row picked without Shift, Ctrl+A picks every drawn row, and Escape keeps the
-row under the keyboard alone. A row of a field, a `children` list or an add row takes no pick. The
+row under the keyboard alone. A switch state of sounds, an add row and a loading row take no pick. The
 toolbar shows the count of picked rows when it is more than one.
 
 Delete, Duplicate, Wrap in container and Copy take every picked row, and each is one undo step. A
@@ -824,7 +809,7 @@ many octaves as `LPF` spans. This is an approximation, and the field card of eac
 
 ## Keys and gestures
 
-The keys of the media table, both Events views and the Voice lines view come from one keymap,
+The keys of the media table, the event tree and the Voice lines view come from one keymap,
 `AUDIO_KEYMAP` in `utils/keymap.ts`. The key handlers resolve a press through it, and the context
 menus, the toolbar tooltips, the palette and the shortcut sheet read their keys from it. `?`, the
 keyboard mark in the toolbar and Keys and gestures in the kebab open the sheet, which lists the
@@ -834,45 +819,44 @@ under Audio, each with its key, while the command applies.
 A list answers its keys while it has focus, and a key that it answers stops there. A key that is
 marked Document answers from anywhere in the document but a text field and an open menu or dialog.
 
-| Key                                  | Where             | Action                                                                                     |
-| ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------ |
-| Space                                | Lists             | Play or stop the selected row, or the picked rows together                                 |
-| Shift+Space                          | Voices, Structure | Play the whole event of the selected row                                                   |
-| Escape                               | Lists             | Stop what plays, or keep only the selected row picked                                      |
-| Ctrl+L                               | Document          | Loop the preview                                                                           |
-| `-`, `=`                             | Document          | Lower or raise the preview volume                                                          |
-| Up, Down                             | Lists             | Select the row above or below                                                              |
-| Page Up, Page Down                   | Lists             | Move the selection one page of the list                                                    |
-| Home, End                            | Lists             | Select the first or the last row                                                           |
-| Shift+Up, Down, Page Up, Page Down   | Voices, Structure | Pick the range to the row, per "Selection". Shift+Home and Shift+End too                   |
-| Ctrl+A                               | Voices, Structure | Pick every drawn row                                                                       |
-| Right                                | Voices, Structure | Open a folded header, move to the next cell, then expand the row                           |
-| Left                                 | Voices, Structure | Move to the previous cell, then collapse the row or select its parent                      |
-| Ctrl+Up, Ctrl+Down                   | Voices, Structure | Select the previous or the next event                                                      |
-| A letter, a digit, `_`, `#`          | Lists             | Select the next row whose name starts with the typed text                                  |
-| Ctrl+F                               | Document          | Focus the filter of the view                                                               |
-| Shift+F10, Menu                      | Lists             | Open the context menu of the selected row                                                  |
-| Ctrl+Shift+M                         | Document          | Show the Media view                                                                        |
-| Ctrl+Shift+E                         | Document          | Show the Events view                                                                       |
-| Ctrl+Shift+V                         | Document          | Switch between Voices and Structure                                                        |
-| Ctrl+Alt+B                           | Document          | Show or hide the inspector of the Voices view                                              |
-| `?`                                  | Document          | Show the keys and gestures                                                                 |
-| Enter, F2                            | Lists             | Open the entry of the cell, the media picker or the add row. Enter plays a row without one |
-| Backspace                            | Voices, Structure | Reset the field of the active cell or the field row to its default                         |
-| Ctrl+Enter                           | Voices, Structure | Open the add row of the nearest container that has one, or of the event                    |
-| Ctrl+D                               | Voices, Structure | Duplicate the picked rows                                                                  |
-| Delete                               | Voices, Structure | Delete the picked rows from their parents                                                  |
-| Alt+Up, Alt+Down                     | Voices, Structure | Move the selected row in the playlist of its random container                              |
-| Ctrl+G                               | Voices, Structure | Wrap the picked nodes in a random container                                                |
-| Ctrl+C                               | Lists             | Copy the names of the picked events and the IDs of the others                              |
-| Ctrl+X                               | Voices, Structure | Cut the picked sounds and containers                                                       |
-| Ctrl+V                               | Voices, Structure | Move the cut nodes into the selected container, or into its container                      |
-| Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | Document          | Save, undo and redo, per "Editing"                                                         |
-| Up, Down on a focused knob           | Knob              | Step the knob, a tenth as far with Shift, ten steps with Ctrl                              |
-| Delete, Backspace on a focused knob  | Knob              | Reset the knob                                                                             |
+| Key                                  | Where    | Action                                                                                               |
+| ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------- |
+| Space                                | Lists    | Play or stop the selected row, or the picked rows together                                           |
+| Shift+Space                          | Tree     | Play the whole event of the selected row                                                             |
+| Escape                               | Lists    | Stop what plays, or keep only the selected row picked                                                |
+| Ctrl+L                               | Document | Loop the preview                                                                                     |
+| `-`, `=`                             | Document | Lower or raise the preview volume                                                                    |
+| Up, Down                             | Lists    | Select the row above or below                                                                        |
+| Page Up, Page Down                   | Lists    | Move the selection one page of the list                                                              |
+| Home, End                            | Lists    | Select the first or the last row                                                                     |
+| Shift+Up, Down, Page Up, Page Down   | Tree     | Pick the range to the row, per "Selection". Shift+Home and Shift+End too                             |
+| Ctrl+A                               | Tree     | Pick every drawn row                                                                                 |
+| Right                                | Tree     | Open a folded header, move to the next cell, then expand the row                                     |
+| Left                                 | Tree     | Move to the previous cell, then collapse the row or select its parent                                |
+| Ctrl+Up, Ctrl+Down                   | Tree     | Select the previous or the next event                                                                |
+| A letter, a digit, `_`, `#`          | Lists    | Select the next row whose name starts with the typed text                                            |
+| Ctrl+F                               | Document | Focus the filter of the view                                                                         |
+| Shift+F10, Menu                      | Lists    | Open the context menu of the selected row                                                            |
+| Ctrl+Shift+M                         | Document | Show the Media view                                                                                  |
+| Ctrl+Shift+E                         | Document | Show the Events view                                                                                 |
+| Ctrl+Alt+B                           | Document | Show or hide the inspector of the event tree                                                         |
+| `?`                                  | Document | Show the keys and gestures                                                                           |
+| Enter, F2                            | Lists    | Open the entry of the cell, a target, the media picker or the add row. Enter plays a row without one |
+| Backspace                            | Tree     | Reset the field of the active cell or the field row to its default                                   |
+| Ctrl+Enter                           | Tree     | Open the add row of the nearest container that has one, or of the event                              |
+| Ctrl+D                               | Tree     | Duplicate the picked rows                                                                            |
+| Delete                               | Tree     | Delete the picked rows from their parents                                                            |
+| Alt+Up, Alt+Down                     | Tree     | Move the selected row in the playlist of its random container                                        |
+| Ctrl+G                               | Tree     | Wrap the picked nodes in a random container                                                          |
+| Ctrl+C                               | Lists    | Copy the names of the picked events and the IDs of the others                                        |
+| Ctrl+X                               | Tree     | Cut the picked sounds and containers                                                                 |
+| Ctrl+V                               | Tree     | Move the cut nodes into the selected container, or into its container                                |
+| Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | Document | Save, undo and redo, per "Editing"                                                                   |
+| Up, Down on a focused knob           | Knob     | Step the knob, a tenth as far with Shift, ten steps with Ctrl                                        |
+| Delete, Backspace on a focused knob  | Knob     | Reset the knob                                                                                       |
 
-Lists are the media table, the Voices list and the Structure tree. In the media table, Space and
-Enter play the selected row, Ctrl+C copies its source ID, and the type-ahead matches the source
+Lists are the media table and the event tree, and Tree is the event tree. In the media table,
+Space and Enter play the selected row, Ctrl+C copies its source ID, and the type-ahead matches the source
 ID. The type-ahead text runs on
 while the keys follow within 700 ms. A name that starts with the text wins over one that holds a
 word that starts with it, such as `death` in `Play_sfx_Rumble_Death3D_cast`, and a run of one
@@ -881,9 +865,9 @@ nothing, and it does not reach the app either.
 
 ### Gestures
 
-- A drag of a voice, a header or a child of a random container, past 4 pixels, moves it to the
-  place in the playlist of the row that it is dropped on. A row of another container takes no drop.
-- A `.wem` dropped on a voice or a sound row replaces the sound's media, per "Replacing media". A
+- A drag of a voice or a header in a random container, past 4 pixels, moves it to the place in
+  the playlist of the row that it is dropped on. A row of another container takes no drop.
+- A `.wem` dropped on a voice row replaces the sound's media, per "Replacing media". A
   `.wav`, `.ogg` or `.flac` converts first. A `.wem` dropped on `+ Add` imports it, as From file
   does. The file comes from the OS or from the content tree of the project.
 - A named event row dragged onto a rule of the Voice lines view makes the rule play the event, per
@@ -948,8 +932,8 @@ a quarter, Home and End go to the start and the end, and Space plays or pauses.
 
 Each row of the media table and of the event tree ends in a small waveform of its media. A row
 of the event tree draws the first media that a press on it plays, with the first playlist item
-that has a weight in each random container. An event row reads its event first. A voice row of the
-Voices view draws its own media. A row that plays no media draws none.
+that has a weight in each random container. An event row reads its event first. A voice row draws its
+own media. A row that plays no media draws none.
 
 - A row decodes when it scrolls into view, three rows at a time. A row that leaves the view
   before its turn does not decode.

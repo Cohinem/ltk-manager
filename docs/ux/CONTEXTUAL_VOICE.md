@@ -6,12 +6,13 @@ the Voice lines view of that object and the Played by column of an event bank, w
 rules to the events they play.
 
 A class view, its sections and its sandbox are in docs/ux/BIN_EDITOR.md, under "Class views" and
-"Editing". The event bank, its Voices view and its inspector are in docs/ux/AUDIO.md. The copy for a skin is ADR-0073.
+"Editing". The event bank, its event tree and its inspector are in docs/ux/AUDIO.md. The copy for a skin is ADR-0073.
 
 ## Changes
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-10-30 | Name the event tree of a bank in place of its Voices view              |
 | 2026-10-30 | Read the keys from the audio keymap, add drags and type-ahead          |
 | 2026-10-30 | Add the Voice lines view, the Played by column and the copy for a skin |
 
@@ -63,7 +64,7 @@ them. ADR-0073.
 
 ### Situations
 
-A situation is a group header with the lanes of the Voices view: the caret, the play button, the
+A situation is a group header with the lanes of the event tree: the caret, the play button, the
 situation's word, its key where the word differs, the rule count, first valid or random, and the
 situation cooldown when it is not 0. An unnamed key shows its hash. The view writes a word for the
 named keys a modder meets most, such as Spell cast for `SpellCast` and Attack order for the four
@@ -103,7 +104,7 @@ another. Playback reads each event's tree from its bank and plays one press of i
 
 ### Inspector
 
-The Inspector button shows the pane of the Voices view, with the same remembered state.
+The Inspector button shows the pane of the event tree, with the same remembered state.
 
 | Selected      | The pane lists                                                               |
 | ------------- | ---------------------------------------------------------------------------- |
@@ -206,7 +207,7 @@ context badge.
 | From                     | Action          | Opens                                                                |
 | ------------------------ | --------------- | -------------------------------------------------------------------- |
 | Played by cell           | Press           | The object's tab in the Voice lines view, the rule selected          |
-| Rule line                | Show in bank    | The event's bank, Voices view, the event selected and scrolled to    |
+| Rule line                | Show in bank    | The event's bank, Events view, the event selected and scrolled to    |
 | Rule line with a warning | Create event... | The skin's event bank, with the composed name in its new event entry |
 
 Create event... prefills the name, and Enter creates the event in the bank document, which updates
