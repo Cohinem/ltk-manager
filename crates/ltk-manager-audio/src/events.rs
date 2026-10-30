@@ -164,13 +164,14 @@ impl EventBank {
         let lookup = SoundLookup::new(&self.set, &self.names);
         let events = event_ids(&self.set)
             .map(|id| {
-                let (action_count, media_count, status) = match lookup.event(id) {
+                let (action_count, media_count, status, nodes) = match lookup.event(id) {
                     Ok(Some(tree)) => (
                         count(tree.actions.len()),
                         count(tree.actions.iter().map(sounds_of_action).sum()),
                         status_of(&tree),
+                        reached_nodes(&tree),
                     ),
-                    Ok(None) => (0, 0, EventStatus::ObjectMissing),
+                    Ok(None) => (0, 0, EventStatus::ObjectMissing, Vec::new()),
                     Err(error) => (
                         0,
                         0,
@@ -179,6 +180,7 @@ impl EventBank {
                             bank: error.bank.clone(),
                             message: error.error.to_string(),
                         },
+                        Vec::new(),
                     ),
                 };
 
@@ -190,6 +192,7 @@ impl EventBank {
                     status,
                     contexts: self.contexts.get(&id).cloned().unwrap_or_default(),
                     listed: self.listed.get(&id).cloned(),
+                    nodes,
                 }
             })
             .collect();
@@ -613,6 +616,81 @@ fn sounds_of_action(action: &ActionNode) -> usize {
     action.target.as_ref().map_or(0, sounds)
 }
 
+/// Returns the sounds and containers that the Play actions of `tree` reach, each once, in the
+/// order that the event tree draws them.
+fn reached_nodes(tree: &PlayTree) -> Vec<ReachedNode> {
+    fn reach(node: &PlayNode, seen: &mut HashSet<ObjectId>, out: &mut Vec<ReachedNode>) {
+        let (role, source, children) = match node {
+            PlayNode::Sound { source, .. } => (NodeRole::Sound, Some(source.0), &[][..]),
+            PlayNode::Random { children, mode, .. } => {
+                let role = match mode {
+                    PlayMode::Random => NodeRole::Random,
+                    PlayMode::Sequence => NodeRole::Sequence,
+                };
+                (role, None, &children[..])
+            }
+            PlayNode::Switch { children, .. } => (NodeRole::Switch, None, &children[..]),
+            PlayNode::Layer { children, .. } => (NodeRole::Layer, None, &children[..]),
+            PlayNode::Mixer { children, .. } => (NodeRole::Mixer, None, &children[..]),
+            PlayNode::Unsupported { .. } | PlayNode::Missing { .. } => return,
+        };
+        if !seen.insert(node.id()) {
+            return;
+        }
+
+        out.push(ReachedNode {
+            id: node.id().0,
+            role,
+            source,
+        });
+        for at in drawn_order(node) {
+            if let Some(child) = children.get(at) {
+                reach(child, seen, out);
+            }
+        }
+    }
+
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for action in &tree.actions {
+        if let Some(node) = &action.target {
+            reach(node, &mut seen, &mut out);
+        }
+    }
+    out
+}
+
+/// Returns the indexes of the children of `node` in the order that the event tree draws them.
+///
+/// A random or sequence container draws its playlist items in playlist order, then the children
+/// outside the playlist. Every other node draws its children in file order.
+fn drawn_order(node: &PlayNode) -> Vec<usize> {
+    let (children, playlist) = match node {
+        PlayNode::Random {
+            children, playlist, ..
+        } => (children.len(), &playlist[..]),
+        PlayNode::Switch { children, .. }
+        | PlayNode::Layer { children, .. }
+        | PlayNode::Mixer { children, .. } => (children.len(), &[][..]),
+        PlayNode::Sound { .. } | PlayNode::Unsupported { .. } | PlayNode::Missing { .. } => {
+            return Vec::new();
+        }
+    };
+
+    let mut order: Vec<usize> = Vec::with_capacity(children);
+    for item in playlist {
+        if !order.contains(&item.child) {
+            order.push(item.child);
+        }
+    }
+    for at in 0..children {
+        if !order.contains(&at) {
+            order.push(at);
+        }
+    }
+    order
+}
+
 fn count(value: usize) -> u32 {
     u32::try_from(value).unwrap_or(u32::MAX)
 }
@@ -751,6 +829,41 @@ pub struct AudioEvent {
     pub contexts: Vec<EventContext>,
     /// The `events[i]` row of the first ranked bank unit that lists the event's name.
     pub listed: Option<SiteRow>,
+    /// The sounds and containers that the event's Play actions reach, each once, in the order
+    /// that the event tree draws them. The frontend derives their names from it.
+    pub nodes: Vec<ReachedNode>,
+}
+
+/// A sound or container that a Play action of an event reaches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReachedNode {
+    /// The object ID of the node.
+    pub id: u32,
+    /// The kind of the node.
+    pub role: NodeRole,
+    /// The source ID of a sound's media, and `None` for a container.
+    pub source: Option<u32>,
+}
+
+/// What a node does in a play tree: a sound, or a container of one kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum NodeRole {
+    /// A sound, kind 2.
+    Sound,
+    /// A random container, kind 5, whose pick is random.
+    Random,
+    /// A random container, kind 5, that plays its playlist in order.
+    Sequence,
+    /// A switch container, kind 6.
+    Switch,
+    /// A layer container, kind 9.
+    Layer,
+    /// An actor-mixer, kind 7.
+    Mixer,
 }
 
 /// One contextual rule that plays an event, matched by a composed name.

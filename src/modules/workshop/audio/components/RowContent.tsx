@@ -1,7 +1,7 @@
 import { WarningIcon, XCircleIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { Badge, Code, Tooltip } from "@/components";
+import { Badge, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type {
   Audience,
@@ -13,7 +13,9 @@ import type {
 } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { useNodeNames } from "../state/nodeNames";
 import { type EventRow, eventLabel, objectLabel } from "../utils/eventTree";
+import { nodeName, type NodeNames, nodeText } from "../utils/nodeNames";
 
 /** What one row is, by its kind. */
 export function RowContent({ row }: { row: EventRow }) {
@@ -115,7 +117,18 @@ function EventStatusMark({ status }: { status: EventStatus }) {
   }
 }
 
+/** Returns the text of the object that `action` targets: its derived name and its ID. */
+function targetText(names: NodeNames, action: EventAction, target: number): string {
+  if (action.node !== null) return nodeText(names, action.node);
+
+  const name = names.nodes.get(target);
+  return name === undefined
+    ? objectLabel(target)
+    : m.audio_node_named_label({ name, id: String(target) });
+}
+
 function ActionContent({ action }: { action: EventAction }) {
+  const names = useNodeNames();
   if (action.label === null) {
     return (
       <Status tone="warning">
@@ -126,14 +139,14 @@ function ActionContent({ action }: { action: EventAction }) {
 
   return (
     <>
-      <span className="text-surface-200">{action.label}</span>
+      <NamedId name={names.actions.get(action.id) ?? action.label} id={action.id} />
       {action.target !== null && (
-        <span className="text-meta text-surface-400">
-          <Code>{objectLabel(action.target)}</Code>
+        <span className="truncate text-meta text-surface-400">
+          {targetText(names, action, action.target)}
         </span>
       )}
       {action.delay > 0 && (
-        <span className="text-meta text-surface-400">
+        <span className="shrink-0 text-meta text-surface-400">
           {m.audio_event_action_delay_label({ ms: String(action.delay) })}
         </span>
       )}
@@ -143,50 +156,53 @@ function ActionContent({ action }: { action: EventAction }) {
 
 type ContainerNode = Extract<EventNode, { kind: "random" | "switch" | "layer" | "mixer" }>;
 
-/** Returns the title of a container row and the hint that names what plays. */
-function containerLabels(node: ContainerNode) {
+/** Returns the hint of a container row that names what plays. */
+function containerHint(node: ContainerNode): string {
   switch (node.kind) {
     case "random":
-      if (node.mode === "sequence") {
-        return { title: m.audio_node_sequence_label, hint: m.audio_node_sequence_hint };
-      }
-      return { title: m.audio_node_random_label, hint: m.audio_node_random_hint };
+      return node.mode === "sequence" ? m.audio_node_sequence_hint() : m.audio_node_random_hint();
     case "switch":
-      if (node.pick.kind === "firstChild") {
-        return { title: m.audio_node_switch_label, hint: m.audio_node_switch_first_hint };
-      }
-      return { title: m.audio_node_switch_label, hint: m.audio_node_switch_hint };
+      return node.pick.kind === "firstChild"
+        ? m.audio_node_switch_first_hint()
+        : m.audio_node_switch_hint();
     case "layer":
-      return { title: m.audio_node_layer_label, hint: m.audio_node_layer_hint };
+      return m.audio_node_layer_hint();
     case "mixer":
-      return { title: m.audio_node_mixer_label, hint: m.audio_node_mixer_hint };
+      return m.audio_node_mixer_hint();
   }
 }
 
-/** Returns the title that the row of `node` names it by: its kind and its decimal ID. */
-export function nodeTitle(node: EventNode): string {
-  const id = String(node.id);
-  switch (node.kind) {
-    case "sound":
-      return m.audio_node_sound_label({ id });
-    case "random":
-    case "switch":
-    case "layer":
-    case "mixer":
-      return containerLabels(node).title({ id });
-    case "unsupported":
-      return m.audio_node_unsupported_label({ kind: node.kindName, id });
-    case "missing":
-      return m.audio_node_missing_label({ id });
-  }
+interface NamedIdProps {
+  /** The derived name of the object, or its kind. */
+  readonly name: string;
+  readonly id: number;
+  /** Greys the name of an object that does not play. */
+  readonly muted?: boolean;
+}
+
+/** The name of an object, then its decimal ID as a muted `#id`. */
+export function NamedId({ name, id, muted = false }: NamedIdProps) {
+  return (
+    <span className="flex min-w-0 items-baseline gap-1.5">
+      <span
+        className={twMerge("truncate select-text", muted ? "text-surface-400" : "text-surface-200")}
+      >
+        {name}
+      </span>
+      <span className="shrink-0 font-mono text-meta text-code text-surface-400 select-text">
+        {objectLabel(id)}
+      </span>
+    </span>
+  );
 }
 
 function NodeContent({ node }: { node: EventNode }) {
+  const names = useNodeNames();
   switch (node.kind) {
     case "sound":
       return (
         <>
-          <span className="text-surface-200">{nodeTitle(node)}</span>
+          <NamedId name={nodeName(names, node)} id={node.id} />
           {node.media !== null && (
             <span className="truncate text-meta text-surface-400 select-text">
               {fileName(node.media.path)}
@@ -203,10 +219,8 @@ function NodeContent({ node }: { node: EventNode }) {
     case "mixer": {
       return (
         <>
-          <span className="text-surface-200">{nodeTitle(node)}</span>
-          <span className="truncate text-meta text-surface-400">
-            {containerLabels(node).hint()}
-          </span>
+          <NamedId name={nodeName(names, node)} id={node.id} />
+          <span className="truncate text-meta text-surface-400">{containerHint(node)}</span>
         </>
       );
     }
@@ -214,9 +228,7 @@ function NodeContent({ node }: { node: EventNode }) {
       const hint = node.music ? m.audio_node_music_hint() : m.audio_node_unsupported_hint();
       return (
         <>
-          <span className="text-surface-300">
-            {m.audio_node_unsupported_label({ kind: node.kindName, id: String(node.id) })}
-          </span>
+          <NamedId name={nodeName(names, node)} id={node.id} muted />
           <span className="text-meta text-surface-400">{hint}</span>
         </>
       );

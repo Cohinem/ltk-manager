@@ -2,13 +2,15 @@
 
 mod common;
 
+use std::collections::HashSet;
+
 use common::{FakeFiles, FakeNames, fixture};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
     Audience, AudienceName, AudioEvent, AudioFile, AudioIndex, BankSetOrigin, BankSite, BankUnit,
     BinAudio, ContextualRule, ContextualRules, EventBank, EventNode, EventPlaylistItem,
-    EventStatus, HolderAudio, MediaContainer, ObjectId, OpenedBank, PlayMode, SiteStep, SitedUnit,
-    SoundStream,
+    EventStatus, HolderAudio, MediaContainer, NodeRole, ObjectId, OpenedBank, PlayMode, SiteStep,
+    SitedUnit, SoundStream,
 };
 use ltk_manager_base::hashing::named;
 use ltk_wwise::bank::{BankHeader, BankVersion, Section};
@@ -118,6 +120,18 @@ fn sounds(nodes: impl IntoIterator<Item = EventNode>) -> Vec<(u32, Option<MediaC
     found
 }
 
+fn node_id(node: &EventNode) -> u32 {
+    match node {
+        EventNode::Sound { id, .. }
+        | EventNode::Random { id, .. }
+        | EventNode::Switch { id, .. }
+        | EventNode::Layer { id, .. }
+        | EventNode::Mixer { id, .. }
+        | EventNode::Unsupported { id, .. }
+        | EventNode::Missing { id } => *id,
+    }
+}
+
 fn tree_sounds(bank: &EventBank, event: u32) -> Vec<(u32, Option<MediaContainer>)> {
     let tree = bank.event(ObjectId(event)).unwrap().unwrap();
     sounds(tree.actions.into_iter().filter_map(|action| action.node))
@@ -147,6 +161,44 @@ fn event_bank_resolves_every_fixture_event_with_its_bank_unit() {
     }
     let media: u32 = list.events.iter().map(|event| event.media_count).sum();
     assert_eq!(media, 17);
+}
+
+#[test]
+fn event_list_reaches_every_node_of_each_fixture_tree_once() {
+    let files = FakeFiles::default()
+        .with_fixture(MEDIA, "media_v145.bnk")
+        .with(PACKAGE, streamed_package());
+    let index = unit_index();
+    let bank = EventBank::open(
+        opened(EVENTS, fixture("events_v145.bnk")),
+        &[&index],
+        &files,
+        None,
+        &FakeNames::default(),
+    );
+
+    for event in bank.events().events {
+        let tree = bank.event(ObjectId(event.id)).unwrap().unwrap();
+        let first = tree.actions.iter().find_map(|action| action.node.as_ref());
+        assert_eq!(event.nodes.first().map(|node| node.id), first.map(node_id));
+
+        let ids: HashSet<u32> = event.nodes.iter().map(|node| node.id).collect();
+        assert_eq!(ids.len(), event.nodes.len(), "{event:?}");
+
+        let mut reached: Vec<u32> = event
+            .nodes
+            .iter()
+            .filter(|node| node.role == NodeRole::Sound)
+            .filter_map(|node| node.source)
+            .collect();
+        let mut drawn: Vec<u32> = tree_sounds(&bank, event.id)
+            .into_iter()
+            .map(|(source, _)| source)
+            .collect();
+        reached.sort_unstable();
+        drawn.sort_unstable();
+        assert_eq!(reached, drawn, "{event:?}");
+    }
 }
 
 #[test]

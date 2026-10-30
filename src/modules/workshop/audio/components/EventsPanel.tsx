@@ -30,6 +30,7 @@ import { audioQueries } from "../api/queries";
 import type { BankDocument } from "../hooks/useBankDocument";
 import { useEventPlayer } from "../hooks/useEventPlayer";
 import { useTreePicks } from "../hooks/useTreePicks";
+import { NodeNamesContext } from "../state/nodeNames";
 import {
   addKey,
   type EventRow,
@@ -54,6 +55,7 @@ import {
   wrapEdit,
 } from "../utils/nodeBatch";
 import type { FieldTarget } from "../utils/nodeFields";
+import { nodeNames, withActions } from "../utils/nodeNames";
 import {
   isEditable,
   rowTarget,
@@ -108,9 +110,14 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const [view, setView] = useState<EventsView>("voices");
   const voices = view === "voices";
 
+  const imported = bank.state?.imported;
+  const names = useMemo(
+    () => nodeNames(events.data?.list.events ?? [], imported),
+    [events.data, imported],
+  );
   const listed = useMemo(
-    () => sortEvents(filterEvents(events.data?.list.events ?? [], filter)),
-    [events.data, filter],
+    () => sortEvents(filterEvents(events.data?.list.events ?? [], filter, names)),
+    [events.data, filter, names],
   );
   const openEvents = listed.filter((event) => expanded.has(eventKey(event.id)));
   const trees = useQueries({
@@ -144,6 +151,10 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
       treeStates.set(event.id, { kind: "failed", message: errorSummary(query.error) });
     }
   });
+  const shownNames = withActions(
+    names,
+    read.flatMap((query) => (query.data ? [query.data.tree] : [])),
+  );
 
   const shownProperties = editing?.properties ?? properties(read);
   const addable = (into: NodeParent) =>
@@ -412,114 +423,116 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
 
   const files = events.data.list.files;
   return (
-    <Stack fill>
-      {tools}
-      <SetNotices response={events.data} />
-      {bank.state !== null && !bank.state.editable && (
-        <NoticeBand>
-          <AlertBox tone="info">
-            {m.audio_edit_legacy_description({ version: String(bank.state.version) })}
-          </AlertBox>
-        </NoticeBand>
-      )}
-      {events.data.list.events.length === 0 && (
-        <EmptyState size="sm" title={m.audio_events_empty()} />
-      )}
-      {events.data.list.events.length > 0 && listed.length === 0 && (
-        <EmptyState size="sm" title={m.audio_events_filtered_empty()} />
-      )}
-      {listed.length > 0 && voices && (
-        <VoiceList
-          rows={voiceList}
-          expanded={expanded}
-          onExpand={expand}
-          selected={selected}
-          picks={picks}
-          player={player}
-          onPlay={playVoiceRow}
-          onReplay={(row) => void replay(row)}
-          onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
-          onCopy={copyPicks}
-          actions={actions}
-          adding={adding}
-          onAdding={setAdding}
-          editing={editing}
-          files={files}
-          onStructure={() => setView("structure")}
-          menu={(row) => {
-            const shown = structureRow(row);
-            if (shown === null) return null;
+    <NodeNamesContext value={shownNames}>
+      <Stack fill>
+        {tools}
+        <SetNotices response={events.data} />
+        {bank.state !== null && !bank.state.editable && (
+          <NoticeBand>
+            <AlertBox tone="info">
+              {m.audio_edit_legacy_description({ version: String(bank.state.version) })}
+            </AlertBox>
+          </NoticeBand>
+        )}
+        {events.data.list.events.length === 0 && (
+          <EmptyState size="sm" title={m.audio_events_empty()} />
+        )}
+        {events.data.list.events.length > 0 && listed.length === 0 && (
+          <EmptyState size="sm" title={m.audio_events_filtered_empty()} />
+        )}
+        {listed.length > 0 && voices && (
+          <VoiceList
+            rows={voiceList}
+            expanded={expanded}
+            onExpand={expand}
+            selected={selected}
+            picks={picks}
+            player={player}
+            onPlay={playVoiceRow}
+            onReplay={(row) => void replay(row)}
+            onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
+            onCopy={copyPicks}
+            actions={actions}
+            adding={adding}
+            onAdding={setAdding}
+            editing={editing}
+            files={files}
+            onStructure={() => setView("structure")}
+            menu={(row) => {
+              const shown = structureRow(row);
+              if (shown === null) return null;
 
-            return (
+              return (
+                <EventMenu
+                  row={shown.row}
+                  actions={actions}
+                  count={picks.targets.length}
+                  onCopy={copyPicks}
+                />
+              );
+            }}
+            thumbnail={(row) => (
+              <>
+                <VoiceRowThumbnail
+                  asset={asset}
+                  version={version}
+                  row={row}
+                  playing={player.playing === row.key}
+                />
+                {row.kind === "event" && isProbed(row.event, expanded) && (
+                  <TreeProbe
+                    query={audioQueries.event(sandbox, asset, version, row.event.id, revision)}
+                  />
+                )}
+              </>
+            )}
+          />
+        )}
+        {listed.length > 0 && !voices && (
+          <EventTree
+            rows={rows}
+            expanded={expanded}
+            onExpand={expand}
+            selected={selected}
+            picks={picks}
+            player={player}
+            onPlay={(row) => void play(row)}
+            onCopy={copyPicks}
+            actions={actions}
+            editing={editing}
+            files={files}
+            adding={adding}
+            onAdding={setAdding}
+            onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
+            menu={(row) => (
               <EventMenu
-                row={shown.row}
+                row={row}
                 actions={actions}
                 count={picks.targets.length}
                 onCopy={copyPicks}
               />
-            );
-          }}
-          thumbnail={(row) => (
-            <>
-              <VoiceRowThumbnail
+            )}
+            thumbnail={(row) => (
+              <EventRowThumbnail
                 asset={asset}
                 version={version}
                 row={row}
                 playing={player.playing === row.key}
               />
-              {row.kind === "event" && isProbed(row.event, expanded) && (
-                <TreeProbe
-                  query={audioQueries.event(sandbox, asset, version, row.event.id, revision)}
-                />
-              )}
-            </>
-          )}
-        />
-      )}
-      {listed.length > 0 && !voices && (
-        <EventTree
-          rows={rows}
-          expanded={expanded}
-          onExpand={expand}
-          selected={selected}
-          picks={picks}
-          player={player}
-          onPlay={(row) => void play(row)}
-          onCopy={copyPicks}
-          actions={actions}
-          editing={editing}
-          files={files}
-          adding={adding}
-          onAdding={setAdding}
-          onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
-          menu={(row) => (
-            <EventMenu
-              row={row}
-              actions={actions}
-              count={picks.targets.length}
-              onCopy={copyPicks}
-            />
-          )}
-          thumbnail={(row) => (
-            <EventRowThumbnail
-              asset={asset}
-              version={version}
-              row={row}
-              playing={player.playing === row.key}
-            />
-          )}
-        />
-      )}
-      {listed.length > 0 && (
-        <EventWaveform
-          player={player}
-          selection={voices ? voiceSelection(voiceList, selected) : treeSelection(rows, selected)}
-        />
-      )}
-      <span aria-live="polite" className="sr-only">
-        {announcement}
-      </span>
-    </Stack>
+            )}
+          />
+        )}
+        {listed.length > 0 && (
+          <EventWaveform
+            player={player}
+            selection={voices ? voiceSelection(voiceList, selected) : treeSelection(rows, selected)}
+          />
+        )}
+        <span aria-live="polite" className="sr-only">
+          {announcement}
+        </span>
+      </Stack>
+    </NodeNamesContext>
   );
 }
 

@@ -544,7 +544,31 @@ fn import(
 ) -> Result<u32, BankEditError> {
     let set = set_of(document, rest);
     let files = files(rest.contains(&PACKAGE));
-    document.import(&parent, wem, &EditContext::new(&set).with_files(&files))
+    document
+        .import(&parent, wem, &EditContext::new(&set).with_files(&files))
+        .map(|imported| imported.sound)
+}
+
+#[test]
+fn import_returns_source_that_new_sound_plays() {
+    let mut document = document();
+    let set = set_of(&document, &[MEDIA]);
+    let files = files(false);
+    let context = EditContext::new(&set).with_files(&files);
+
+    let imported = document
+        .import(
+            &NodeParent::Container { container: RANDOM },
+            fixture("clipped_vorbis.wem"),
+            &context,
+        )
+        .expect("import");
+
+    let written = bank_of(document.bytes());
+    let Typed::Sound(sound) = typed(&written, imported.sound) else {
+        panic!("not a sound");
+    };
+    assert_eq!(sound.source.source_id, SourceId(imported.source));
 }
 
 /// Returns the event bank of `document` with its media files, as the shell opens it.

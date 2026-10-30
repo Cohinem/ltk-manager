@@ -4,7 +4,7 @@ import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
 
 import { Combobox, Knob, useValueEntry, ValueEntry } from "@/components";
 import { m } from "@/i18n";
-import type { BankNode } from "@/lib/tauri";
+import type { BankNode, EventNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import {
@@ -13,6 +13,7 @@ import {
   UnitSuffix,
 } from "../../shared/components/PropertyRowParts";
 import { audioQueries, type BankRevision } from "../api/queries";
+import { useNodeNames } from "../state/nodeNames";
 import { matchingNodes } from "../utils/bankEdits";
 import { type EventRow, objectLabel } from "../utils/eventTree";
 import {
@@ -26,8 +27,9 @@ import {
   type NodeField,
   parseField,
 } from "../utils/nodeFields";
+import { nodeName, type NodeNames, nodeText } from "../utils/nodeNames";
 import type { TreeEditing } from "../utils/treeEditing";
-import { nodeTitle } from "./RowContent";
+import { NamedId } from "./RowContent";
 
 const FIELD_LABELS: Record<FieldName, () => string> = {
   target: m.audio_edit_target_label,
@@ -203,11 +205,7 @@ function FieldText({ display }: { display: FieldDisplay }) {
         </span>
       );
     case "object":
-      return (
-        <span className="truncate text-surface-200">
-          {display.node === null ? objectLabel(display.id) : nodeTitle(display.node)}
-        </span>
-      );
+      return <ObjectText id={display.id} node={display.node} />;
     case "media":
       return (
         <span className="flex min-w-0 items-baseline gap-2">
@@ -236,6 +234,20 @@ function FieldText({ display }: { display: FieldDisplay }) {
         </span>
       );
   }
+}
+
+/** The object that a `target` names: its derived name and its ID, or the ID alone. */
+function ObjectText({ id, node }: { id: number; node: EventNode | null }) {
+  const names = useNodeNames();
+  if (node?.kind === "missing")
+    return <span className="truncate text-surface-400">{nodeText(names, node)}</span>;
+
+  const name = node === null ? names.nodes.get(id) : nodeName(names, node);
+  if (name === undefined) {
+    return <span className="truncate font-mono text-code text-surface-200">{objectLabel(id)}</span>;
+  }
+
+  return <NamedId name={name} id={id} />;
 }
 
 interface FieldNameCellProps {
@@ -310,24 +322,29 @@ interface NodePickerProps {
   readonly onClose: () => void;
 }
 
-/** Returns the label of `node` in the picker: its kind and its decimal ID. */
-function nodeLabel(node: BankNode): string {
-  return m.audio_edit_node_option({ kind: node.kindName, id: String(node.id) });
+/** Returns the name of `node` in the picker: its derived name, or else its kind. */
+function pickedName(names: NodeNames, node: BankNode): string {
+  return names.nodes.get(node.id) ?? node.kindName;
 }
 
 /**
- * The inline picker of a child to add: the sounds and containers of the bank set, filtered by ID
- * or kind as the text is typed.
+ * The inline picker of a child to add: the sounds and containers of the bank set, filtered by
+ * derived name, ID or kind as the text is typed.
  *
  * Enter adds the highlighted node and Escape closes the picker.
  */
 export function NodePicker({ revision, exclude, onPick, onClose }: NodePickerProps) {
   const nodes = useQuery(audioQueries.nodes(revision));
+  const names = useNodeNames();
   const [query, setQuery] = useState("");
   const matches = useMemo(
-    () => matchingNodes(nodes.data ?? [], query, exclude),
-    [nodes.data, query, exclude],
+    () => matchingNodes(nodes.data ?? [], query, exclude, names),
+    [nodes.data, query, exclude, names],
   );
+
+  function nodeLabel(node: BankNode): string {
+    return m.audio_node_named_label({ name: pickedName(names, node), id: String(node.id) });
+  }
 
   return (
     <Combobox.Root<BankNode>
@@ -354,7 +371,10 @@ export function NodePicker({ revision, exclude, onPick, onClose }: NodePickerPro
         <Combobox.List>
           {(node: BankNode) => (
             <Combobox.Item key={node.id} value={node} className="gap-2 pr-2">
-              <span className="min-w-0 flex-1 truncate">{nodeLabel(node)}</span>
+              <span className="min-w-0 flex-1 truncate">{pickedName(names, node)}</span>
+              <span className="shrink-0 font-mono text-code text-surface-400">
+                {objectLabel(node.id)}
+              </span>
             </Combobox.Item>
           )}
         </Combobox.List>

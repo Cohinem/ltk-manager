@@ -11,9 +11,11 @@ import { twMerge } from "@/utils";
 import { NAME_COLUMN_CLASSES } from "../../shared/components/PropertyRowParts";
 import { nameColumnCols, rowNameCols } from "../../shared/utils/propertyRows";
 import { audioQueries } from "../api/queries";
+import { useNodeNames } from "../state/nodeNames";
 import { fileName } from "../utils/bankUnits";
 import { objectLabel } from "../utils/eventTree";
 import { type MediaCandidate, matchingMedia, mediaCandidates } from "../utils/mediaPicker";
+import { nodeName, type NodeNames, runStems } from "../utils/nodeNames";
 import type { TreeEditing } from "../utils/treeEditing";
 import type {
   ChainSegment,
@@ -25,7 +27,7 @@ import type {
   VoiceStep,
 } from "../utils/voices";
 import { FieldValue } from "./FieldRows";
-import { nodeTitle, Status } from "./RowContent";
+import { NamedId, Status } from "./RowContent";
 
 /** The room each field cell takes, so the cells of a list line up. */
 const CELL_WIDTHS: Record<FieldCell, string> = {
@@ -79,7 +81,7 @@ export function prefixText(prefix: readonly VoiceStep[]): string {
 const PLAY_COLS = 3;
 
 /** Returns the width of the name column over the field and voice rows of `rows`. */
-export function voiceNameColumns(rows: readonly VoiceRow[]): number {
+export function voiceNameColumns(rows: readonly VoiceRow[], names: NodeNames): number {
   const widths: number[] = [];
   for (const row of rows) {
     if (row.kind === "field") widths.push(rowNameCols(row.depth, row.field.name, []));
@@ -87,8 +89,8 @@ export function voiceNameColumns(rows: readonly VoiceRow[]): number {
 
     const { node } = row.line.voice;
     const media = node.kind === "sound" && node.media !== null ? fileName(node.media.path) : "";
-    const id = node.kind === "sound" ? objectLabel(node.source) : objectLabel(node.id);
-    widths.push(rowNameCols(row.depth, prefixText(row.prefix), [media, id]) + PLAY_COLS);
+    const parts = [nodeName(names, node), objectLabel(node.id), media];
+    widths.push(rowNameCols(row.depth, prefixText(row.prefix), parts) + PLAY_COLS);
   }
 
   return nameColumnCols(widths);
@@ -108,9 +110,17 @@ interface ChainLineProps {
  * The line between an event and its voices: the Play action, the containers of the run and the
  * voice count.
  *
- * The Play and each container are a press that opens the object's fields under the line.
+ * The Play and each container are a press that opens the object's fields under the line. A
+ * container names the stem of its derived name before its role, unless the container before it
+ * names the same stem.
  */
 export function ChainLine({ segments, isOpen, onToggle, active }: ChainLineProps) {
+  const names = useNodeNames();
+  const stems = runStems(
+    segments.map((segment) => (segment.kind === "container" ? segment.container.id : null)),
+    names,
+  );
+
   return (
     <span className="flex min-w-0 items-center gap-0.5">
       {segments.map((segment, at) => (
@@ -122,7 +132,13 @@ export function ChainLine({ segments, isOpen, onToggle, active }: ChainLineProps
               className="size-3 shrink-0 text-surface-500"
             />
           )}
-          <Segment segment={segment} isOpen={isOpen} onToggle={onToggle} active={active === at} />
+          <Segment
+            segment={segment}
+            stem={stems[at] ?? null}
+            isOpen={isOpen}
+            onToggle={onToggle}
+            active={active === at}
+          />
         </Fragment>
       ))}
     </span>
@@ -131,12 +147,15 @@ export function ChainLine({ segments, isOpen, onToggle, active }: ChainLineProps
 
 interface SegmentProps {
   readonly segment: ChainSegment;
+  /** The stem that the segment draws before its role, or null. */
+  readonly stem: string | null;
   readonly isOpen: (id: number) => boolean;
   readonly onToggle: (id: number) => void;
   readonly active: boolean;
 }
 
-function Segment({ segment, isOpen, onToggle, active }: SegmentProps) {
+function Segment({ segment, stem, isOpen, onToggle, active }: SegmentProps) {
+  const names = useNodeNames();
   if (segment.kind === "count") {
     return (
       <span className="shrink-0 px-1 text-meta text-surface-400">
@@ -150,8 +169,11 @@ function Segment({ segment, isOpen, onToggle, active }: SegmentProps) {
     segment.kind === "play"
       ? (segment.action.label ?? objectLabel(segment.action.id))
       : containerLabel(segment.container, segment.weighted);
-  const title =
-    segment.kind === "play" ? objectLabel(segment.action.id) : nodeTitle(segment.container);
+  const name =
+    segment.kind === "play"
+      ? (names.actions.get(id) ?? segment.action.label ?? "")
+      : nodeName(names, segment.container);
+  const title = m.audio_node_named_label({ name, id: String(id) });
   const delay = segment.kind === "play" && segment.delay > 0 ? segment.delay : null;
 
   return (
@@ -171,7 +193,8 @@ function Segment({ segment, isOpen, onToggle, active }: SegmentProps) {
         }}
         onDoubleClick={(event) => event.stopPropagation()}
       >
-        {label}
+        {stem !== null && m.audio_node_derived_label({ stem, role: label })}
+        {stem === null && label}
         {delay !== null && (
           <span className="text-meta text-surface-400">
             {m.audio_voices_delay_label({ ms: String(delay) })}
@@ -246,24 +269,24 @@ export function VoiceName({
   );
 }
 
+/** The name and ID of a voice's sound, and the file name of the file that holds its media. */
 function VoiceLabel({ node }: { node: VoiceLine["voice"]["node"] }) {
+  const names = useNodeNames();
   switch (node.kind) {
     case "sound":
       if (node.media === null) {
         return (
           <>
-            <span className="shrink-0 font-mono text-code text-surface-400 select-text">
-              {objectLabel(node.source)}
-            </span>
+            <NamedId name={nodeName(names, node)} id={node.id} muted />
             <Status tone="warning">{m.audio_event_media_missing_label()}</Status>
           </>
         );
       }
       return (
         <>
-          <span className="truncate text-surface-200 select-text">{fileName(node.media.path)}</span>
-          <span className="shrink-0 font-mono text-meta text-code text-surface-400 select-text">
-            {objectLabel(node.source)}
+          <NamedId name={nodeName(names, node)} id={node.id} />
+          <span className="truncate text-meta text-surface-400 select-text">
+            {fileName(node.media.path)}
           </span>
         </>
       );
@@ -272,9 +295,7 @@ function VoiceLabel({ node }: { node: VoiceLine["voice"]["node"] }) {
     case "unsupported":
       return (
         <>
-          <span className="truncate text-surface-400">
-            {m.audio_node_unsupported_label({ kind: node.kindName, id: String(node.id) })}
-          </span>
+          <NamedId name={nodeName(names, node)} id={node.id} muted />
           <span className="shrink-0 text-meta text-surface-400">
             {node.music ? m.audio_node_music_hint() : m.audio_node_unsupported_hint()}
           </span>
@@ -359,14 +380,19 @@ interface MediaPickerProps {
   readonly onClose: () => void;
 }
 
-/** Returns the label of `candidate` in the picker: its file name and its source ID. */
+/** Returns the label of `candidate` in the picker: its derived or file name and its source ID. */
 function candidateLabel(candidate: MediaCandidate): string {
-  return m.audio_voices_media_option({ name: candidate.name, id: String(candidate.media.source) });
+  return m.audio_voices_media_option({
+    name: candidate.title ?? candidate.name,
+    id: String(candidate.media.source),
+  });
 }
 
 /**
  * The inline picker of the media that a voice plays: the media of the bank set that its sound can
- * read, filtered by source ID or file name as the text is typed.
+ * read, filtered by derived name, source ID or file name as the text is typed.
+ *
+ * A candidate shows its derived name, its source ID and the file name of the file that holds it.
  *
  * A highlighted candidate plays. Enter picks the highlighted one and Escape closes the picker.
  */
@@ -379,6 +405,7 @@ export function MediaPicker({
   onClose,
 }: MediaPickerProps) {
   const versions = useAssetVersions();
+  const names = useNodeNames();
   const found = files.flatMap((file) =>
     file.asset !== null && file.state.kind === "found" ? [{ file, asset: file.asset }] : [],
   );
@@ -387,7 +414,7 @@ export function MediaPicker({
   });
   const [query, setQuery] = useState("");
   const held = found.map(({ file }, at) => ({ file, media: reads[at]?.data ?? [] }));
-  const matches = matchingMedia(mediaCandidates(held, stream), query, current ?? -1);
+  const matches = matchingMedia(mediaCandidates(held, stream, names), query, current ?? -1);
 
   return (
     <Combobox.Root<MediaCandidate>
@@ -422,10 +449,13 @@ export function MediaPicker({
               value={candidate}
               className="gap-2 pr-2"
             >
-              <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
+              <span className="min-w-0 flex-1 truncate">{candidate.title ?? candidate.name}</span>
               <span className="shrink-0 font-mono text-code text-surface-400">
                 {objectLabel(candidate.media.source)}
               </span>
+              {candidate.title !== null && (
+                <span className="shrink-0 text-meta text-surface-400">{candidate.name}</span>
+              )}
             </Combobox.Item>
           )}
         </Combobox.List>

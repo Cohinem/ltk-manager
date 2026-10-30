@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { MediaRow, SetFile } from "@/lib/tauri";
 
 import { matchingMedia, mediaCandidates } from "../mediaPicker";
+import { NO_NAMES } from "../nodeNames";
 
 function file(path: string): SetFile {
   return {
@@ -80,5 +81,13 @@ describe("matchingMedia", () => {
 
   it("keeps none for a query that matches no ID and no name", () => {
     expect(matchingMedia(candidates, "vo_audio", 0)).toEqual([]);
+  });
+
+  it("keeps the media whose derived name contains the query", () => {
+    const names = { ...NO_NAMES, media: new Map([[12, "Death3D_cast #2"]]) };
+    const named = mediaCandidates(SET, "dataBank", names);
+
+    expect(named.map((each) => each.title)).toEqual([null, "Death3D_cast #2"]);
+    expect(matchingMedia(named, "death3d", 0).map((each) => each.media.source)).toEqual([12]);
   });
 });

@@ -85,6 +85,7 @@ function audioEvent(id: number, mediaCount = 2): AudioEvent {
     status: { kind: "resolved" },
     contexts: [],
     listed: null,
+    nodes: [],
   };
 }
 

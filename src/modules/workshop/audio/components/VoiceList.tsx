@@ -21,6 +21,7 @@ import { createGuideStore, GuideStoreContext } from "../../shared/state/treeGuid
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import type { TreePicks } from "../hooks/useTreePicks";
+import { useNodeNames } from "../state/nodeNames";
 import { movedIndex, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import { isEditable, type TreeEditing } from "../utils/treeEditing";
@@ -119,7 +120,8 @@ export function VoiceList({
 }: VoiceListProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
-  const nameCols = useMemo(() => voiceNameColumns(rows), [rows]);
+  const names = useNodeNames();
+  const nameCols = useMemo(() => voiceNameColumns(rows, names), [rows, names]);
   const [guides] = useState(createGuideStore);
   const [entering, setEntering] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
