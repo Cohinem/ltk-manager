@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                        |
 | ---------- | --------------------------------------------- |
+| 2026-10-30 | Add one keymap, drags, drops and type-ahead   |
 | 2026-10-30 | Replace the context badge with Played by      |
 | 2026-10-30 | Group voices under headers, add the inspector |
 | 2026-10-30 | Replace media, follow units, use events       |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-30 | Add the Voices view                           |
 | 2026-10-30 | Edit fields as rows, add the knob             |
 | 2026-10-30 | Add event bank editing                        |
-| 2026-10-30 | Pick by playlist, default switch and delay    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -135,23 +135,18 @@ pressing the playing row stops it. The player stops when the file changes on dis
 the document closes. The play state of the row is the pressed state of its button, and a live
 region announces the source ID that plays.
 
-The player plays every media at a volume of 0.2, as its file holds it, with no property of a bank.
+The player plays every media at the preview volume, as its file holds it, with no property of a
+bank. The preview volume starts at 0.2 on each start of the app, `-` and `=` move it by 0.05, and
+the toolbar shows it as a percent beside the Loop switch. Loop, or `Ctrl+L`, plays each media of a
+press again from its start until it stops.
 The webview applies none of the game mixer gain, so shipped media at full volume is much louder
 than in a match. The player is a channel of the
 app's one Web Audio player, which the event tree and every viewport share.
 
 ### Keyboard
 
-The table is one tab stop. Focus selects the first row if no row is selected.
-
-| Key                | Action                                    |
-| ------------------ | ----------------------------------------- |
-| Up, Down           | Move the selection one row                |
-| Page Up, Page Down | Move the selection ten rows               |
-| Home, End          | Select the first or the last row          |
-| Space, Enter       | Play the selected row, or stop it         |
-| Ctrl+C             | Copy the source ID of the selected row    |
-| Shift+F10, Menu    | Open the context menu of the selected row |
+The table is one tab stop. Focus selects the first row if no row is selected. Its keys are in
+"Keys and gestures". The type-ahead of the table matches the source ID.
 
 ### Row actions
 
@@ -320,21 +315,7 @@ media table's player, with the properties of its path, per "Playback of properti
 ### Keyboard
 
 The tree of the Structure view is one tab stop. Focus selects the first row if no row is
-selected. The keys of the Voices view are in "Voices".
-
-| Key                | Action                                                        |
-| ------------------ | ------------------------------------------------------------- |
-| Up, Down           | Move the selection one row                                    |
-| Page Up, Page Down | Move the selection ten rows                                   |
-| Home, End          | Select the first or the last row                              |
-| Right              | Expand the row, or select its first child if it is expanded   |
-| Left               | Collapse the row, or select its parent if it is collapsed     |
-| Shift+Up, Down     | Pick the range to the next row, per "Selection"               |
-| Ctrl+A             | Pick every drawn row                                          |
-| Space, Enter       | Play the selected row, or the picked rows together            |
-| Escape             | Stop what plays, or keep only the selected row picked         |
-| Ctrl+C             | Copy the names of the picked events and the IDs of the others |
-| Shift+F10, Menu    | Open the context menu of the selected row                     |
+selected. Its keys are in "Keys and gestures".
 
 ### Row actions
 
@@ -490,28 +471,8 @@ the same marks. A knob turns and an entry opens as "Knob" describes.
 
 ### Keyboard
 
-The list is one tab stop. Focus selects the first row if no row is selected.
-
-| Key                | Action                                                                      |
-| ------------------ | --------------------------------------------------------------------------- |
-| Up, Down           | Move the selection one row, over headers and voices                         |
-| Page Up, Page Down | Move the selection ten rows                                                 |
-| Home, End          | Select the first or the last row                                            |
-| Left, Right        | Move between the cells of a voice or header row                             |
-| Right              | Open a folded header or event                                               |
-| Left               | On the first cell, fold an open header or event, or select the row's parent |
-| Enter, F2          | Open the entry of the cell, or the media picker on the media cell           |
-| Enter, F2          | Open the picker of the add row                                              |
-| Space              | Play the selected row, or the picked rows together                          |
-| Shift+Up, Down     | Pick the range to the next row, per "Selection"                             |
-| Ctrl+A             | Pick every drawn row                                                        |
-| Ctrl+Enter         | Open the add row of the nearest header that has one, or of the event        |
-| Ctrl+D             | Duplicate the picked rows                                                   |
-| Delete             | Delete the picked rows from their parents                                   |
-| Alt+Up, Alt+Down   | Move the selected voice or header in the playlist of its random container   |
-| Escape             | Stop what plays, or keep only the selected row picked                       |
-| Ctrl+C             | Copy the names of the picked events and the IDs of the others               |
-| Shift+F10, Menu    | Open the context menu of the selected row                                   |
+The list is one tab stop. Focus selects the first row if no row is selected. Its keys are in
+"Keys and gestures".
 
 ## Editing
 
@@ -520,8 +481,8 @@ dot, `Ctrl+S` saves it, and `Ctrl+Z`, `Ctrl+Shift+Z` and `Ctrl+Y` step its histo
 sandbox takes no edit. Every read of the tree applies the unsaved edits, so a press plays the
 edited bank before a save. The Save, Undo and Redo buttons of the toolbar do the same as the keys.
 The Voices and Structure views edit the one document, and the document stays open while the Media
-view shows. The rows and keys below are those of the Structure view, and "Voices" lists those of
-the Voices view.
+view shows. The rows below are those of the Structure view, and "Voices" lists those of the
+Voices view. The keys of both are in "Keys and gestures".
 
 Each edit decodes the objects it changes, changes them and encodes them at the bank's version, or
 adds or removes whole objects, so every other object keeps its bytes. Only the objects of the
@@ -587,8 +548,10 @@ while the knob has focus, opens the value entry under it.
 | `weight`               | 0 to 100            | The manager's own. Neither source gives a range |
 
 A vertical drag turns the knob, the full span over 200 pixels, and the wheel steps it while the
-pointer is over it. Up and Right step up, Down and Left step down, Page Up and Page Down move a
-tenth of the span, and Home and End go to its ends. Shift moves a tenth as far. Alt+click, and
+pointer is over it, and never while it is elsewhere. Up and Right step up, Down and Left step down,
+Page Up and Page Down move a tenth of the span, and Home and End go to its ends. Shift moves a
+tenth as far, and Ctrl ten steps at a time. A Shift drag is the fine drag. An Alt drag is not
+offered, because an Alt press resets the knob. Alt+click, and
 Delete or Backspace while the knob has focus, reset the field to 0. The value arc starts at 0, so
 a cut and a boost read apart.
 
@@ -629,20 +592,7 @@ An edit is refused with the reason in a toast, and the bank is unchanged:
 A refused entry opens again with the typed text, marked, until Escape drops it. An entry whose
 text holds no number stays open and marked on Enter, and a press outside drops it.
 
-### Keyboard
-
-These are the edit keys of the Structure view. The edit keys of the Voices view are in "Voices".
-
-| Key              | Action                                                               |
-| ---------------- | -------------------------------------------------------------------- |
-| F2               | Open the value entry of a field row, or the menu of the add row      |
-| Enter            | The same as F2 on a field, `children` or add row. Play any other row |
-| Enter, Escape    | Commit or cancel the open entry, and return focus to the tree        |
-| Tab              | Move to the next knob                                                |
-| Delete           | Delete the picked rows from their parents                            |
-| Alt+Up, Alt+Down | Move the selected child of a random container in its playlist        |
-| Ctrl+Enter       | Open the add row of the selected container, or of the row's parent   |
-| Ctrl+D           | Duplicate the picked rows                                            |
+### Add rows
 
 The add row of a container sits at the end of its `children` row, and opening it expands the
 container and the row. A double click on the count of the `children` row also opens it. The node
@@ -674,16 +624,18 @@ or a press outside drops the entry.
 
 A context menu holds the actions on the picked rows. Each item shows its icon and its key.
 
-| Item              | Key        | Action                                                                     |
-| ----------------- | ---------- | -------------------------------------------------------------------------- |
-| Add               | Ctrl+Enter | Opens the add row of the row's container or event                          |
-| Duplicate         | Ctrl+D     | Adds a copy of each picked node or action beside it                        |
-| Wrap in container | none       | Puts the picked nodes of one parent into a new container of a kind         |
-| Delete            | Delete     | Deletes each picked row from its parent                                    |
-| Copy              | Ctrl+C     | Copies the event names and object IDs of the picked rows, one on each line |
-| Rename            | none       | Opens the name entry of the picked event with its name                     |
-| Use in...         | none       | Opens the sound field picker of "Using an event" for the picked event      |
-| Replace media...  | none       | Replaces the media of the picked sound from a file, per "Replacing media"  |
+| Item                 | Key        | Action                                                                     |
+| -------------------- | ---------- | -------------------------------------------------------------------------- |
+| Add                  | Ctrl+Enter | Opens the add row of the row's container or event                          |
+| Duplicate            | Ctrl+D     | Adds a copy of each picked node or action beside it                        |
+| Cut                  | Ctrl+X     | Holds the picked sounds and containers for a paste that moves them         |
+| Paste into container | Ctrl+V     | Moves the cut nodes into the selected container, or into its container     |
+| Wrap in container    | Ctrl+G     | Puts the picked nodes of one parent into a random container, or of a kind  |
+| Delete               | Delete     | Deletes each picked row from its parent                                    |
+| Copy                 | Ctrl+C     | Copies the event names and object IDs of the picked rows, one on each line |
+| Rename               | none       | Opens the name entry of the picked event with its name                     |
+| Use in...            | none       | Opens the sound field picker of "Using an event" for the picked event      |
+| Replace media...     | none       | Replaces the media of the picked sound from a file, per "Replacing media"  |
 
 Duplicate on an event opens the name entry with the name and `_copy`, and the new event copies
 every action and every node below them. Rename gives the event the ID of the new name in its place
@@ -870,6 +822,99 @@ many octaves as `LPF` spans. This is an approximation, and the field card of eac
   the sound lookup, and play them through the same graph. A persistent VFX sound keeps looping
   whatever its loop count.
 
+## Keys and gestures
+
+The keys of the media table, both Events views and the Voice lines view come from one keymap,
+`AUDIO_KEYMAP` in `utils/keymap.ts`. The key handlers resolve a press through it, and the context
+menus, the toolbar tooltips, the palette and the shortcut sheet read their keys from it. `?`, the
+keyboard mark in the toolbar and Keys and gestures in the kebab open the sheet, which lists the
+keys of the views of the document. The palette lists the commands of the active audio document
+under Audio, each with its key, while the command applies.
+
+A list answers its keys while it has focus, and a key that it answers stops there. A key that is
+marked Document answers from anywhere in the document but a text field and an open menu or dialog.
+
+| Key                                  | Where             | Action                                                                                     |
+| ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------ |
+| Space                                | Lists             | Play or stop the selected row, or the picked rows together                                 |
+| Shift+Space                          | Voices, Structure | Play the whole event of the selected row                                                   |
+| Escape                               | Lists             | Stop what plays, or keep only the selected row picked                                      |
+| Ctrl+L                               | Document          | Loop the preview                                                                           |
+| `-`, `=`                             | Document          | Lower or raise the preview volume                                                          |
+| Up, Down                             | Lists             | Select the row above or below                                                              |
+| Page Up, Page Down                   | Lists             | Move the selection one page of the list                                                    |
+| Home, End                            | Lists             | Select the first or the last row                                                           |
+| Shift+Up, Down, Page Up, Page Down   | Voices, Structure | Pick the range to the row, per "Selection". Shift+Home and Shift+End too                   |
+| Ctrl+A                               | Voices, Structure | Pick every drawn row                                                                       |
+| Right                                | Voices, Structure | Open a folded header, move to the next cell, then expand the row                           |
+| Left                                 | Voices, Structure | Move to the previous cell, then collapse the row or select its parent                      |
+| Ctrl+Up, Ctrl+Down                   | Voices, Structure | Select the previous or the next event                                                      |
+| A letter, a digit, `_`, `#`          | Lists             | Select the next row whose name starts with the typed text                                  |
+| Ctrl+F                               | Document          | Focus the filter of the view                                                               |
+| Shift+F10, Menu                      | Lists             | Open the context menu of the selected row                                                  |
+| Ctrl+Shift+M                         | Document          | Show the Media view                                                                        |
+| Ctrl+Shift+E                         | Document          | Show the Events view                                                                       |
+| Ctrl+Shift+V                         | Document          | Switch between Voices and Structure                                                        |
+| Ctrl+Alt+B                           | Document          | Show or hide the inspector of the Voices view                                              |
+| `?`                                  | Document          | Show the keys and gestures                                                                 |
+| Enter, F2                            | Lists             | Open the entry of the cell, the media picker or the add row. Enter plays a row without one |
+| Backspace                            | Voices, Structure | Reset the field of the active cell or the field row to its default                         |
+| Ctrl+Enter                           | Voices, Structure | Open the add row of the nearest container that has one, or of the event                    |
+| Ctrl+D                               | Voices, Structure | Duplicate the picked rows                                                                  |
+| Delete                               | Voices, Structure | Delete the picked rows from their parents                                                  |
+| Alt+Up, Alt+Down                     | Voices, Structure | Move the selected row in the playlist of its random container                              |
+| Ctrl+G                               | Voices, Structure | Wrap the picked nodes in a random container                                                |
+| Ctrl+C                               | Lists             | Copy the names of the picked events and the IDs of the others                              |
+| Ctrl+X                               | Voices, Structure | Cut the picked sounds and containers                                                       |
+| Ctrl+V                               | Voices, Structure | Move the cut nodes into the selected container, or into its container                      |
+| Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y | Document          | Save, undo and redo, per "Editing"                                                         |
+| Up, Down on a focused knob           | Knob              | Step the knob, a tenth as far with Shift, ten steps with Ctrl                              |
+| Delete, Backspace on a focused knob  | Knob              | Reset the knob                                                                             |
+
+Lists are the media table, the Voices list and the Structure tree. In the media table, Space and
+Enter play the selected row, Ctrl+C copies its source ID, and the type-ahead matches the source
+ID. The type-ahead text runs on
+while the keys follow within 700 ms. A name that starts with the text wins over one that holds a
+word that starts with it, such as `death` in `Play_sfx_Rumble_Death3D_cast`, and a run of one
+letter cycles the rows that start with it. A key of an edit in a bank that takes no edit does
+nothing, and it does not reach the app either.
+
+### Gestures
+
+- A drag of a voice, a header or a child of a random container, past 4 pixels, moves it to the
+  place in the playlist of the row that it is dropped on. A row of another container takes no drop.
+- A `.wem` dropped on a voice or a sound row replaces the sound's media, per "Replacing media". A
+  `.wav`, `.ogg` or `.flac` converts first. A `.wem` dropped on `+ Add` imports it, as From file
+  does. The file comes from the OS or from the content tree of the project.
+- A named event row dragged onto a rule of the Voice lines view makes the rule play the event, per
+  "Keys and gestures" in docs/ux/CONTEXTUAL_VOICE.md.
+- A middle click on a row plays it or stops it. A double click opens the entry of a field, as F2
+  does, or expands the row.
+- Ctrl+click adds or drops a pick, and Shift+click picks a range, per "Selection". A drag starts
+  only from a press without a modifier, so a modified press stays a pick.
+- The wheel turns a knob only while the pointer is over it, and a Shift drag of a knob is fine.
+
+The row under a drag draws the accent ring, and a cut row is dimmed until a paste moves it.
+
+### Keys the app holds
+
+The keymap takes no key that the app answers outside the document. Where a key meets an app key,
+this is how the two resolve:
+
+- `Ctrl+D` opens Diagnostics app-wide. The trees answer it as Duplicate and stop it there, as the
+  VFX timeline does, also in a bank that takes no edit, so a press in a tree never leaves the
+  document.
+- `Escape` restores a maximized panel. A list answers it only when something plays or several rows
+  are picked, and otherwise the panel restores.
+- `Ctrl+F` belongs to the editor, which reaches the filter of the open view through the document's
+  find.
+- `Ctrl+S` and the undo keys belong to the editor, so the keymap lists them and adds no handler.
+- `Ctrl+Shift+I` opens the developer tools, so the inspector takes `Ctrl+Alt+B`. `Alt+Left` and
+  `Alt+Right` walk the navigation history and `Alt+1` to `Alt+9` take a tab, so no list binds them.
+- `Ctrl+Up` and `Ctrl+Down` step a focused knob ten steps. The knob answers them first, so they
+  reach the next-event key only from the row.
+- An Alt drag of a knob is not offered, because an Alt press resets the knob.
+
 ## Waveform
 
 The media table and the event tree each have a waveform strip under them: a play and pause
@@ -895,16 +940,9 @@ peaks. A selection decodes after it stays unchanged for 150 ms, so a run of arro
   press on it stops it.
 - The playhead returns to the start when the media ends or stops.
 
-The waveform is one tab stop, a slider of the playhead.
-
-| Key        | Action                                          |
-| ---------- | ----------------------------------------------- |
-| Right, Up  | Move the playhead on a twentieth of the media   |
-| Left, Down | Move the playhead back a twentieth of the media |
-| Page Up    | Move the playhead on a quarter of the media     |
-| Page Down  | Move the playhead back a quarter of the media   |
-| Home, End  | Move the playhead to the start or the end       |
-| Space      | Play or pause                                   |
+The waveform is one tab stop, a slider of the playhead, with the keys of a slider. Right and Up
+move the playhead on a twentieth of the media and Left and Down back, Page Up and Page Down move it
+a quarter, Home and End go to the start and the end, and Space plays or pauses.
 
 ### Waveform column
 

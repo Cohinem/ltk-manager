@@ -12,6 +12,7 @@ A class view, its sections and its sandbox are in docs/ux/BIN_EDITOR.md, under "
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-10-30 | Read the keys from the audio keymap, add drags and type-ahead          |
 | 2026-10-30 | Add the Voice lines view, the Played by column and the copy for a skin |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
@@ -132,28 +133,54 @@ a null `CooldownModifications` or `mAudioAction` gives the pointer its class fir
 - Ctrl+D copies each picked rule after itself, and Delete removes the picked rules.
 - Alt+Up and Alt+Down move the selected rule, because list order decides the first valid rule.
 
-### Keyboard
+### Keys and gestures
 
-The list is one tab stop. Focus selects the first line if no line is selected.
+The list is one tab stop. Focus selects the first line if no line is selected. The keys come from
+the one keymap of the audio views, `utils/keymap.ts`, per "Keys and gestures" in docs/ux/AUDIO.md.
+The menus, the tooltips and the sheet read the same table. `?` opens the sheet of this view, and
+the keyboard mark in the header opens it too.
 
-| Key                | Action                                                    |
-| ------------------ | --------------------------------------------------------- |
-| Up, Down           | Move the selection one line                               |
-| Page Up, Page Down | Move the selection ten lines                              |
-| Left, Right        | Move between the cells of a rule line, or fold a header   |
-| Enter, F2          | Open the entry of the cell, or add a rule on the add line |
-| Space              | Play the line, or simulate the header's trigger           |
-| Shift+Up, Down     | Pick the range to the next line                           |
-| Ctrl+A             | Pick every rule                                           |
-| Ctrl+Enter         | Add a rule to the situation                               |
-| Ctrl+D             | Duplicate the picked rules                                |
-| Delete             | Delete the picked rules                                   |
-| Alt+Up, Alt+Down   | Move the selected rule                                    |
-| Ctrl+C             | Copy the short name of the line                           |
-| Escape             | Stop what plays, or keep only the selected line picked    |
+| Key                                 | Action                                                     |
+| ----------------------------------- | ---------------------------------------------------------- |
+| Up, Down                            | Select the line above or below                             |
+| Page Up, Page Down                  | Move the selection one page                                |
+| Home, End                           | Select the first or the last line                          |
+| Shift+Up, Down, Page Up, Page Down  | Pick the range to the line                                 |
+| Ctrl+A                              | Pick every rule                                            |
+| Left, Right                         | Move between the cells of a rule line, or fold a header    |
+| Ctrl+Up, Ctrl+Down                  | Select the previous or the next situation                  |
+| A letter, a digit, `_`, `#`         | Select the next line whose name starts with the typed text |
+| Space                               | Play or stop the line, or simulate the header's trigger    |
+| Shift+Space                         | Play every resolved line of the situation, in list order   |
+| Escape                              | Stop what plays, or keep only the selected line picked     |
+| Enter, F2                           | Open the entry of the cell, or add a rule on the add line  |
+| Ctrl+Enter                          | Add a rule to the situation                                |
+| Ctrl+D                              | Duplicate the picked rules                                 |
+| Delete                              | Delete the picked rules                                    |
+| Alt+Up, Alt+Down                    | Move the selected rule                                     |
+| Ctrl+C                              | Copy the short name of the line                            |
+| Ctrl+L                              | Loop the preview                                           |
+| `-`, `=`                            | Lower or raise the preview volume                          |
+| Ctrl+Alt+B                          | Show or hide the inspector                                 |
+| `?`                                 | Show the keys and gestures                                 |
+| Shift+F10, Menu                     | Open the context menu of the selected line                 |
+| Up, Down on a focused knob          | Step the chance, a tenth as far with Shift, ten with Ctrl  |
+| Delete, Backspace on a focused knob | Reset the chance                                           |
 
-Every menu item shows its icon, and its key where it has one: Play, Play all, Add rule, Duplicate,
-Move up, Move down, Delete, Create event..., Show in bank, Show in tree and Copy short name.
+The type-ahead text runs on while the keys follow within 700 ms. A name that starts with the text
+wins over one that holds a word that starts with it, and a run of one letter cycles the lines that
+start with it. Loop, the volume, the inspector and `?` answer from anywhere in the view but a text
+field.
+
+- A drag of a rule line, past 4 pixels, moves the rule to the place of the line it is dropped on,
+  within its situation.
+- A drag of a named event row from an event bank onto a rule line makes the rule play the event. The
+  drop writes the short name that `compose_vo_names` reads back from the event name: the name after
+  `Play_vo_`, the longest tag of the chosen skin and the spell segment of a rule with a spell
+  condition. A name that no tag composes is refused with a toast.
+- A middle click on a line plays it or stops it.
+  Every menu item shows its icon, and its key where it has one: Play, Play all, Add rule, Duplicate,
+  Move up, Move down, Delete, Create event..., Show in bank, Show in tree and Copy short name.
 
 ## Played by
 
