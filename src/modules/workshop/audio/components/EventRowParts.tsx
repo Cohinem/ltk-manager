@@ -13,7 +13,7 @@ import {
 import { nameColumnCols, rowNameCols } from "../../shared/utils/propertyRows";
 import { childrenOf, type EventRow } from "../utils/eventTree";
 import { audioRowClasses } from "./audioRow";
-import { fieldNaming } from "./FieldRows";
+import { fieldName } from "./FieldRows";
 
 /** Returns the DOM id of the row `key`, which the tree names as its active row. */
 export function rowId(key: string): string {
@@ -24,8 +24,8 @@ export function rowId(key: string): string {
 export function nameColumns(rows: readonly EventRow[]): number {
   const widths: number[] = [];
   for (const row of rows) {
-    const naming = fieldNaming(row);
-    if (naming !== null) widths.push(rowNameCols(row.depth, naming.name, [naming.tag]));
+    const name = fieldName(row);
+    if (name !== null) widths.push(rowNameCols(row.depth, name, []));
   }
 
   return nameColumnCols(widths);
@@ -59,10 +59,12 @@ export interface RowFrameProps {
   readonly onSelect: () => void;
   readonly onExpand: (open: boolean) => void;
   readonly onHover: () => void;
+  /** Opens the editor of the row on a double click. Absent, a double click expands the row. */
+  readonly onEdit?: () => void;
   readonly children: ReactNode;
 }
 
-/** One line of the tree, which selects on a click and expands on a double click. */
+/** One line of the tree, which selects on a click and expands or edits on a double click. */
 export function RowFrame({
   row,
   open,
@@ -71,6 +73,7 @@ export function RowFrame({
   onSelect,
   onExpand,
   onHover,
+  onEdit,
   children,
 }: RowFrameProps) {
   return (
@@ -83,7 +86,10 @@ export function RowFrame({
       data-ui="EventTree:row"
       className={twMerge(PROPERTY_ROW_CLASSES, audioRowClasses({ selected, playing }), "pl-1")}
       onClick={onSelect}
-      onDoubleClick={() => row.expandable && onExpand(!open)}
+      onDoubleClick={() => {
+        if (onEdit !== undefined) onEdit();
+        else if (row.expandable) onExpand(!open);
+      }}
       onPointerEnter={onHover}
     >
       {children}

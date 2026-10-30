@@ -30,7 +30,18 @@
   "audio_edit_hpf_label": "HPF",
   "audio_edit_knob_label": "{field} knob",
   "audio_edit_legacy_description": "This bank is version {version}, and only a version 145 bank takes edits. Convert it with the Convert repair of its Problems entry, then edit the converted bank.",
+  "audio_edit_loop_forever": "Loops forever",
   "audio_edit_loop_label": "Loop Count",
+  "audio_edit_loop_plays": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Plays once",
+        "countPlural=other": "Plays {count} times"
+      }
+    }
+  ],
   "audio_edit_lpf_label": "LPF",
   "audio_edit_make_up_gain_label": "Make-Up Gain",
   "audio_edit_node_option": "{kind} #{id}",
@@ -45,9 +56,11 @@
   "audio_edit_undo_failed_title": "The event bank edit was not undone",
   "audio_edit_unit_cents": "cents",
   "audio_edit_unit_db": "dB",
+  "audio_edit_unit_percent": "%",
   "audio_edit_unit_seconds": "s",
   "audio_edit_volume_label": "Volume",
   "audio_edit_weight_label": "Weight",
+  "audio_edit_weight_share": "{percent}% of picks",
   "audio_event_action_delay_label": "after {ms} ms",
   "audio_event_actions_label": [
     {

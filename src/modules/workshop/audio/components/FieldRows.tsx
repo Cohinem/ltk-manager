@@ -2,29 +2,32 @@ import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Combobox, Knob } from "@/components";
+import { Combobox, Knob, useValueEntry, ValueEntry } from "@/components";
 import { m } from "@/i18n";
 import type { BankNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import {
   NAME_COLUMN_CLASSES,
-  NumberCell,
   RowAction,
-  RowKindTag,
+  UnitSuffix,
 } from "../../shared/components/PropertyRowParts";
 import { audioQueries, type BankRevision } from "../api/queries";
 import { matchingNodes } from "../utils/bankEdits";
-import type { EventRow } from "../utils/eventTree";
+import { type EventRow, objectLabel } from "../utils/eventTree";
 import {
-  type FieldName,
+  type FieldDisplay,
+  fieldDisplay,
   fieldEdit,
-  fieldText,
+  fieldEntryText,
+  type FieldName,
+  type FieldUnit,
   knobRange,
   type NodeField,
   parseField,
 } from "../utils/nodeFields";
 import type { TreeEditing } from "../utils/treeEditing";
+import { nodeTitle } from "./RowContent";
 
 const FIELD_LABELS: Record<FieldName, () => string> = {
   target: m.audio_edit_target_label,
@@ -39,111 +42,186 @@ const FIELD_LABELS: Record<FieldName, () => string> = {
   weight: m.audio_edit_weight_label,
 };
 
-const FIELD_UNITS: Partial<Record<FieldName, () => string>> = {
-  volume: m.audio_edit_unit_db,
-  makeUpGain: m.audio_edit_unit_db,
-  pitch: m.audio_edit_unit_cents,
-  delay: m.audio_edit_unit_seconds,
+const UNIT_LABELS: Record<FieldUnit, () => string> = {
+  dB: m.audio_edit_unit_db,
+  cents: m.audio_edit_unit_cents,
+  "%": m.audio_edit_unit_percent,
+  s: m.audio_edit_unit_seconds,
 };
 
 /** The name of the row that lists a container's children, as the field rows name theirs. */
 const CHILDREN_NAME = "children";
 
-/** The kind tag of the children row, a list of object IDs. */
-const CHILDREN_TAG = "list[u32]";
+/** The classes of a number read out in a row. DS-MONO-SIZE. */
+const NUMBER_CLASSES = "font-mono text-code text-surface-200 tabular-nums";
 
 interface FieldValueProps {
   readonly field: NodeField;
   /** The open document, or null if the field takes no edit. */
   readonly editing: TreeEditing | null;
-  /** A field or the knob was left, after any commit. */
+  /** `true` while the value entry of the field is open. Held by the tree. */
+  readonly entering: boolean;
+  readonly onEntering: (open: boolean) => void;
+  /** The entry or the knob was left, after any commit. */
   readonly onLeave: () => void;
 }
 
 /**
- * The value cell of a field row: the typed value with its unit, and a knob beside a bounded one.
+ * The value cell of a field row: the value as text in its unit, and a knob before a bounded one.
  *
- * The text commits on Enter or blur and drops its draft on Escape. A text that holds no number
- * and a value that the backend refused keep the text, marked. A knob sends one edit at the end of
- * each gesture. Per "Editing" in docs/ux/AUDIO.md.
+ * The entry opens on a double click, F2 or Enter, as a popup under the knob or as a field in
+ * place of the text. A knob sends one edit at the end of each gesture. Per "Editing" in
+ * docs/ux/AUDIO.md.
  */
-export function FieldValue({ field, editing, onLeave }: FieldValueProps) {
+export function FieldValue({ field, editing, entering, onEntering, onLeave }: FieldValueProps) {
   const [draft, setDraft] = useState<{ value: number; over: number } | null>(null);
   if (draft !== null && draft.over !== field.value) setDraft(null);
 
-  const [invalid, setInvalid] = useState(false);
   const editable = editing !== null && field.editable;
   const range = knobRange(field.name);
   const label = FIELD_LABELS[field.name]();
-  const unit = FIELD_UNITS[field.name]?.() ?? null;
   const shown = { ...field, value: draft?.value ?? field.value };
+  const display = fieldDisplay(shown);
+  const unit = display.kind === "quantity" && display.unit !== null ? display.unit : null;
+  const unitLabel = unit === null ? undefined : UNIT_LABELS[unit]();
 
   function turn(value: number) {
     setDraft({ value, over: field.value });
   }
 
   /* A draft that landed stays until the read of the edited bank replaces the value. */
-  function send(value: number) {
+  function send(value: number): Promise<boolean> {
     if (editing === null || value === field.value) {
       setDraft(null);
-      return;
+      return Promise.resolve(true);
     }
 
-    void editing.edit(fieldEdit(field, value)).then((applied) => {
-      setInvalid(!applied);
+    return editing.edit(fieldEdit(field, value)).then((applied) => {
       if (!applied) setDraft(null);
+      return applied;
     });
   }
 
-  function commitText(text: string) {
-    const parsed = parseField(field, text);
-    if (parsed === null) {
-      setInvalid(true);
-      return;
-    }
-
-    setInvalid(false);
-    send(parsed);
+  function openChange(open: boolean) {
+    onEntering(open);
+    if (!open) onLeave();
   }
 
+  function parse(text: string) {
+    return parseField(field, text);
+  }
+
+  const entry = useValueEntry({
+    open: editable && entering && range === null,
+    onOpenChange: openChange,
+    initialText: () => fieldEntryText(field),
+    parse,
+    onCommit: send,
+  });
+
   function knobKeys(event: KeyboardEvent<HTMLSpanElement>) {
-    if (event.key !== "Escape" && event.key !== "Enter") return;
+    if (event.key !== "Escape") return;
 
     event.preventDefault();
     event.currentTarget.blur();
     onLeave();
   }
 
+  const reference = field.name === "target" || field.name === "source";
+
   return (
     <span data-row-value className="flex min-w-0 items-center gap-2">
-      {range !== null && (
-        <span className="flex" onKeyDown={knobKeys}>
+      <span className="flex w-5 shrink-0 justify-center" onKeyDown={knobKeys}>
+        {range !== null && (
           <Knob
             value={shown.value}
             min={range.min}
             max={range.max}
             step={range.step}
             defaultValue={Math.min(range.max, Math.max(range.min, 0))}
-            unit={unit ?? undefined}
-            format={(value) => fieldText({ ...field, value })}
+            unit={unitLabel}
+            format={(value) => fieldEntryText({ ...field, value })}
+            parse={parse}
+            entryOpen={editable && entering}
+            onEntryOpenChange={openChange}
             disabled={!editable}
             aria-label={m.audio_edit_knob_label({ field: label })}
             onChange={turn}
             onCommit={send}
           />
+        )}
+      </span>
+      {entry.entry === null && <FieldText display={display} />}
+      {entry.entry !== null && (
+        <span className="flex min-w-0 items-center gap-1">
+          <ValueEntry
+            entry={entry.entry}
+            aria-label={label}
+            className={reference ? "w-32" : undefined}
+            onTextChange={entry.setText}
+            onClose={entry.close}
+          />
+          {unitLabel !== undefined && <UnitSuffix unit={unitLabel} />}
         </span>
       )}
-      <NumberCell
-        text={fieldText(shown)}
-        unit={unit}
-        step={field.tag === "u32" && field.name !== "weight" ? null : (range?.step ?? 1)}
-        aria-label={label}
-        invalid={invalid}
-        onLeave={onLeave}
-        onCommit={editable ? commitText : undefined}
-      />
     </span>
   );
+}
+
+/** The text of a field's value at rest: a number in its unit, or the name an ID resolves to. */
+function FieldText({ display }: { display: FieldDisplay }) {
+  switch (display.kind) {
+    case "quantity":
+      return (
+        <span className="flex shrink-0 items-baseline gap-1">
+          <span className={NUMBER_CLASSES}>{display.number}</span>
+          {display.unit !== null && (
+            <span className="text-surface-400">{UNIT_LABELS[display.unit]()}</span>
+          )}
+        </span>
+      );
+    case "loop":
+      return (
+        <span className="text-surface-200">
+          {display.plays === 0
+            ? m.audio_edit_loop_forever()
+            : m.audio_edit_loop_plays({ count: display.plays })}
+        </span>
+      );
+    case "object":
+      return (
+        <span className="truncate text-surface-200">
+          {display.node === null ? objectLabel(display.id) : nodeTitle(display.node)}
+        </span>
+      );
+    case "media":
+      return (
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span
+            className={twMerge(
+              "truncate",
+              display.name === null ? "text-surface-400" : "text-surface-200",
+            )}
+          >
+            {display.name ?? m.audio_event_media_missing_label()}
+          </span>
+          <span className="shrink-0 font-mono text-meta text-code text-surface-400">
+            {objectLabel(display.id)}
+          </span>
+        </span>
+      );
+    case "weight":
+      return (
+        <span className="flex shrink-0 items-baseline gap-2">
+          <span className={NUMBER_CLASSES}>{display.number}</span>
+          {display.share !== null && (
+            <span className="text-meta text-surface-400">
+              {m.audio_edit_weight_share({ percent: String(Math.round(display.share * 100)) })}
+            </span>
+          )}
+        </span>
+      );
+  }
 }
 
 interface FieldNameCellProps {
@@ -153,12 +231,11 @@ interface FieldNameCellProps {
   readonly lead: ReactNode;
 }
 
-/** The name cell of a field row or a children row: the guides, the caret, the name and the tag. */
+/** The name cell of a field row or a children row: the guides, the caret and the name. */
 export function FieldNameCell({ row, lead }: FieldNameCellProps) {
-  const naming = fieldNaming(row);
-  if (naming === null) return null;
+  const name = fieldName(row);
+  if (name === null) return null;
 
-  const { name, tag } = naming;
   return (
     <span
       className={twMerge(
@@ -168,15 +245,14 @@ export function FieldNameCell({ row, lead }: FieldNameCellProps) {
     >
       {lead}
       <span className="truncate text-surface-200">{name}</span>
-      <RowKindTag tag={tag} />
     </span>
   );
 }
 
-/** Returns the kind tag and the name of a field row or a children row. */
-export function fieldNaming(row: EventRow): { name: string; tag: string } | null {
-  if (row.kind === "field") return { name: row.field.name, tag: row.field.tag };
-  if (row.kind === "children") return { name: CHILDREN_NAME, tag: CHILDREN_TAG };
+/** Returns the name of a field row or a children row, or null for any other row. */
+export function fieldName(row: EventRow): string | null {
+  if (row.kind === "field") return row.field.name;
+  if (row.kind === "children") return CHILDREN_NAME;
 
   return null;
 }
@@ -187,18 +263,32 @@ interface ChildrenValueProps {
   readonly onAdd?: () => void;
 }
 
-/** The value cell of a children row: the count, and the add action of an editable container. */
+/**
+ * The value cell of a children row: the count, and the add action of an editable container.
+ *
+ * A double click on the count opens the child picker.
+ */
 export function ChildrenValue({ count, onAdd }: ChildrenValueProps) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className="text-meta text-surface-400">{m.audio_edit_children_label({ count })}</span>
+      <span className="w-5 shrink-0" />
+      <span
+        className="text-surface-200"
+        onDoubleClick={(event) => {
+          if (onAdd === undefined) return;
+
+          event.stopPropagation();
+          onAdd();
+        }}
+      >
+        {m.audio_edit_children_label({ count })}
+      </span>
       {onAdd !== undefined && (
         <RowAction label={m.audio_edit_add_child_action()} icon={PlusIcon} onAct={onAdd} />
       )}
     </span>
   );
 }
-
 interface NodePickerProps {
   readonly revision: BankRevision;
   /** The IDs that the list leaves out: the container and its children. */

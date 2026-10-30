@@ -9,12 +9,10 @@ import {
   PROPERTY_DEFAULTS,
   weightText,
 } from "./bankEdits";
+import { fileName } from "./bankUnits";
 
 /** The name of a field row: an ID that the object points at, a property, or a playlist weight. */
 export type FieldName = "target" | "source" | NodeProperty | "weight";
-
-/** The kind of a field's value in the bank, in ritobin's words as the bin tree writes them. */
-export type FieldTag = "u32" | "i32" | "f32";
 
 /** What an edit of a field changes, which `fieldEdit` turns into a `BankEdit`. */
 export type FieldTarget =
@@ -23,15 +21,25 @@ export type FieldTarget =
   | { readonly kind: "property"; readonly object: number; readonly property: NodeProperty }
   | { readonly kind: "weight"; readonly container: number; readonly child: number };
 
+/** What the row resolves a field's value to, beyond the number. */
+export type FieldDetail =
+  | { readonly kind: "none" }
+  /** The node that a Play target names, or null if the tree does not hold it. */
+  | { readonly kind: "object"; readonly node: EventNode | null }
+  /** The game path of the file that holds a source's media, or null if no file holds it. */
+  | { readonly kind: "media"; readonly path: string | null }
+  /** The weight's fraction of the playlist's total, or null if the pick reads no weights. */
+  | { readonly kind: "weight"; readonly share: number | null };
+
 /** One field of an action or a node, as a child row draws it. */
 export interface NodeField {
   readonly name: FieldName;
-  readonly tag: FieldTag;
   /** The value in the unit that the row shows: seconds for a delay, Wwise's weight. */
   readonly value: number;
   /** `true` if the object is in the opened bank at version 145, which an edit changes. */
   readonly editable: boolean;
   readonly target: FieldTarget;
+  readonly detail: FieldDetail;
 }
 
 /** The object whose fields a row lists: an action, or a node of the event tree. */
@@ -41,16 +49,7 @@ export type FieldOwner =
 
 const MS_PER_SECOND = 1000;
 
-/** The kind of each property in the bank, per the property table of `ltk_wwise`. */
-const PROPERTY_TAGS: Readonly<Record<NodeProperty, FieldTag>> = {
-  volume: "f32",
-  makeUpGain: "f32",
-  pitch: "f32",
-  lpf: "f32",
-  hpf: "f32",
-  delay: "f32",
-  loopCount: "i32",
-};
+const NO_DETAIL: FieldDetail = { kind: "none" };
 
 /**
  * Returns the fields of `owner` in the order that its child rows list them.
@@ -75,10 +74,10 @@ export function nodeFields(
   if (node.kind === "sound") {
     fields.push({
       name: "source",
-      tag: "u32",
       value: node.source,
       editable,
       target: { kind: "source", sound: node.id },
+      detail: { kind: "media", path: node.media?.path ?? null },
     });
   }
 
@@ -98,18 +97,17 @@ function actionFields(action: EventAction, own: ObjectProperties | undefined): N
   if (action.target !== null) {
     fields.push({
       name: "target",
-      tag: "u32",
       value: action.target,
       editable,
       target: { kind: "target", action: action.id },
+      detail: { kind: "object", node: action.node },
     });
   }
 
   const delay = own?.values.find((value) => value.property === "delay");
-  fields.push({
-    ...propertyField(action.id, "delay", delay?.value ?? action.delay / MS_PER_SECOND, editable),
-    tag: "i32",
-  });
+  fields.push(
+    propertyField(action.id, "delay", delay?.value ?? action.delay / MS_PER_SECOND, editable),
+  );
 
   return fields;
 }
@@ -122,10 +120,10 @@ function propertyField(
 ): NodeField {
   return {
     name: property,
-    tag: PROPERTY_TAGS[property],
     value: value ?? PROPERTY_DEFAULTS[property],
     editable,
     target: { kind: "property", object, property },
+    detail: NO_DETAIL,
   };
 }
 
@@ -136,15 +134,21 @@ function weightField(
   properties: ReadonlyMap<number, ObjectProperties>,
 ): NodeField | null {
   const held = properties.get(container.id);
-  const item = held?.weights?.items.find((each) => each.child === child);
-  if (held === undefined || item === undefined) return null;
+  const weights = held?.weights;
+  const item = weights?.items.find((each) => each.child === child);
+  if (held === undefined || weights === undefined || weights === null || item === undefined) {
+    return null;
+  }
+
+  const picks = container.kind === "random" && container.mode === "random" && weights.weighted;
+  const total = weights.items.reduce((sum, each) => sum + each.weight, 0);
 
   return {
     name: "weight",
-    tag: "u32",
     value: Number(weightText(item.weight)),
     editable: held.editable,
     target: { kind: "weight", container: container.id, child },
+    detail: { kind: "weight", share: picks && total > 0 ? item.weight / total : null },
   };
 }
 
@@ -168,7 +172,44 @@ export function fieldEdit(field: NodeField, value: number): BankEdit {
   }
 }
 
-/** Returns the value that `text` holds for `field`, or null if the text holds none. */
+/** A unit that a typed value may end in, and what the number is divided by to reach the field's. */
+interface TypedUnit {
+  readonly suffix: string;
+  readonly divisor: number;
+}
+
+const GAIN_UNITS: readonly TypedUnit[] = [{ suffix: "db", divisor: 1 }];
+
+const PITCH_UNITS: readonly TypedUnit[] = [
+  { suffix: "cents", divisor: 1 },
+  { suffix: "cent", divisor: 1 },
+  { suffix: "ct", divisor: 1 },
+];
+
+const FILTER_UNITS: readonly TypedUnit[] = [{ suffix: "%", divisor: 1 }];
+
+/** `ms` comes before `s`, which it ends in. */
+const DELAY_UNITS: readonly TypedUnit[] = [
+  { suffix: "ms", divisor: MS_PER_SECOND },
+  { suffix: "s", divisor: 1 },
+];
+
+const TYPED_UNITS: Readonly<Record<NodeProperty, readonly TypedUnit[]>> = {
+  volume: GAIN_UNITS,
+  makeUpGain: GAIN_UNITS,
+  pitch: PITCH_UNITS,
+  lpf: FILTER_UNITS,
+  hpf: FILTER_UNITS,
+  delay: DELAY_UNITS,
+  loopCount: [],
+};
+
+/**
+ * Returns the value that `text` holds for `field`, or null if the text holds none.
+ *
+ * A property value may end in its unit, in any case: `dB`, `cents`, `%`, or `s` and `ms` for a
+ * delay. An empty property text holds the property's default.
+ */
 export function parseField(field: NodeField, text: string): number | null {
   const { target } = field;
   switch (target.kind) {
@@ -176,7 +217,7 @@ export function parseField(field: NodeField, text: string): number | null {
     case "source":
       return parseId(text);
     case "property":
-      return parseValue(text, target.property);
+      return parsePropertyText(text, target.property);
     case "weight": {
       const stored = parseWeight(text);
       return stored === null ? null : Number(weightText(stored));
@@ -184,9 +225,77 @@ export function parseField(field: NodeField, text: string): number | null {
   }
 }
 
-/** Returns the text of the value of `field`: an ID in decimal, a number with three decimals. */
-export function fieldText(field: NodeField): string {
-  if (field.tag === "u32" && field.name !== "weight") return String(field.value);
+function parsePropertyText(text: string, property: NodeProperty): number | null {
+  const trimmed = text.trim();
+  const lower = trimmed.toLowerCase();
+  const unit = TYPED_UNITS[property].find(({ suffix }) => lower.endsWith(suffix));
+  if (unit === undefined) return parseValue(trimmed, property);
+
+  const value = parseValue(trimmed.slice(0, trimmed.length - unit.suffix.length), property);
+  return value === null ? null : value / unit.divisor;
+}
+
+/** The unit that a field row writes after its number. */
+export type FieldUnit = "dB" | "cents" | "%" | "s";
+
+/** What the row of a field shows at rest. */
+export type FieldDisplay =
+  | { readonly kind: "quantity"; readonly number: string; readonly unit: FieldUnit | null }
+  /** The plays of a sound. 0 loops forever. */
+  | { readonly kind: "loop"; readonly plays: number }
+  | { readonly kind: "object"; readonly id: number; readonly node: EventNode | null }
+  /** The file name of the media of a source, or null if no file holds it. */
+  | { readonly kind: "media"; readonly id: number; readonly name: string | null }
+  /** A playlist weight and its fraction of the total, or null if the pick reads no weights. */
+  | { readonly kind: "weight"; readonly number: string; readonly share: number | null };
+
+/** Returns `value` with `decimals` decimals and a `+` before a positive one. */
+function signed(value: number, decimals: number): string {
+  const text = value.toFixed(decimals);
+  if (Number(text) === 0) return (0).toFixed(decimals);
+
+  return value > 0 ? `+${text}` : text;
+}
+
+/**
+ * Returns what the row of `field` shows at rest: the number in its authoring unit, or the name
+ * that an ID resolves to.
+ *
+ * A gain shows one decimal and a pitch whole cents, both signed. A filter and a delay show their
+ * number with at most three decimals.
+ */
+export function fieldDisplay(field: NodeField): FieldDisplay {
+  const { detail } = field;
+  if (detail.kind === "object") return { kind: "object", id: field.value, node: detail.node };
+  if (detail.kind === "media") {
+    const name = detail.path === null ? null : fileName(detail.path);
+    return { kind: "media", id: field.value, name };
+  }
+  if (detail.kind === "weight") {
+    return { kind: "weight", number: formatValue(field.value), share: detail.share };
+  }
+
+  switch (field.name) {
+    case "volume":
+    case "makeUpGain":
+      return { kind: "quantity", number: signed(field.value, 1), unit: "dB" };
+    case "pitch":
+      return { kind: "quantity", number: signed(field.value, 0), unit: "cents" };
+    case "lpf":
+    case "hpf":
+      return { kind: "quantity", number: formatValue(field.value), unit: "%" };
+    case "delay":
+      return { kind: "quantity", number: formatValue(field.value), unit: "s" };
+    case "loopCount":
+      return { kind: "loop", plays: field.value };
+    default:
+      return { kind: "quantity", number: formatValue(field.value), unit: null };
+  }
+}
+
+/** Returns the text that the value entry of `field` opens with: the value without rounding. */
+export function fieldEntryText(field: NodeField): string {
+  if (field.name === "target" || field.name === "source") return String(field.value);
 
   return formatValue(field.value);
 }

@@ -65,9 +65,6 @@ interface EventTreeProps {
   readonly onAdding?: (key: string | null) => void;
 }
 
-/** The selector of an editable value field, which `Readout` marks. */
-const VALUE_FIELD = "[data-value-field]";
-
 /** The height of a row in px at 100% zoom: `min-h-6` is six spacing units of 4.5px. */
 const ROW_HEIGHT = 27;
 
@@ -76,7 +73,7 @@ const ROW_HEIGHT = 27;
  * under them, windowed.
  *
  * An action and a node are each one row, and their fields are child rows that read like a bin's
- * properties: a name, a kind tag and the value in one column. One tab stop with
+ * properties: a name and the value in one column. One tab stop with
  * `aria-activedescendant`. The keyboard map is "Event tree" and "Editing" in docs/ux/AUDIO.md, and
  * the menu key opens the context menu of the selected row.
  */
@@ -99,6 +96,7 @@ export function EventTree({
   const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
   const nameCols = useMemo(() => nameColumns(rows), [rows]);
   const [guides] = useState(createGuideStore);
+  const [entering, setEntering] = useState<string | null>(null);
 
   /* A field that commits or drops its text leaves focus on no element, and the tree takes it
      back, so a run of edits stays on the keyboard. */
@@ -154,13 +152,19 @@ export function EventTree({
 
   /** Applies the edit key of `event` to `row`. Returns `true` if the key was an edit key. */
   function editKey(event: KeyboardEvent<HTMLDivElement>, row: EventRow): boolean {
-    const opens = event.key === "F2" || (event.key === "Enter" && row.kind === "field");
-    if (opens && !event.ctrlKey && !event.metaKey) {
-      document
-        .getElementById(rowId(row.key))
-        ?.querySelector<HTMLInputElement>(VALUE_FIELD)
-        ?.focus();
-      return true;
+    const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (plain && (event.key === "F2" || event.key === "Enter")) {
+      if (row.kind === "field") {
+        if (editing !== null && row.field.editable) setEntering(row.key);
+        return true;
+      }
+
+      const container = row.kind === "children" ? pickerOf(row) : null;
+      if (container !== null) {
+        onAdding?.(container);
+        return true;
+      }
+      if (event.key === "F2") return true;
     }
     if (editing === null) return false;
 
@@ -250,10 +254,21 @@ export function EventTree({
     };
 
     if (row.kind === "field") {
+      const enter = (open: boolean) =>
+        setEntering((current) => (open ? row.key : current === row.key ? null : current));
       return (
-        <RowFrame {...frame}>
+        <RowFrame
+          {...frame}
+          onEdit={editing !== null && row.field.editable ? () => enter(true) : undefined}
+        >
           <FieldNameCell row={row} lead={<Lead {...frame} expandable={false} />} />
-          <FieldValue field={row.field} editing={editing} onLeave={returnFocus} />
+          <FieldValue
+            field={row.field}
+            editing={editing}
+            entering={entering === row.key}
+            onEntering={enter}
+            onLeave={returnFocus}
+          />
         </RowFrame>
       );
     }

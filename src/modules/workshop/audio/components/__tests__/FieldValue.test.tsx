@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BankEdit, EventNode, ObjectProperties } from "@/lib/tauri";
 
-import { nodeFields } from "../../utils/nodeFields";
+import { type NodeField, nodeFields } from "../../utils/nodeFields";
 import type { TreeEditing } from "../../utils/treeEditing";
 import { FieldValue } from "../FieldRows";
 
@@ -51,6 +52,26 @@ const PROPERTIES = new Map<number, ObjectProperties>([
   ],
 ]);
 
+/** The tree's part: which field's entry is open. */
+function Harness({ field, editing }: { field: NodeField; editing: TreeEditing }) {
+  const [entering, setEntering] = useState(false);
+
+  return (
+    <>
+      <button type="button" onClick={() => setEntering(true)}>
+        F2
+      </button>
+      <FieldValue
+        field={field}
+        editing={editing}
+        entering={entering}
+        onEntering={setEntering}
+        onLeave={() => {}}
+      />
+    </>
+  );
+}
+
 /** Draws the value cell of the field `name` of the sound, which edits through `edit`. */
 function renderField(name: string, edit: (edit: BankEdit) => Promise<boolean>) {
   const field = nodeFields({ kind: "node", node: SOUND }, PROPERTIES, RANDOM).find(
@@ -64,18 +85,27 @@ function renderField(name: string, edit: (edit: BankEdit) => Promise<boolean>) {
     edited: new Set(),
     edit,
   };
-  render(<FieldValue field={field} editing={editing} onLeave={() => {}} />);
+  render(<Harness field={field} editing={editing} />);
 }
 
 describe("FieldValue", () => {
-  it("commits the typed volume on Enter", () => {
+  it("draws the value as text with no box at rest", () => {
+    renderField("volume", vi.fn());
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText("-3.0")).toBeDefined();
+  });
+
+  it("commits a value typed with its unit in the entry a double click on the knob opens", () => {
     const edit = vi.fn(() => Promise.resolve(true));
     renderField("volume", edit);
-    const volume = screen.getByRole("textbox", { name: "Volume" });
-    volume.focus();
 
-    fireEvent.change(volume, { target: { value: "-6.5" } });
-    fireEvent.keyDown(volume, { key: "Enter" });
+    fireEvent.doubleClick(screen.getByRole("slider", { name: "Volume knob" }));
+    const entry = screen.getByRole("textbox", { name: "Volume knob" });
+    expect(entry).toHaveValue("-3");
+
+    fireEvent.change(entry, { target: { value: "-6.5 dB" } });
+    fireEvent.keyDown(entry, { key: "Enter" });
 
     expect(edit).toHaveBeenCalledExactlyOnceWith({
       kind: "property",
@@ -88,51 +118,77 @@ describe("FieldValue", () => {
   it("drops the typed text on Escape without an edit", () => {
     const edit = vi.fn(() => Promise.resolve(true));
     renderField("volume", edit);
-    const volume = screen.getByRole("textbox", { name: "Volume" });
-    volume.focus();
 
-    fireEvent.change(volume, { target: { value: "12" } });
-    fireEvent.keyDown(volume, { key: "Escape" });
+    fireEvent.doubleClick(screen.getByRole("slider", { name: "Volume knob" }));
+    const entry = screen.getByRole("textbox", { name: "Volume knob" });
+    fireEvent.change(entry, { target: { value: "12" } });
+    fireEvent.keyDown(entry, { key: "Escape" });
 
     expect(edit).not.toHaveBeenCalled();
-    expect(volume).toHaveValue("-3");
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("marks a text that holds no number without an edit", () => {
+  it("resets the knob to 0 on Alt+click and on Delete, one edit each", () => {
+    const edit = vi.fn(() => Promise.resolve(true));
+    renderField("volume", edit);
+    const knob = screen.getByRole("slider", { name: "Volume knob" });
+
+    fireEvent.pointerDown(knob, { button: 0, altKey: true });
+    expect(edit).toHaveBeenCalledExactlyOnceWith({
+      kind: "property",
+      object: 103,
+      property: "volume",
+      value: 0,
+    });
+
+    cleanup();
+    edit.mockClear();
+    renderField("volume", edit);
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Volume knob" }), { key: "Delete" });
+    expect(edit).toHaveBeenCalledOnce();
+  });
+
+  it("opens a field without a knob in place and keeps a refused value marked", async () => {
+    const edit = vi.fn(() => Promise.resolve(false));
+    renderField("source", edit);
+
+    fireEvent.click(screen.getByRole("button", { name: "F2" }));
+    const source = screen.getByRole("textbox", { name: "Source" });
+    expect(source).toHaveValue("486");
+
+    fireEvent.change(source, { target: { value: "42" } });
+    fireEvent.keyDown(source, { key: "Enter" });
+    expect(edit).toHaveBeenCalledExactlyOnceWith({ kind: "source", sound: 103, source: 42 });
+
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: "Source" })).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      ),
+    );
+    expect(screen.getByRole("textbox", { name: "Source" })).toHaveValue("42");
+  });
+
+  it("keeps a text that holds no number open and marked on Enter", () => {
     const edit = vi.fn(() => Promise.resolve(true));
     renderField("loopCount", edit);
-    const loop = screen.getByRole("textbox", { name: "Loop Count" });
-    loop.focus();
 
+    fireEvent.click(screen.getByRole("button", { name: "F2" }));
+    const loop = screen.getByRole("textbox", { name: "Loop Count" });
     fireEvent.change(loop, { target: { value: "forever" } });
     fireEvent.keyDown(loop, { key: "Enter" });
 
     expect(edit).not.toHaveBeenCalled();
     expect(loop).toHaveAttribute("aria-invalid", "true");
-    expect(loop).toHaveValue("forever");
-  });
-
-  it("marks a value that the backend refused and keeps its text", async () => {
-    const edit = vi.fn(() => Promise.resolve(false));
-    renderField("source", edit);
-    const source = screen.getByRole("textbox", { name: "Source" });
-    source.focus();
-
-    fireEvent.change(source, { target: { value: "42" } });
-    fireEvent.keyDown(source, { key: "Enter" });
-
-    expect(edit).toHaveBeenCalledExactlyOnceWith({ kind: "source", sound: 103, source: 42 });
-    await waitFor(() => expect(source).toHaveAttribute("aria-invalid", "true"));
-    expect(source).toHaveValue("42");
   });
 
   it("sets the child's playlist weight in Wwise units", () => {
     const edit = vi.fn(() => Promise.resolve(true));
     renderField("weight", edit);
-    const weight = screen.getByRole("textbox", { name: "Weight" });
-    expect(weight).toHaveValue("30");
-    weight.focus();
 
+    fireEvent.doubleClick(screen.getByRole("slider", { name: "Weight knob" }));
+    const weight = screen.getByRole("textbox", { name: "Weight knob" });
+    expect(weight).toHaveValue("30");
     fireEvent.change(weight, { target: { value: "75" } });
     fireEvent.keyDown(weight, { key: "Enter" });
 
@@ -153,7 +209,9 @@ describe("FieldValue", () => {
     fireEvent.keyDown(knob, { key: "ArrowUp" });
     fireEvent.keyDown(knob, { key: "ArrowUp" });
     fireEvent.keyUp(knob, { key: "ArrowUp" });
-    vi.runAllTimers();
+    act(() => {
+      vi.runAllTimers();
+    });
     vi.useRealTimers();
 
     expect(edit).toHaveBeenCalledExactlyOnceWith({

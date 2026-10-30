@@ -162,14 +162,30 @@ function containerLabels(node: ContainerNode) {
   }
 }
 
+/** Returns the title that the row of `node` names it by: its kind and its decimal ID. */
+export function nodeTitle(node: EventNode): string {
+  const id = String(node.id);
+  switch (node.kind) {
+    case "sound":
+      return m.audio_node_sound_label({ id });
+    case "random":
+    case "switch":
+    case "layer":
+    case "mixer":
+      return containerLabels(node).title({ id });
+    case "unsupported":
+      return m.audio_node_unsupported_label({ kind: node.kindName, id });
+    case "missing":
+      return m.audio_node_missing_label({ id });
+  }
+}
+
 function NodeContent({ node }: { node: EventNode }) {
   switch (node.kind) {
     case "sound":
       return (
         <>
-          <span className="text-surface-200">
-            {m.audio_node_sound_label({ id: String(node.id) })}
-          </span>
+          <span className="text-surface-200">{nodeTitle(node)}</span>
           {node.media !== null && (
             <span className="truncate text-meta text-surface-400 select-text">
               {fileName(node.media.path)}
@@ -184,11 +200,12 @@ function NodeContent({ node }: { node: EventNode }) {
     case "switch":
     case "layer":
     case "mixer": {
-      const labels = containerLabels(node);
       return (
         <>
-          <span className="text-surface-200">{labels.title({ id: String(node.id) })}</span>
-          <span className="truncate text-meta text-surface-400">{labels.hint()}</span>
+          <span className="text-surface-200">{nodeTitle(node)}</span>
+          <span className="truncate text-meta text-surface-400">
+            {containerLabels(node).hint()}
+          </span>
         </>
       );
     }
