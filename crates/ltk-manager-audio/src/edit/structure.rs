@@ -21,7 +21,7 @@ use crate::bank_set::BankContent;
 use crate::decode::decode;
 
 /// The plugin ID of the Wwise Vorbis codec, the only codec that the game plays.
-const VORBIS_PLUGIN: u32 = 0x0004_0001;
+pub(super) const VORBIS_PLUGIN: u32 = 0x0004_0001;
 
 /// Creates the event `name` with no action, or with a deep copy of the actions of `copy_of`.
 pub(super) fn new_event(
@@ -48,6 +48,35 @@ pub(super) fn new_event(
     }
 
     tx.push(&Typed::Event(Event { id, actions }))?;
+    tx.names.push(name.to_owned());
+    Ok(())
+}
+
+/// Gives the event `event` the ID of `name`, in its place in the file, with its actions.
+pub(super) fn rename_event(
+    tx: &mut Tx<'_, '_>,
+    event: u32,
+    name: &str,
+) -> Result<(), BankEditError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(BankEditError::EventName);
+    }
+
+    let old = ObjectId(event);
+    let mut renamed = self::event(tx, old)?;
+    let id = ObjectId::from_name(name);
+    if id == old {
+        return Ok(());
+    }
+    if tx.is_object_taken(id) {
+        return Err(BankEditError::EventExists(name.to_owned()));
+    }
+
+    let at = tx.position(old).ok_or(BankEditError::NoObject(event))?;
+    tx.remove(old);
+    renamed.id = id;
+    tx.insert(at, &Typed::Event(renamed))?;
     tx.names.push(name.to_owned());
     Ok(())
 }
@@ -539,9 +568,14 @@ fn holders(tx: &Tx<'_, '_>, id: ObjectId) -> Vec<ObjectId> {
         .collect()
 }
 
-/// Removes the media `source` if the document added it and no sound but `sound` plays it.
+/// Removes the media `source` if the document added it as a new media and no sound but `sound`
+/// plays it. A replaced media stays.
 fn drop_unused_media(tx: &mut Tx<'_, '_>, sound: ObjectId, source: SourceId) {
-    let Some(file) = tx.media.iter().position(|file| file.added(source)) else {
+    let Some(file) = tx
+        .media
+        .iter()
+        .position(|file| file.added(source) && !file.is_original(source))
+    else {
         return;
     };
 
@@ -1001,26 +1035,41 @@ fn media_file(tx: &mut Tx<'_, '_>, streamed: bool) -> Result<(usize, StreamType)
             continue;
         };
 
-        let files = tx.context.files.ok_or(BankEditError::NoMediaFile)?;
-        let read = files
-            .read(found.path())
-            .map_err(|error| BankEditError::MediaRead(error.to_string()))?
-            .ok_or(BankEditError::NoMediaFile)?;
-        let file = MediaFile::read(found.path(), read.asset, read.contents, package)?;
-        tx.media.push(file);
-        return Ok((tx.media.len() - 1, stream(package)));
+        let path = found.path().to_owned();
+        return Ok((read_media_file(tx, &path, package)?, stream(package)));
     }
     Err(BankEditError::NoMediaFile)
 }
 
+/// Returns the index of the document's media file of the set file `path`, read through the files
+/// of the context if the document does not hold it yet.
+pub(super) fn read_media_file(
+    tx: &mut Tx<'_, '_>,
+    path: &str,
+    package: bool,
+) -> Result<usize, BankEditError> {
+    if let Some(at) = tx.media.iter().position(|file| file.path() == path) {
+        return Ok(at);
+    }
+
+    let files = tx.context.files.ok_or(BankEditError::NoMediaFile)?;
+    let read = files
+        .read(path)
+        .map_err(|error| BankEditError::MediaRead(error.to_string()))?
+        .ok_or(BankEditError::NoMediaFile)?;
+    let file = MediaFile::read(path, read.asset, read.contents, package)?;
+    tx.media.push(file);
+    Ok(tx.media.len() - 1)
+}
+
 /// Fails if `wem` is not a Wwise Vorbis WEM that decodes.
-fn check_wem(wem: &[u8]) -> Result<(), BankEditError> {
+pub(super) fn check_wem(wem: &[u8]) -> Result<WemInfo, BankEditError> {
     let info = WemInfo::from_bytes(wem).map_err(|error| BankEditError::Wem(error.to_string()))?;
     if info.codec != WemCodec::VORBIS {
         return Err(BankEditError::Codec(info.codec.0));
     }
     decode(SourceId(0), wem).map_err(|error| BankEditError::Wem(error.reason.to_string()))?;
-    Ok(())
+    Ok(info)
 }
 
 /// Returns the event `id` of the opened bank.

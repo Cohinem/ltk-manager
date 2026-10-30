@@ -82,7 +82,7 @@ pub fn media_rows(file: &[u8]) -> Result<Vec<MediaRow>, MediaError> {
     match kind_of_bytes(file).ok_or(MediaError::NotAudio)? {
         AudioKind::Package => packaged_rows(file),
         AudioKind::Bank => banked_rows(file),
-        AudioKind::Media => Ok(vec![row(0, file)]),
+        AudioKind::Media => Ok(vec![media_row(0, file)]),
     }
 }
 
@@ -96,7 +96,7 @@ fn packaged_rows(file: &[u8]) -> Result<Vec<MediaRow>, MediaError> {
             let source_id = u32::try_from(entry.key().0).ok()?;
             let start = entry.offset() as usize;
             let media = file.get(start..start + entry.size() as usize)?;
-            Some(row(source_id, media))
+            Some(media_row(source_id, media))
         })
         .collect();
     Ok(rows)
@@ -110,12 +110,12 @@ fn banked_rows(file: &[u8]) -> Result<Vec<MediaRow>, MediaError> {
     };
     Ok(media
         .iter()
-        .map(|(source_id, bytes)| row(source_id.0, bytes))
+        .map(|(source_id, bytes)| media_row(source_id.0, bytes))
         .collect())
 }
 
 /// Returns the row of the media `source_id` whose bytes are `media`.
-fn row(source_id: u32, media: &[u8]) -> MediaRow {
+pub(crate) fn media_row(source_id: u32, media: &[u8]) -> MediaRow {
     let size_bytes = u32::try_from(media.len()).unwrap_or(u32::MAX);
 
     match WemInfo::from_bytes(media) {

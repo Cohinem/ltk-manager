@@ -30,6 +30,13 @@ pub(super) enum Change {
         source: SourceId,
         data: Vec<u8>,
     },
+    /// The media `source` of the media file at `file` set in place. Holds what the file added at
+    /// `source` before the change, or `None` for the media as the file was read.
+    MediaSet {
+        file: usize,
+        source: SourceId,
+        previous: Option<Vec<u8>>,
+    },
 }
 
 /// Where an object of the bank set is.
@@ -152,6 +159,15 @@ impl<'d, 'c> Tx<'d, 'c> {
     /// Fails if the opened bank holds no object with the ID, or if `typed` does not encode.
     pub fn put(&mut self, typed: &Typed) -> Result<(), BankEditError> {
         let object = typed.encode(self.version)?;
+        self.put_object(object)
+    }
+
+    /// Puts `object` in place of the object with its ID. An equal object takes no change.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the opened bank holds no object with the ID.
+    pub fn put_object(&mut self, object: Object) -> Result<(), BankEditError> {
         let current = self
             .hierarchy
             .get(object.id())
@@ -166,6 +182,35 @@ impl<'d, 'c> Tx<'d, 'c> {
             .expect("the hierarchy holds the object it replaces");
         self.changes.push(Change::Replaced(previous));
         Ok(())
+    }
+
+    /// Encodes `typed` at `at`, so every other object keeps its place.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `typed` does not encode.
+    pub fn insert(&mut self, at: usize, typed: &Typed) -> Result<(), BankEditError> {
+        let object = typed.encode(self.version)?;
+        let id = object.id();
+        insert_at(self.hierarchy, at, object);
+        self.changes.push(Change::Inserted { at, id });
+        Ok(())
+    }
+
+    /// Returns the position of the object `id` of the opened bank.
+    pub fn position(&self, id: ObjectId) -> Option<usize> {
+        self.hierarchy.objects().iter().position(|o| o.id() == id)
+    }
+
+    /// Sets the media `source` of the media file at `file` to `data`, as a replacement of the
+    /// media that the file holds.
+    pub fn set_media(&mut self, file: usize, source: SourceId, data: Vec<u8>) {
+        let previous = self.media[file].set(source, Some(data));
+        self.changes.push(Change::MediaSet {
+            file,
+            source,
+            previous,
+        });
     }
 
     /// Encodes `typed` after the last object.
@@ -249,6 +294,18 @@ pub(super) fn revert(
             Change::MediaRemoved { file, source, data } => {
                 media[file].add(source, data);
                 Change::MediaAdded { file, source }
+            }
+            Change::MediaSet {
+                file,
+                source,
+                previous,
+            } => {
+                let current = media[file].set(source, previous);
+                Change::MediaSet {
+                    file,
+                    source,
+                    previous: current,
+                }
             }
         };
         inverse.push(undone);

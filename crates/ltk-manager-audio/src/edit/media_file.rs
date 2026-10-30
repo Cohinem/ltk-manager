@@ -140,15 +140,43 @@ impl MediaFile {
         }
     }
 
-    /// Returns `true` if the document added the media `source`.
+    /// Returns `true` if the document added the media `source`, as a new media or a replacement.
     #[must_use]
     pub fn added(&self, source: SourceId) -> bool {
         self.added.contains_key(&source)
     }
 
+    /// Returns `true` if the file held the media `source` when it was read.
+    #[must_use]
+    pub fn is_original(&self, source: SourceId) -> bool {
+        match &self.model {
+            MediaModel::Bank(bank) => bank.media().is_some_and(|media| media.contains(source)),
+            MediaModel::Package(package) => package.wem(source).is_some(),
+        }
+    }
+
+    /// Returns the source IDs of the media that the file held when it was read and that the
+    /// document replaced, in ascending order.
+    pub fn replaced(&self) -> impl Iterator<Item = SourceId> + '_ {
+        self.added
+            .keys()
+            .copied()
+            .filter(|source| self.is_original(*source))
+    }
+
     pub(super) fn add(&mut self, source: SourceId, data: Vec<u8>) {
         self.added.insert(source, data);
         self.stale = true;
+    }
+
+    /// Sets the added media `source` to `data`, or drops it for `None`, and returns what the file
+    /// added at `source` before.
+    pub(super) fn set(&mut self, source: SourceId, data: Option<Vec<u8>>) -> Option<Vec<u8>> {
+        self.stale = true;
+        match data {
+            Some(data) => self.added.insert(source, data),
+            None => self.added.remove(&source),
+        }
     }
 
     pub(super) fn remove(&mut self, source: SourceId) -> Option<Vec<u8>> {

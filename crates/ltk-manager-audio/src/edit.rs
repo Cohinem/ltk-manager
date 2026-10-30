@@ -8,6 +8,7 @@
 mod history;
 mod ids;
 mod media_file;
+mod replace;
 mod structure;
 
 use std::collections::HashMap;
@@ -18,7 +19,7 @@ use ltk_wwise::hierarchy::{
     Action, Container, ContainerFields, Object, ObjectKind, PlaylistItem, PropBundle, PropValue,
     PropertyId, Sound, StreamType, Typed,
 };
-use ltk_wwise::{Bank, ObjectId, SourceId};
+use ltk_wwise::{Bank, BankId, ObjectId, SourceId};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use xxhash_rust::xxh64::xxh64;
@@ -29,6 +30,7 @@ use crate::index::AudioIndex;
 use history::{Change, Tx};
 
 pub use media_file::MediaFile;
+pub use replace::{MediaReplacement, ReplacedSound};
 
 /// The most steps that the undo history keeps.
 const HISTORY_DEPTH: usize = 100;
@@ -180,6 +182,8 @@ pub enum BankEdit {
     NewEvent { name: String },
     /// Creates the event `name` with a copy of every action of `event` and of what they play.
     CopyEvent { event: u32, name: String },
+    /// Gives the event `event` the ID of `name`, with its actions.
+    RenameEvent { event: u32, name: String },
     /// Adds `node` under `parent`.
     AddNode { parent: NodeParent, node: NewNode },
     /// Adds a copy of `object` and of every object below it beside `object` under `parent`.
@@ -208,13 +212,14 @@ impl BankEdit {
     /// removes or replaces several objects.
     fn replaced(&self) -> Option<u32> {
         match *self {
-            Self::Target { action, .. } => Some(action),
             Self::MoveChild { container, .. } | Self::Weight { container, .. } => Some(container),
             Self::Property { object, .. } => Some(object),
             Self::Source { sound, .. } => Some(sound),
-            Self::AddChild { .. }
+            Self::Target { .. }
+            | Self::AddChild { .. }
             | Self::NewEvent { .. }
             | Self::CopyEvent { .. }
+            | Self::RenameEvent { .. }
             | Self::AddNode { .. }
             | Self::Duplicate { .. }
             | Self::Delete { .. }
@@ -431,6 +436,17 @@ pub enum BankEditError {
          in the Wwise authoring tool, then import the converted file."
     )]
     Codec(u16),
+
+    /// The opened event bank holds the media in its own media index.
+    #[error("The event bank holds media {0} itself, and its own media takes no replacement")]
+    OpenedMedia(u32),
+
+    /// A sound of another bank of the set plays the media and needs another size.
+    #[error(
+        "Sound {sound} of {path} plays the media from a bank, so a replacement changes its size. \
+         Open that bank to replace the media."
+    )]
+    SharedSound { sound: u32, path: String },
 }
 
 impl From<BankEditError> for AppError {
@@ -570,6 +586,77 @@ impl EventBankDocument {
     #[must_use]
     pub fn created_names(&self) -> &[String] {
         &self.names
+    }
+
+    /// Returns the IDs of the events of the bank, in file order.
+    #[must_use]
+    pub fn events(&self) -> Vec<u32> {
+        self.bank
+            .hierarchy()
+            .into_iter()
+            .flat_map(|hierarchy| hierarchy.of_kind(ObjectKind::EVENT))
+            .map(|object| object.id().0)
+            .collect()
+    }
+
+    /// Returns the source IDs of the media that a replacement changed, in the order of the media
+    /// files.
+    #[must_use]
+    pub fn replaced(&self) -> Vec<u32> {
+        self.media
+            .iter()
+            .flat_map(MediaFile::replaced)
+            .map(|source| source.0)
+            .collect()
+    }
+
+    /// Returns what replacing the media `source` of the set with the WEM `wem` writes: the media
+    /// before and after, and the sounds that play it.
+    ///
+    /// # Errors
+    ///
+    /// Fails for the reasons of [`EventBankDocument::replace`].
+    pub fn replacement(
+        &self,
+        source: u32,
+        wem: &[u8],
+        context: &EditContext<'_>,
+    ) -> Result<MediaReplacement, BankEditError> {
+        self.check()?;
+        structure::check_wem(wem)?;
+        let hierarchy = self.bank.hierarchy().ok_or(BankEditError::NoHierarchy)?;
+        let plan = replace::plan(
+            hierarchy.objects(),
+            self.bank.header().version,
+            context,
+            &self.media,
+            SourceId(source),
+            wem,
+        )?;
+        Ok(plan.replacement)
+    }
+
+    /// Replaces the media `source` of the set with the WEM `wem` at the same source ID, as one
+    /// undo step.
+    ///
+    /// The media file that holds it joins the document. Each sound of the opened bank that plays
+    /// it takes the new `in_memory_size`: the WEM length for a sound of a bank's media index, and
+    /// the prefetched start for a prefetched sound, whose start in its bank is replaced too.
+    /// "Replacing media" in `docs/ux/AUDIO.md`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `wem` is not a Wwise Vorbis WEM that decodes, if no media file of the set holds
+    /// the media, if the opened bank holds it itself, if a sound of another bank would need
+    /// another size, and for the reasons of [`EventBankDocument::edit`].
+    pub fn replace(
+        &mut self,
+        source: u32,
+        wem: Vec<u8>,
+        context: &EditContext<'_>,
+    ) -> Result<(), BankEditError> {
+        structure::check_wem(&wem)?;
+        self.transact(context, |tx| replace::replace(tx, SourceId(source), wem))
     }
 
     /// Applies `edit` as one undo step, with the references checked against `context`.
@@ -731,8 +818,10 @@ fn apply(tx: &mut Tx<'_, '_>, edit: &BankEdit) -> Result<(), BankEditError> {
             }
             Ok(())
         }
+        BankEdit::Target { action, target } => retarget(tx, *action, *target),
         BankEdit::NewEvent { name } => structure::new_event(tx, name, None),
         BankEdit::CopyEvent { event, name } => structure::new_event(tx, name, Some(*event)),
+        BankEdit::RenameEvent { event, name } => structure::rename_event(tx, *event, name),
         BankEdit::AddNode { parent, node } => structure::add_node(tx, parent, node).map(drop),
         BankEdit::AddChild { container, child } => {
             let parent = NodeParent::Container {
@@ -766,12 +855,6 @@ fn apply_one(
     tx: &Tx<'_, '_>,
 ) -> Result<Typed, BankEditError> {
     match *edit {
-        BankEdit::Target { target, .. } => {
-            let mut action = play_action(typed, id)?;
-            check_node(tx, target, PLAY_TARGETS)?;
-            action.target = ObjectId(target);
-            Ok(Typed::Action(action))
-        }
         BankEdit::MoveChild { child, index, .. } => {
             let mut container = container(typed, id)?;
             let playlist = &mut playlist(&mut container)?.playlist;
@@ -827,6 +910,61 @@ pub(crate) const CHILD_KINDS: &[ObjectKind] = &[
     ObjectKind::ACTOR_MIXER,
     ObjectKind::LAYER_CONTAINER,
 ];
+
+/// Points the Play action `action` at `target`. A target in another file of the set than the old
+/// target sets the action's bank ID to the bank of that file.
+fn retarget(tx: &mut Tx<'_, '_>, action: u32, target: u32) -> Result<(), BankEditError> {
+    let mut play = play_action(tx.typed(ObjectId(action))?, action)?;
+    check_node(tx, target, PLAY_TARGETS)?;
+
+    let old_bank = tx.bank_of(play.target);
+    let new_bank = tx.bank_of(ObjectId(target));
+    play.target = ObjectId(target);
+    let object = Typed::Action(play).encode(tx.version)?;
+    if old_bank == new_bank {
+        return tx.put_object(object);
+    }
+    tx.put_object(with_play_bank(object, new_bank, tx.version)?)
+}
+
+/// The bytes at the end of a version 145 Play action after its bank ID: the `u32` of the current
+/// generation that `Action::write` of `ltk_wwise` 0.2.0 writes last.
+const PLAY_TAIL: usize = 4;
+
+/// The length of a Play action's bank ID.
+const BANK_ID_LEN: usize = 4;
+
+/// Returns the Play action `object` with the bank ID `bank`.
+///
+/// `ltk_wwise` 0.2.0 keeps the bank ID in a private field, so this writes the four bytes before
+/// [`PLAY_TAIL`] and decodes the result to check that `Action::play_bank` reads `bank`.
+fn with_play_bank(
+    object: Object,
+    bank: BankId,
+    version: BankVersion,
+) -> Result<Object, BankEditError> {
+    let id = object.id().0;
+    let refused = BankEditError::Kind {
+        id,
+        expected: "a Play action that ends in its bank ID",
+    };
+    let kind = object.kind();
+    let mut payload = object.into_payload();
+    let Some(end) = payload
+        .len()
+        .checked_sub(PLAY_TAIL)
+        .filter(|end| *end >= BANK_ID_LEN)
+    else {
+        return Err(refused);
+    };
+    payload[end - BANK_ID_LEN..end].copy_from_slice(&bank.0.to_le_bytes());
+
+    let patched = Object::new(kind, payload)?;
+    match patched.decode(version)? {
+        Some(Typed::Action(action)) if action.play_bank() == Some(bank) => Ok(patched),
+        _ => Err(refused),
+    }
+}
 
 /// Fails if neither the opened bank nor another bank of the set holds an object `id` of one of
 /// `kinds`.
