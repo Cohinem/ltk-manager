@@ -41,7 +41,7 @@ export interface MenubarProps {
 }
 
 const TITLE =
-  "flex h-7 shrink-0 cursor-default items-center rounded-md px-2 text-meta whitespace-nowrap text-surface-300 select-none transition-colors " +
+  "flex h-7 shrink-0 cursor-default items-center rounded-md px-2 text-row whitespace-nowrap text-surface-300 select-none transition-colors " +
   /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100 data-[popup-open]:bg-surface-veil-strong data-[popup-open]:text-surface-50 " +
   focusRingInset;
 
