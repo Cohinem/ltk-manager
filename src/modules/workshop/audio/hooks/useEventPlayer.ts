@@ -1,7 +1,5 @@
 import { useCallback, useState } from "react";
 
-import type { MediaLocation } from "@/lib/tauri";
-
 import { playSolo } from "../player/solo";
 import type { SoundChannel } from "../player/soundPlayer";
 import {
@@ -10,6 +8,7 @@ import {
   useChannelState,
   useSoundChannel,
 } from "../player/useSoundChannel";
+import type { EventVoice } from "../utils/eventTree";
 import type { WaveformSubject } from "../utils/waveformSync";
 
 /** The player of the event tree. */
@@ -20,16 +19,16 @@ export interface EventPlayer {
   readonly failed: ReadonlySet<string>;
   /** The key and the media of the last play that had media, or `null` before one. */
   readonly played: WaveformSubject | null;
-  /** Plays `sounds` at once for the row `key`, and stops what played before. */
-  readonly play: (key: string, sounds: readonly MediaLocation[]) => void;
+  /** Plays `voices` for the row `key`, each after its delay, and stops what played before. */
+  readonly play: (key: string, voices: readonly EventVoice[]) => void;
   readonly stop: () => void;
   /** The channel that plays the media, keyed by the row. */
   readonly channel: SoundChannel;
 }
 
 /**
- * Plays the picks of an event, a container or a sound on a channel of the shared player, every
- * media at once.
+ * Plays the picks of an event, a container or a sound on a channel of the shared player, each
+ * media after the delay of its action.
  *
  * A press stops what the press before it started. The row stops playing when every media ends,
  * and everything stops when the tree unmounts.
@@ -42,9 +41,14 @@ export function useEventPlayer(): EventPlayer {
 
   const stop = useCallback(() => channel.stopAll(), [channel]);
   const play = useCallback(
-    (key: string, sounds: readonly MediaLocation[]) => {
-      const urls = sounds.map(mediaUrl);
-      playSolo(channel, key, urls);
+    (key: string, voices: readonly EventVoice[]) => {
+      const urls = voices.map((voice) => mediaUrl(voice.media));
+      playSolo(
+        channel,
+        key,
+        urls,
+        voices.map((voice) => voice.delay),
+      );
 
       if (urls.length > 0) setPlayed({ key, urls });
     },

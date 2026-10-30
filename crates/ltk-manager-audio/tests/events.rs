@@ -6,8 +6,9 @@ use common::{FakeFiles, FakeNames, fixture};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
     Audience, AudienceName, AudioEvent, AudioFile, AudioIndex, BankSetOrigin, BankSite, BankUnit,
-    BinAudio, ContextualRule, ContextualRules, EventBank, EventNode, EventStatus, HolderAudio,
-    MediaContainer, ObjectId, OpenedBank, SiteStep, SitedUnit, SoundStream,
+    BinAudio, ContextualRule, ContextualRules, EventBank, EventNode, EventPlaylistItem,
+    EventStatus, HolderAudio, MediaContainer, ObjectId, OpenedBank, PlayMode, SiteStep, SitedUnit,
+    SoundStream,
 };
 use ltk_manager_base::hashing::named;
 use ltk_wwise::bank::{BankHeader, BankVersion, Section};
@@ -144,6 +145,61 @@ fn event_bank_resolves_every_fixture_event_with_its_bank_unit() {
     }
     let media: u32 = list.events.iter().map(|event| event.media_count).sum();
     assert_eq!(media, 17);
+}
+
+#[test]
+fn event_bank_lists_playlist_of_each_fixture_random_container() {
+    let files = FakeFiles::default().with_fixture(MEDIA, "media_v145.bnk");
+    let index = unit_index();
+    let bank = EventBank::open(
+        opened(EVENTS, fixture("events_v145.bnk")),
+        &[&index],
+        &files,
+        None,
+        &FakeNames::default(),
+    );
+
+    fn randoms(node: &EventNode, found: &mut Vec<(PlayMode, usize, Vec<EventPlaylistItem>)>) {
+        match node {
+            EventNode::Random {
+                children,
+                mode,
+                playlist,
+                ..
+            } => {
+                found.push((*mode, children.len(), playlist.clone()));
+                children.iter().for_each(|child| randoms(child, found));
+            }
+            EventNode::Switch { children, .. }
+            | EventNode::Layer { children, .. }
+            | EventNode::Mixer { children, .. } => {
+                children.iter().for_each(|child| randoms(child, found));
+            }
+            _ => {}
+        }
+    }
+    let mut found = Vec::new();
+    for event in FIXTURE_EVENTS {
+        let tree = bank.event(ObjectId(event)).unwrap().unwrap();
+        for node in tree
+            .actions
+            .iter()
+            .filter_map(|action| action.node.as_ref())
+        {
+            randoms(node, &mut found);
+        }
+    }
+
+    assert_eq!(found.len(), 5);
+    for (mode, children, playlist) in found {
+        let mut listed: Vec<u32> = playlist.iter().map(|item| item.child).collect();
+        listed.sort_unstable();
+        let every_child: Vec<u32> = (0..u32::try_from(children).unwrap()).collect();
+
+        assert_eq!(mode, PlayMode::Random);
+        assert_eq!(listed, every_child);
+        assert!(playlist.iter().all(|item| item.weight == 1), "{playlist:?}");
+    }
 }
 
 #[test]

@@ -7,7 +7,7 @@ import { usePreviewSound, usePreviewSoundVolume } from "@/stores";
 
 import { audioQueries } from "../api/queries";
 import { mediaUrl, useSoundChannel } from "../player/useSoundChannel";
-import { eventSounds } from "../utils/eventTree";
+import { eventSounds, eventVoices } from "../utils/eventTree";
 import type { SoundCue } from "../utils/soundCue";
 import type { SoundOutput } from "../utils/soundFollower";
 
@@ -54,7 +54,14 @@ export function useViewportSound(
     play(cue) {
       const tree = latest.current.get(cue.name);
       if (tree === undefined) return;
-      channel.play(cue.key, eventSounds(tree, Math.random).map(mediaUrl), cue.repeat);
+      const voices = eventVoices(tree, Math.random);
+      channel.play(
+        cue.key,
+        voices.map((voice) => mediaUrl(voice.media)),
+        cue.repeat,
+        0,
+        voices.map((voice) => voice.delay),
+      );
     },
     stop: (key) => channel.stop(key),
   }));
@@ -82,5 +89,5 @@ function treesOf(sounds: readonly ResolvedSound[]): ReadonlyMap<string, EventTre
   return trees;
 }
 
-/** A random source that picks the first child of every random container. */
+/** A random source that picks the first weighted playlist item of every random container. */
 const firstChild = () => 0;

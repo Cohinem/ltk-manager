@@ -12,6 +12,7 @@
   "audio_container_package_label": "Package",
   "audio_copy_source_action": "Copy source ID",
   "audio_copy_source_label": "source ID",
+  "audio_event_action_delay_label": "after {ms} ms",
   "audio_event_actions_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -90,10 +91,13 @@
   "audio_node_mixer_hint": "every child plays",
   "audio_node_mixer_label": "Actor-mixer #{id}",
   "audio_node_music_hint": "music, does not play",
-  "audio_node_random_hint": "one child plays",
+  "audio_node_random_hint": "one child plays, picked by weight",
   "audio_node_random_label": "Random #{id}",
+  "audio_node_sequence_hint": "first child of the playlist plays",
+  "audio_node_sequence_label": "Sequence #{id}",
   "audio_node_sound_label": "Sound #{id}",
-  "audio_node_switch_hint": "first child plays, switch not read",
+  "audio_node_switch_first_hint": "first child plays, no default switch",
+  "audio_node_switch_hint": "default switch plays",
   "audio_node_switch_label": "Switch #{id}",
   "audio_node_unsupported_hint": "does not play",
   "audio_node_unsupported_label": "{kind} #{id}",

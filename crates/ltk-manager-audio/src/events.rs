@@ -20,7 +20,9 @@ use crate::bin_audio::{Audience, SiteStep};
 use crate::contextual::{ContextualMatch, contextual_names};
 use crate::files::{AudioFile, AudioFiles, ReadSeek};
 use crate::index::AudioIndex;
-use crate::lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLookup};
+use crate::lookup::{
+    ActionNode, LookupError, MediaSite, PlayMode, PlayNode, PlayTree, SoundLookup, SwitchPick,
+};
 use crate::names::EventNames;
 use crate::references::{SiteNames, SiteRow, hex, ranked_units, site_row, unit_row};
 
@@ -234,6 +236,7 @@ fn event_action(set: &BankSet, action: ActionNode) -> EventAction {
         label: action.class.map(action_label),
         target: action_target(set, action.id),
         node: action.target.map(|node| event_node(set, node)),
+        delay: u32::try_from(action.delay.as_millis()).unwrap_or(u32::MAX),
     }
 }
 
@@ -270,13 +273,40 @@ fn event_node(set: &BankSet, node: PlayNode) -> EventNode {
             stream: SoundStream::from(stream),
             media: media_location(set, media, source),
         },
-        PlayNode::Random { id, children } => EventNode::Random {
+        PlayNode::Random {
+            id,
+            children,
+            mode,
+            playlist,
+        } => EventNode::Random {
             id: id.0,
             children: nodes(children),
+            mode,
+            playlist: playlist
+                .into_iter()
+                .map(|entry| EventPlaylistItem {
+                    child: count(entry.child),
+                    weight: entry.weight,
+                })
+                .collect(),
         },
-        PlayNode::Switch { id, children } => EventNode::Switch {
+        PlayNode::Switch {
+            id,
+            children,
+            group,
+            default_switch,
+            pick,
+        } => EventNode::Switch {
             id: id.0,
             children: nodes(children),
+            group,
+            default_switch,
+            pick: match pick {
+                SwitchPick::Default { nodes } => EventSwitchPick::Default {
+                    nodes: nodes.into_iter().map(count).collect(),
+                },
+                SwitchPick::FirstChild => EventSwitchPick::FirstChild,
+            },
         },
         PlayNode::Layer { id, children } => EventNode::Layer {
             id: id.0,
@@ -703,6 +733,8 @@ pub struct EventAction {
     /// The tree under a Play action. `None` for another class, and for a target that the walk
     /// visited before.
     pub node: Option<EventNode>,
+    /// The milliseconds that the client waits before it runs the action.
+    pub delay: u32,
 }
 
 /// One object under a Play action.
@@ -725,10 +757,24 @@ pub enum EventNode {
         /// The file that contains the media, or `None` if no file of the set contains it.
         media: Option<MediaLocation>,
     },
-    /// A random or sequence container: one child plays.
-    Random { id: u32, children: Vec<EventNode> },
-    /// A switch container: the first child plays.
-    Switch { id: u32, children: Vec<EventNode> },
+    /// A random or sequence container: one item of `playlist` plays.
+    Random {
+        id: u32,
+        children: Vec<EventNode>,
+        mode: PlayMode,
+        /// The items of the playlist that name a child of `children`, in playlist order.
+        playlist: Vec<EventPlaylistItem>,
+    },
+    /// A switch container: the children of `pick` play.
+    Switch {
+        id: u32,
+        children: Vec<EventNode>,
+        /// The ID of the switch group or the state group, the FNV-1 hash of its name.
+        group: u32,
+        /// The switch that plays when the game sets no switch of the group.
+        default_switch: u32,
+        pick: EventSwitchPick,
+    },
     /// A layer container: every child plays.
     Layer { id: u32, children: Vec<EventNode> },
     /// An actor-mixer: every child plays.
@@ -745,6 +791,28 @@ pub enum EventNode {
     },
     /// No bank of the set contains the ID.
     Missing { id: u32 },
+}
+
+/// One item of the playlist of a random or sequence container.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct EventPlaylistItem {
+    /// The index of the child in the `children` of the container.
+    pub child: u32,
+    /// The weight of the item in a random pick, relative to the other items.
+    pub weight: u32,
+}
+
+/// The children of a switch container that play.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum EventSwitchPick {
+    /// The nodes of the default switch, as indexes into the `children` of the container.
+    Default { nodes: Vec<u32> },
+    /// The default switch names no child of the container, so the first child plays.
+    FirstChild,
 }
 
 /// Where the media of a sound is stored.

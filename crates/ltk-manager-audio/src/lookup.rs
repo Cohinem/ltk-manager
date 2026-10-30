@@ -1,9 +1,18 @@
 //! The sound lookup: an event of a bank set resolved into its play tree.
+//!
+//! The walk is the event tree query of `ltk_wwise`. The lookup adds what the query leaves out:
+//! the objects that no bank contains, the actions that do not decode, and the file of each media.
 
 use std::collections::HashSet;
+use std::iter::Peekable;
+use std::time::Duration;
 
-use ltk_wwise::hierarchy::{Object, ObjectKind, StreamType, Typed};
+use ltk_wwise::hierarchy::{
+    ActionType, ContainerFields, ContainerMode, EventAction, EventNode, ObjectKind, PropertyId,
+    StreamType, Typed, event_tree,
+};
 use ltk_wwise::{ObjectId, SourceId};
+use serde::Serialize;
 
 use crate::bank_set::BankSet;
 use crate::names::EventNames;
@@ -31,6 +40,10 @@ pub struct ActionNode {
     /// The object that a Play action plays. `None` for an action of another class, and for a
     /// Play action whose target the lookup visited before.
     pub target: Option<PlayNode>,
+    /// The `DelayTime` of the action, without the random offset of its range.
+    ///
+    /// Zero for a negative delay and for an action that does not decode.
+    pub delay: Duration,
 }
 
 /// One object under a Play action.
@@ -43,17 +56,24 @@ pub enum PlayNode {
         stream: StreamType,
         media: MediaSite,
     },
-    /// A random or sequence container, kind 5. The viewport plays one child, picked uniformly
-    /// until `ltk_wwise` decodes the playlist.
+    /// A random or sequence container, kind 5. One item of `playlist` plays.
     Random {
         id: ObjectId,
         children: Vec<PlayNode>,
+        mode: PlayMode,
+        /// The items of the playlist that name a child of `children`, in playlist order.
+        playlist: Vec<PlaylistEntry>,
     },
-    /// A switch container, kind 6. The viewport plays the first child until `ltk_wwise` decodes
-    /// the default switch.
+    /// A switch container, kind 6.
     Switch {
         id: ObjectId,
         children: Vec<PlayNode>,
+        /// The ID of the switch group or the state group, the FNV-1 hash of its name.
+        group: u32,
+        /// The switch that plays when the game sets no switch of the group.
+        default_switch: u32,
+        /// The children that play.
+        pick: SwitchPick,
     },
     /// A layer container, kind 9. Every child plays.
     Layer {
@@ -87,6 +107,37 @@ impl PlayNode {
     }
 }
 
+/// How a random or sequence container picks the item of its playlist that plays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum PlayMode {
+    /// One item, picked by weight. A mode that `ltk_wwise` does not name picks this way too.
+    Random,
+    /// The items in playlist order, so the first press plays the first item.
+    Sequence,
+}
+
+/// One item of the playlist of a random or sequence container.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlaylistEntry {
+    /// The index of the child in the `children` of the container.
+    pub child: usize,
+    /// The weight of the item in a random pick, relative to the other items.
+    ///
+    /// Every item weighs 1 if the container does not use weights.
+    pub weight: u32,
+}
+
+/// The children of a switch container that play.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SwitchPick {
+    /// The nodes of the default switch, as indexes into the `children` of the container.
+    Default { nodes: Vec<usize> },
+    /// The default switch names no child of the container, so the first child plays.
+    FirstChild,
+}
+
 /// The file of a [`BankSet`] that contains the media of a sound.
 ///
 /// `file` is an index into [`BankSet::files`].
@@ -104,7 +155,7 @@ pub enum MediaSite {
 #[derive(Debug, thiserror::Error)]
 #[error("object {object} of {bank} cannot be decoded: {error}")]
 pub struct LookupError {
-    /// The ID of the object that does not decode.
+    /// The ID of the object that does not decode, or the event if the error names no object.
     pub object: ObjectId,
     /// The game path of the bank that contains the object.
     pub bank: String,
@@ -140,32 +191,52 @@ impl<'a> SoundLookup<'a> {
         }))
     }
 
-    /// Resolves the event `id`.
+    /// Resolves the event `id` with [`event_tree`] over the banks of the set.
     ///
-    /// Returns `None` if the first object `id` of the set is not an event. The walk follows each
-    /// Play action to its target and each container to its children, and visits each object
-    /// once. A node that the walk visited before is left out of a container's children.
+    /// Returns `None` if the first object `id` of the set is not an event. The walk visits each
+    /// object once, and a node that it visited before is left out of a container's children. An
+    /// ID that no bank contains is a [`PlayNode::Missing`], and an event or an action in the
+    /// place of a node is a [`PlayNode::Unsupported`].
     ///
     /// # Errors
     ///
-    /// Fails with a [`LookupError`] if an object of the walk cannot be decoded.
+    /// Fails with a [`LookupError`] if the event, a Play action or a node cannot be decoded.
     pub fn event(&self, id: ObjectId) -> Result<Option<PlayTree>, LookupError> {
-        let Some((file, bank, object)) = self.set.object(id) else {
+        let Some((_, bank, object)) = self.set.object(id) else {
             return Ok(None);
         };
-        let Some(Typed::Event(event)) = self.decode(file, bank.header().version, object)? else {
+        if object.kind() != ObjectKind::EVENT {
+            return Ok(None);
+        }
+
+        let banks = self.set.hierarchy_banks();
+        let Some(tree) = event_tree(&banks, id).map_err(|error| self.error(id, error))? else {
+            return Ok(None);
+        };
+        let Some(Typed::Event(event)) = object
+            .decode(bank.header().version)
+            .map_err(|error| self.error(id, error))?
+        else {
             return Ok(None);
         };
 
-        let mut walk = Walk {
-            lookup: self,
-            visited: HashSet::from([id]),
+        let mut convert = Convert {
+            set: self.set,
+            reported: HashSet::from([id]),
         };
-        let actions = event
-            .actions
-            .iter()
-            .filter_map(|&action| walk.action(action).transpose())
-            .collect::<Result<_, _>>()?;
+        let mut decoded = tree.actions.into_iter().peekable();
+        let mut actions = Vec::with_capacity(event.actions.len());
+        for &action in &event.actions {
+            if !convert.reported.insert(action) {
+                continue;
+            }
+
+            let node = match decoded.next_if(|each| each.action.id == action) {
+                Some(each) => convert.action(each),
+                None => convert.undecoded_action(action),
+            };
+            actions.push(node);
+        }
 
         Ok(Some(PlayTree {
             event: id,
@@ -174,120 +245,217 @@ impl<'a> SoundLookup<'a> {
         }))
     }
 
-    fn decode(
-        &self,
-        file: usize,
-        version: ltk_wwise::bank::BankVersion,
-        object: &Object,
-    ) -> Result<Option<Typed>, LookupError> {
-        object.decode(version).map_err(|error| LookupError {
-            object: object.id(),
-            bank: self.set.files()[file].path().to_owned(),
+    /// Returns `error` of the event `event`, placed at the object that it names.
+    fn error(&self, event: ObjectId, error: ltk_wwise::Error) -> LookupError {
+        let object = match &error {
+            ltk_wwise::Error::Layout { id, .. } | ltk_wwise::Error::ActionClass { id, .. } => *id,
+            _ => event,
+        };
+        let bank = self
+            .set
+            .object(object)
+            .map_or_else(String::new, |(file, ..)| {
+                self.set.files()[file].path().to_owned()
+            });
+
+        LookupError {
+            object,
+            bank,
             error,
-        })
-    }
-
-    fn media(&self, source: SourceId, stream: StreamType) -> MediaSite {
-        if stream == StreamType::DATA_BANK {
-            return self
-                .set
-                .bank_with_media(source)
-                .map_or(MediaSite::Missing, |file| MediaSite::InBank { file });
         }
-
-        /* A prefetched sound contains only its start in the bank, so the package copy plays. */
-        self.set
-            .package_with_media(source)
-            .map_or(MediaSite::Missing, |file| MediaSite::InPackage { file })
     }
 }
 
-/// The state of the walk of one event.
-struct Walk<'l, 'a> {
-    lookup: &'l SoundLookup<'a>,
-    visited: HashSet<ObjectId>,
+/// The conversion of one [`event_tree`] into a [`PlayTree`].
+struct Convert<'a> {
+    set: &'a BankSet,
+    /// The IDs that the conversion reported as an action, a missing or an unsupported node.
+    reported: HashSet<ObjectId>,
 }
 
-impl Walk<'_, '_> {
-    /// Returns the node of the action `id`, or `None` if the walk visited it before.
-    fn action(&mut self, id: ObjectId) -> Result<Option<ActionNode>, LookupError> {
-        if !self.visited.insert(id) {
-            return Ok(None);
-        }
-
-        let Some((file, bank, object)) = self.lookup.set.object(id) else {
-            return Ok(Some(ActionNode {
-                id,
-                class: None,
-                target: None,
-            }));
+impl Convert<'_> {
+    fn action(&mut self, action: EventAction) -> ActionNode {
+        let EventAction { action, target } = action;
+        let target = match target {
+            Some(node) => Some(self.node(node)),
+            None if action.action_type.is_play() => self.absent(action.target),
+            None => None,
         };
-        let class = (object.kind() == ObjectKind::ACTION)
-            .then(|| action_class(object.payload()))
-            .flatten();
+        let delay = action
+            .props
+            .i32(PropertyId::DELAY_TIME)
+            .and_then(|millis| u64::try_from(millis).ok())
+            .map_or(Duration::ZERO, Duration::from_millis);
 
-        let target = if class == Some(PLAY_CLASS) {
-            match self.lookup.decode(file, bank.header().version, object)? {
-                Some(Typed::Action(action)) => self.node(action.target)?,
-                _ => None,
+        ActionNode {
+            id: action.id,
+            class: Some(action.action_type.class()),
+            target,
+            delay,
+        }
+    }
+
+    /// Returns the node of an action that [`event_tree`] leaves out: one that no bank contains,
+    /// an object of another kind, or an action of a class other than Play that does not decode.
+    fn undecoded_action(&self, id: ObjectId) -> ActionNode {
+        let class = self
+            .set
+            .object(id)
+            .filter(|(_, _, object)| object.kind() == ObjectKind::ACTION)
+            .and_then(|(_, _, object)| action_type(object.payload()))
+            .map(ActionType::class);
+
+        ActionNode {
+            id,
+            class,
+            target: None,
+            delay: Duration::ZERO,
+        }
+    }
+
+    fn node(&mut self, node: EventNode) -> PlayNode {
+        match node {
+            EventNode::Sound(sound) => {
+                let (source, stream) = (sound.source.source_id, sound.source.stream_type);
+                PlayNode::Sound {
+                    id: sound.id,
+                    source,
+                    stream,
+                    media: media(self.set, source, stream),
+                }
             }
-        } else {
-            None
-        };
-
-        Ok(Some(ActionNode { id, class, target }))
-    }
-
-    /// Returns the node of the object `id`, or `None` if the walk visited it before.
-    fn node(&mut self, id: ObjectId) -> Result<Option<PlayNode>, LookupError> {
-        if !self.visited.insert(id) {
-            return Ok(None);
-        }
-
-        let Some((file, bank, object)) = self.lookup.set.object(id) else {
-            return Ok(Some(PlayNode::Missing { id }));
-        };
-        let kind = object.kind();
-        if matches!(kind, ObjectKind::EVENT | ObjectKind::ACTION) {
-            return Ok(Some(PlayNode::Unsupported { id, kind }));
-        }
-
-        let node = match self.lookup.decode(file, bank.header().version, object)? {
-            Some(Typed::Sound(sound)) => PlayNode::Sound {
-                id,
-                source: sound.source.source_id,
-                stream: sound.source.stream_type,
-                media: self
-                    .lookup
-                    .media(sound.source.source_id, sound.source.stream_type),
-            },
-            Some(Typed::Container(container)) => {
-                let mut children = Vec::with_capacity(container.children.len());
+            EventNode::Other { id, kind } => PlayNode::Unsupported { id, kind },
+            EventNode::Container {
+                container,
+                children,
+            } => {
+                let id = container.id;
+                let mut walked = children.into_iter().peekable();
+                let mut nodes = Vec::with_capacity(container.children.len());
                 for &child in &container.children {
-                    children.extend(self.node(child)?);
+                    match next_with_id(&mut walked, child) {
+                        Some(node) => nodes.push(self.node(node)),
+                        None => nodes.extend(self.absent(child)),
+                    }
                 }
 
-                match container.kind() {
-                    ObjectKind::RANDOM_SEQUENCE_CONTAINER => PlayNode::Random { id, children },
-                    ObjectKind::SWITCH_CONTAINER => PlayNode::Switch { id, children },
-                    ObjectKind::LAYER_CONTAINER => PlayNode::Layer { id, children },
-                    _ => PlayNode::Mixer { id, children },
+                container_node(id, nodes, container.fields)
+            }
+        }
+    }
+
+    /// Returns the node of an ID that [`event_tree`] gives no node for.
+    ///
+    /// Returns `None` for an object that the walk visited before, and for an ID reported before.
+    fn absent(&mut self, id: ObjectId) -> Option<PlayNode> {
+        let node = match self.set.object(id) {
+            None => PlayNode::Missing { id },
+            Some((_, _, object))
+                if matches!(object.kind(), ObjectKind::EVENT | ObjectKind::ACTION) =>
+            {
+                PlayNode::Unsupported {
+                    id,
+                    kind: object.kind(),
                 }
             }
-            _ => PlayNode::Unsupported { id, kind },
+            Some(_) => return None,
         };
-        Ok(Some(node))
+        self.reported.insert(id).then_some(node)
     }
 }
 
-/// Returns the class of the action payload `payload`: the high byte of the `u16` after the ID.
-fn action_class(payload: &[u8]) -> Option<u16> {
-    let bytes = payload.get(ACTION_TYPE_OFFSET..)?.first_chunk::<2>()?;
-    Some(u16::from_le_bytes(*bytes) & 0xFF00)
+/// Returns the next node of `walked` if its ID is `id`.
+fn next_with_id(
+    walked: &mut Peekable<impl Iterator<Item = EventNode>>,
+    id: ObjectId,
+) -> Option<EventNode> {
+    walked.next_if(|node| event_node_id(node) == id)
 }
 
-/// The class of a Play action.
-const PLAY_CLASS: u16 = 0x0400;
+fn event_node_id(node: &EventNode) -> ObjectId {
+    match node {
+        EventNode::Sound(sound) => sound.id,
+        EventNode::Container { container, .. } => container.id,
+        EventNode::Other { id, .. } => *id,
+    }
+}
+
+/// Returns the node of the container `id` of the kind that `fields` selects.
+fn container_node(id: ObjectId, children: Vec<PlayNode>, fields: ContainerFields) -> PlayNode {
+    let index_of = |child: ObjectId| children.iter().position(|node| node.id() == child);
+
+    match fields {
+        ContainerFields::RandomSequence(fields) => {
+            let uses_weights = fields.bits & USES_WEIGHTS != 0;
+            let playlist = fields
+                .playlist
+                .iter()
+                .filter_map(|item| {
+                    Some(PlaylistEntry {
+                        child: index_of(item.child)?,
+                        weight: if uses_weights { item.weight } else { 1 },
+                    })
+                })
+                .collect();
+            let mode = if fields.mode == ContainerMode::SEQUENCE {
+                PlayMode::Sequence
+            } else {
+                PlayMode::Random
+            };
+
+            PlayNode::Random {
+                id,
+                children,
+                mode,
+                playlist,
+            }
+        }
+        ContainerFields::Switch(fields) => {
+            let nodes: Vec<usize> = fields
+                .nodes_of(fields.default_switch)
+                .unwrap_or_default()
+                .iter()
+                .filter_map(|&node| index_of(node))
+                .collect();
+            let pick = if nodes.is_empty() {
+                SwitchPick::FirstChild
+            } else {
+                SwitchPick::Default { nodes }
+            };
+
+            PlayNode::Switch {
+                id,
+                children,
+                group: fields.group,
+                default_switch: fields.default_switch,
+                pick,
+            }
+        }
+        ContainerFields::Layer(_) => PlayNode::Layer { id, children },
+        ContainerFields::ActorMixer => PlayNode::Mixer { id, children },
+    }
+}
+
+fn media(set: &BankSet, source: SourceId, stream: StreamType) -> MediaSite {
+    if stream == StreamType::DATA_BANK {
+        return set
+            .bank_with_media(source)
+            .map_or(MediaSite::Missing, |file| MediaSite::InBank { file });
+    }
+
+    /* A prefetched sound contains only its start in the bank, so the package copy plays. */
+    set.package_with_media(source)
+        .map_or(MediaSite::Missing, |file| MediaSite::InPackage { file })
+}
+
+/// Returns the action type of the action payload `payload`: the `u16` after the ID.
+fn action_type(payload: &[u8]) -> Option<ActionType> {
+    let bytes = payload.get(ACTION_TYPE_OFFSET..)?.first_chunk::<2>()?;
+    Some(ActionType(u16::from_le_bytes(*bytes)))
+}
 
 /// The offset of the `u16` action type in an action payload, after the object ID.
 const ACTION_TYPE_OFFSET: usize = 4;
+
+/// Bit 0 of the `bits` of a random or sequence container: a random pick reads the weights.
+const USES_WEIGHTS: u8 = 1;

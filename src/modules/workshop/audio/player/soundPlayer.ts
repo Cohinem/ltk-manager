@@ -34,12 +34,23 @@ export interface ChannelState {
 /** The voices of one surface. */
 export interface SoundChannel {
   /**
-   * Starts one voice per URL under `key`, all at once, `from` seconds into each media.
+   * Starts one voice per URL under `key`, `from` seconds into each media.
    *
-   * Each voice plays as `repeat` says.
+   * Each voice plays as `repeat` says, and waits `delays[i]` seconds before it starts. A voice
+   * without a delay starts at once.
    */
-  play(key: string, urls: readonly string[], repeat?: MediaRepeat, from?: number): void;
-  /** Moves every voice of `key` to `seconds` into its media. A voice shorter than that ends. */
+  play(
+    key: string,
+    urls: readonly string[],
+    repeat?: MediaRepeat,
+    from?: number,
+    delays?: readonly number[],
+  ): void;
+  /**
+   * Moves every voice of `key` to `seconds` into its media, without its delay.
+   *
+   * A voice shorter than that ends.
+   */
   seek(key: string, seconds: number): void;
   /** Returns the seconds into its media of the first voice of `key`, or `null` without one. */
   position(key: string): number | null;
@@ -126,14 +137,14 @@ interface Voice {
   source: AudioBufferSourceNode | null;
   /** The context time the source started at. */
   startedAt: number;
-  /** Seconds into the media the source started at. */
+  /** Seconds into the media the source started at, below zero while the voice waits on a delay. */
   offset: number;
   readonly repeat: MediaRepeat;
 }
 
 /** The timing of one voice, as `voiceTime` reads it. */
 export interface VoiceTiming {
-  /** Seconds into the media that the voice started or was paused at. */
+  /** Seconds into the media that the voice started or was paused at, below zero during a delay. */
   readonly offset: number;
   /** The context time the voice started at. */
   readonly startedAt: number;
@@ -150,7 +161,7 @@ export interface VoiceTiming {
  * A looped voice wraps to the start of its media, and any other voice stops at its end.
  */
 export function voiceTime(voice: VoiceTiming, now: number): number {
-  const time = voice.running ? voice.offset + (now - voice.startedAt) : voice.offset;
+  const time = Math.max(0, voice.running ? voice.offset + (now - voice.startedAt) : voice.offset);
   if (voice.duration === null) return time;
 
   if (voice.repeat === "loop" && voice.duration > 0) return time % voice.duration;
@@ -217,7 +228,7 @@ export function openChannel(volume: number): SoundChannel {
     const source = context.createBufferSource();
     source.buffer = voice.buffer;
     source.loop = looped;
-    if (looped && duration > 0) voice.offset %= duration;
+    if (looped && duration > 0 && voice.offset > 0) voice.offset %= duration;
     source.connect(output());
     source.onended = () => {
       end(voice);
@@ -225,19 +236,19 @@ export function openChannel(volume: number): SoundChannel {
     };
     voice.source = source;
     voice.startedAt = context.currentTime;
-    source.start(0, voice.offset);
+    source.start(context.currentTime + Math.max(0, -voice.offset), Math.max(0, voice.offset));
   };
 
   return {
-    play(key, urls, repeat = "once", from = 0) {
+    play(key, urls, repeat = "once", from = 0, delays = []) {
       if (urls.length === 0) return;
 
       const { context } = audioGraph();
       output();
       void context.resume();
 
-      const offset = Math.max(0, from);
-      for (const url of urls) {
+      for (const [at, url] of urls.entries()) {
+        const offset = Math.max(0, from) - Math.max(0, delays[at] ?? 0);
         const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset, repeat };
         voices.push(voice);
         while (voices.length > VOICE_CAP) end(voices[0]);

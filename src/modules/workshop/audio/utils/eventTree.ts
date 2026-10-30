@@ -1,4 +1,11 @@
-import type { AudioEvent, EventAction, EventNode, EventTree, MediaLocation } from "@/lib/tauri";
+import type {
+  AudioEvent,
+  EventAction,
+  EventNode,
+  EventPlaylistItem,
+  EventTree,
+  MediaLocation,
+} from "@/lib/tauri";
 
 /** The fetch state of one event's tree, as the rows read it. */
 export type TreeState =
@@ -143,24 +150,37 @@ export function sortEvents(events: readonly AudioEvent[]): AudioEvent[] {
 /** A source of numbers in `[0, 1)`, `Math.random` unless a test seeds one. */
 export type RandomSource = () => number;
 
+/** One media of a press and the seconds that it waits before it starts. */
+export interface EventVoice {
+  readonly media: MediaLocation;
+  readonly delay: number;
+}
+
 /**
  * Returns the media that `node` plays on one press.
  *
- * A random container plays one child picked uniformly, a switch container its first child, a
+ * A random container plays one playlist item picked by weight, a sequence container its first
+ * playlist item, a switch container the nodes of its default switch or else its first child, a
  * layer container and an actor-mixer every child, and a sound its media. A sound without media
- * and an object that does not play give none. Per "Event tree" in docs/ux/AUDIO.md.
+ * and an object that does not play give none. Per "What plays" in docs/ux/AUDIO.md.
  */
 export function pickSounds(node: EventNode, random: RandomSource): MediaLocation[] {
+  const childSounds = (index: number) => {
+    const child = node.kind === "sound" ? undefined : childrenOf(node)[index];
+    return child === undefined ? [] : pickSounds(child, random);
+  };
+
   switch (node.kind) {
     case "sound":
       return node.media === null ? [] : [node.media];
     case "random": {
-      const child = node.children[Math.floor(random() * node.children.length)];
-      return child === undefined ? [] : pickSounds(child, random);
+      const item =
+        node.mode === "sequence" ? node.playlist[0] : weightedItem(node.playlist, random);
+      return item === undefined ? [] : childSounds(item.child);
     }
     case "switch": {
-      const first = node.children[0];
-      return first === undefined ? [] : pickSounds(first, random);
+      const nodes = node.pick.kind === "default" ? node.pick.nodes : [0];
+      return nodes.flatMap(childSounds);
     }
     case "layer":
     case "mixer":
@@ -170,9 +190,40 @@ export function pickSounds(node: EventNode, random: RandomSource): MediaLocation
   }
 }
 
+/** Returns the item of `playlist` that `random` picks by weight, or uniformly if no item weighs. */
+function weightedItem(
+  playlist: readonly EventPlaylistItem[],
+  random: RandomSource,
+): EventPlaylistItem | undefined {
+  const total = playlist.reduce((sum, item) => sum + item.weight, 0);
+  if (total === 0) return playlist[Math.floor(random() * playlist.length)];
+
+  let left = random() * total;
+  for (const item of playlist) {
+    left -= item.weight;
+    if (left < 0) return item;
+  }
+  return playlist.at(-1);
+}
+
 /** Returns the media that one press of the event `tree` plays: the picks of its Play actions. */
 export function eventSounds(tree: EventTree, random: RandomSource): MediaLocation[] {
-  return tree.actions.flatMap((action) =>
-    action.node === null ? [] : pickSounds(action.node, random),
-  );
+  return eventVoices(tree, random).map((voice) => voice.media);
 }
+
+/** Returns the media of one press on `node`, each without a delay. */
+export function nodeVoices(node: EventNode, random: RandomSource): EventVoice[] {
+  return pickSounds(node, random).map((media) => ({ media, delay: 0 }));
+}
+
+/** Returns the media of one press of the event `tree`, each after the delay of its action. */
+export function eventVoices(tree: EventTree, random: RandomSource): EventVoice[] {
+  return tree.actions.flatMap((action) => {
+    if (action.node === null) return [];
+
+    const delay = action.delay / MS_PER_SECOND;
+    return pickSounds(action.node, random).map((media) => ({ media, delay }));
+  });
+}
+
+const MS_PER_SECOND = 1000;

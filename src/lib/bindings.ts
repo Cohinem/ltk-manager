@@ -2156,6 +2156,8 @@ export type EventAction = {
 	 *  visited before.
 	 */
 	node: EventNode | null,
+	/**  The milliseconds that the client waits before it runs the action. */
+	delay: number,
 };
 
 /**
@@ -2278,10 +2280,16 @@ source: number;
 stream: SoundStream; 
 /**  The file that contains the media, or `None` if no file of the set contains it. */
 media: MediaLocation | null } | 
-/**  A random or sequence container: one child plays. */
-{ kind: "random"; id: number; children: EventNode[] } | 
-/**  A switch container: the first child plays. */
-{ kind: "switch"; id: number; children: EventNode[] } | 
+/**  A random or sequence container: one item of `playlist` plays. */
+{ kind: "random"; id: number; children: EventNode[]; mode: PlayMode; 
+/**  The items of the playlist that name a child of `children`, in playlist order. */
+playlist: EventPlaylistItem[] } | 
+/**  A switch container: the children of `pick` play. */
+{ kind: "switch"; id: number; children: EventNode[]; 
+/**  The ID of the switch group or the state group, the FNV-1 hash of its name. */
+group: number; 
+/**  The switch that plays when the game sets no switch of the group. */
+defaultSwitch: number; pick: EventSwitchPick } | 
 /**  A layer container: every child plays. */
 { kind: "layer"; id: number; children: EventNode[] } | 
 /**  An actor-mixer: every child plays. */
@@ -2296,6 +2304,14 @@ kindName: string;
 music: boolean } | 
 /**  No bank of the set contains the ID. */
 { kind: "missing"; id: number };
+
+/**  One item of the playlist of a random or sequence container. */
+export type EventPlaylistItem = {
+	/**  The index of the child in the `children` of the container. */
+	child: number,
+	/**  The weight of the item in a random pick, relative to the other items. */
+	weight: number,
+};
 
 /**  One pair of a particle event: the joint the system rides, and the joint it aims at. */
 export type EventSpawn = {
@@ -2321,6 +2337,13 @@ object: number;
 bank: string; 
 /**  The error of the decode. */
 message: string };
+
+/**  The children of a switch container that play. */
+export type EventSwitchPick = 
+/**  The nodes of the default switch, as indexes into the `children` of the container. */
+{ kind: "default"; nodes: number[] } | 
+/**  The default switch names no child of the container, so the first child plays. */
+{ kind: "firstChild" };
 
 /**  The play tree of one event, as the event tree draws it. */
 export type EventTree = {
@@ -6395,6 +6418,13 @@ export type PlatformSupport = {
 	patcherAvailable: boolean,
 	hotkeysAvailable: boolean,
 };
+
+/**  How a random or sequence container picks the item of its playlist that plays. */
+export type PlayMode = 
+/**  One item, picked by weight. A mode that `ltk_wwise` does not name picks this way too. */
+"random" | 
+/**  The items in playlist order, so the first press plays the first item. */
+"sequence";
 
 /**  Whether the decoder of the crate plays a media. */
 export type Playback = 

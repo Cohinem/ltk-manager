@@ -39,7 +39,17 @@ const TREE: EventTree = {
       class: 0x0400,
       label: "Play",
       target: 7,
-      node: { kind: "random", id: 7, children: [sound(1, 11), sound(2, 12, false)] },
+      node: {
+        kind: "random",
+        id: 7,
+        children: [sound(1, 11), sound(2, 12, false)],
+        mode: "random",
+        playlist: [
+          { child: 0, weight: 1 },
+          { child: 1, weight: 1 },
+        ],
+      },
+      delay: 0,
     },
   ],
 };

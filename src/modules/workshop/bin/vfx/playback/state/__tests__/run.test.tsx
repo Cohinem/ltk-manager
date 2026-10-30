@@ -355,7 +355,11 @@ describe("VfxRunProvider sound", () => {
       container: "bank",
     } as const;
     const node = { kind: "sound", id: 2, source: 1, stream: "dataBank", media } as const;
-    return { event: 3, name, actions: [{ id: 4, class: 0x0400, label: "Play", target: 2, node }] };
+    return {
+      event: 3,
+      name,
+      actions: [{ id: 4, class: 0x0400, label: "Play", target: 2, node, delay: 0 }],
+    };
   }
 
   function resolved(names: readonly string[]): { ok: true; value: ResolvedSounds } {

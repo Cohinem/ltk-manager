@@ -41,8 +41,8 @@ pub use contextual::{ContextualMatch, contextual_names};
 pub use decode::{AudioFormat, DecodeError, DecodeFailure, Decoded, decode};
 pub use events::{
     AudioEvent, AudioEventList, BankSetOrigin, EventAction, EventBank, EventContext, EventNode,
-    EventStatus, EventTree, MediaContainer, MediaLocation, OpenedBank, SetFile, SetFileState,
-    SoundStream, action_label,
+    EventPlaylistItem, EventStatus, EventSwitchPick, EventTree, MediaContainer, MediaLocation,
+    OpenedBank, SetFile, SetFileState, SoundStream, action_label,
 };
 pub use files::{AudioFile, AudioFiles, ReadSeek};
 pub use game::{GameFile, HEAD_BYTES, read_game};
@@ -50,7 +50,10 @@ pub use index::{
     AudioIndex, AudioIndexBuilder, IndexedList, IndexedRules, IndexedUnit, media_sources,
 };
 pub use info::audio_info;
-pub use lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLookup};
+pub use lookup::{
+    ActionNode, LookupError, MediaSite, PlayMode, PlayNode, PlayTree, PlaylistEntry, SoundLookup,
+    SwitchPick,
+};
 pub use media::{MediaError, MediaFormat, MediaRow, Playback, media_rows};
 pub use names::EventNames;
 pub use references::{BankDeclaration, BankReferences, BankUnitGroup, RowPath, SiteNames, SiteRow};

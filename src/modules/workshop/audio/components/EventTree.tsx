@@ -406,16 +406,36 @@ function ActionContent({ action }: { action: EventAction }) {
           <Code>{objectLabel(action.target)}</Code>
         </span>
       )}
+      {action.delay > 0 && (
+        <span className="text-meta text-surface-400">
+          {m.audio_event_action_delay_label({ ms: String(action.delay) })}
+        </span>
+      )}
     </>
   );
 }
 
-const CONTAINER_LABELS = {
-  random: { title: m.audio_node_random_label, hint: m.audio_node_random_hint },
-  switch: { title: m.audio_node_switch_label, hint: m.audio_node_switch_hint },
-  layer: { title: m.audio_node_layer_label, hint: m.audio_node_layer_hint },
-  mixer: { title: m.audio_node_mixer_label, hint: m.audio_node_mixer_hint },
-} as const;
+type ContainerNode = Extract<EventNode, { kind: "random" | "switch" | "layer" | "mixer" }>;
+
+/** Returns the title of a container row and the hint that names what plays. */
+function containerLabels(node: ContainerNode) {
+  switch (node.kind) {
+    case "random":
+      if (node.mode === "sequence") {
+        return { title: m.audio_node_sequence_label, hint: m.audio_node_sequence_hint };
+      }
+      return { title: m.audio_node_random_label, hint: m.audio_node_random_hint };
+    case "switch":
+      if (node.pick.kind === "firstChild") {
+        return { title: m.audio_node_switch_label, hint: m.audio_node_switch_first_hint };
+      }
+      return { title: m.audio_node_switch_label, hint: m.audio_node_switch_hint };
+    case "layer":
+      return { title: m.audio_node_layer_label, hint: m.audio_node_layer_hint };
+    case "mixer":
+      return { title: m.audio_node_mixer_label, hint: m.audio_node_mixer_hint };
+  }
+}
 
 function NodeContent({ node }: { node: EventNode }) {
   switch (node.kind) {
@@ -442,7 +462,7 @@ function NodeContent({ node }: { node: EventNode }) {
     case "switch":
     case "layer":
     case "mixer": {
-      const labels = CONTAINER_LABELS[node.kind];
+      const labels = containerLabels(node);
       return (
         <>
           <span className="text-surface-200">{labels.title({ id: String(node.id) })}</span>

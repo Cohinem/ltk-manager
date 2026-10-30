@@ -2,12 +2,19 @@
 
 mod common;
 
+use std::time::Duration;
+
 use common::{FakeFiles, bank as fixture_bank};
 use ltk_manager_audio::{
-    ActionNode, BankSet, BankUnit, EventNames, MediaSite, PlayNode, PlayTree, SoundLookup,
+    ActionNode, BankSet, BankUnit, EventNames, MediaSite, PlayMode, PlayNode, PlayTree,
+    PlaylistEntry, SoundLookup, SwitchPick,
 };
 use ltk_wwise::bank::{BankHeader, BankVersion, Section};
-use ltk_wwise::hierarchy::{Action, Event, Hierarchy, Object, ObjectKind, StreamType, Typed};
+use ltk_wwise::hierarchy::{
+    Action, ContainerFields, ContainerMode, Event, GroupType, Hierarchy, LayerFields, Object,
+    ObjectKind, PlaylistItem, PropValue, PropertyId, RandomSequenceFields, StreamType,
+    SwitchFields, SwitchNodes, Typed,
+};
 use ltk_wwise::{Bank, BankId, MediaIndex, ObjectId, Package, SourceId};
 
 const V145: BankVersion = BankVersion::V145;
@@ -82,41 +89,96 @@ fn sound(id: u32, source: u32, stream: StreamType) -> Object {
     Typed::Sound(sound).encode(V145).expect("encode")
 }
 
-fn container(kind: ObjectKind, id: u32, children: &[u32]) -> Object {
-    let Typed::Container(mut container) = template(kind) else {
+/// Returns a container with the node base of the fixture's actor-mixer and the fields `fields`.
+fn container(fields: ContainerFields, id: u32, children: &[u32]) -> Object {
+    let Typed::Container(mut container) = template(ObjectKind::ACTOR_MIXER) else {
         unreachable!("the template is a container");
     };
     container.id = ObjectId(id);
     container.children = ids(children);
+    container.fields = fields;
     Typed::Container(container).encode(V145).expect("encode")
 }
 
 fn mixer(id: u32, children: &[u32]) -> Object {
-    container(ObjectKind::ACTOR_MIXER, id, children)
+    container(ContainerFields::ActorMixer, id, children)
 }
 
+/// Returns a container of the mode `mode` whose playlist is `playlist`, `(child, weight)` each.
+fn playlist_container(
+    id: u32,
+    children: &[u32],
+    mode: ContainerMode,
+    bits: u8,
+    playlist: &[(u32, u32)],
+) -> Object {
+    let fields = RandomSequenceFields {
+        mode,
+        bits,
+        playlist: playlist
+            .iter()
+            .map(|&(child, weight)| PlaylistItem {
+                child: ObjectId(child),
+                weight,
+            })
+            .collect(),
+        ..RandomSequenceFields::default()
+    };
+    container(ContainerFields::RandomSequence(fields), id, children)
+}
+
+/// Returns a random container that uses the weights of `playlist`, `(child, weight)` each.
+fn weighted(id: u32, children: &[u32], playlist: &[(u32, u32)]) -> Object {
+    playlist_container(id, children, ContainerMode::RANDOM, USES_WEIGHTS, playlist)
+}
+
+/// Returns a random container whose playlist lists every child at the default weight.
 fn random(id: u32, children: &[u32]) -> Object {
-    container(ObjectKind::RANDOM_SEQUENCE_CONTAINER, id, children)
+    let playlist: Vec<(u32, u32)> = children
+        .iter()
+        .map(|&child| (child, DEFAULT_WEIGHT))
+        .collect();
+    weighted(id, children, &playlist)
 }
 
-/// Returns a LayerContainer: an actor-mixer payload with no layers after the children.
 fn layer(id: u32, children: &[u32]) -> Object {
-    let mut payload = mixer(id, children).into_payload();
-    /* The layer count and the `continuous_validation` byte. */
-    payload.extend_from_slice(&[0; 5]);
-    Object::new(ObjectKind::LAYER_CONTAINER, payload).expect("payload contains an ID")
+    container(ContainerFields::Layer(LayerFields::default()), id, children)
 }
 
-/// Returns a SwitchContainer: an actor-mixer payload with empty switch fields around the children.
-fn switch(id: u32, children: &[u32]) -> Object {
-    let mut payload = mixer(id, children).into_payload();
-    let node_end = payload.len() - 4 - 4 * children.len();
-    /* The group type, the group ID, the default switch and the continuous validation. */
-    payload.splice(node_end..node_end, [0; 10]);
-    /* The switch group count and the switch parameter count. */
-    payload.extend_from_slice(&[0; 8]);
-    Object::new(ObjectKind::SWITCH_CONTAINER, payload).expect("payload contains an ID")
+/// Returns a switch container of the group 7 whose default switch is `default`.
+///
+/// `switches` gives the node list of each switch, `(switch, nodes)` each.
+fn switch(id: u32, children: &[u32], default: u32, switches: &[(u32, &[u32])]) -> Object {
+    let fields = SwitchFields {
+        group_type: GroupType::SWITCH,
+        group: 7,
+        default_switch: default,
+        switches: switches
+            .iter()
+            .map(|&(switch, nodes)| SwitchNodes {
+                switch,
+                nodes: ids(nodes),
+            })
+            .collect(),
+        ..SwitchFields::default()
+    };
+    container(ContainerFields::Switch(fields), id, children)
 }
+
+/// Returns a Play action of `target` whose `DelayTime` is `delay` milliseconds.
+fn delayed_play(id: u32, target: u32, delay: i32) -> Object {
+    let mut action = Action::play(ObjectId(id), ObjectId(target), BankId(1));
+    action
+        .props
+        .set(PropertyId::DELAY_TIME, PropValue::from_i32(delay));
+    Typed::Action(action).encode(V145).expect("encode")
+}
+
+/// Bit 0 of the `bits` of a random container: the pick reads the playlist weights.
+const USES_WEIGHTS: u8 = 1;
+
+/// The playlist weight that the Wwise authoring tool writes by default.
+const DEFAULT_WEIGHT: u32 = 50_000;
 
 /// Returns an object of the kind `kind` that has no typed layout.
 fn untyped(kind: ObjectKind, id: u32) -> Object {
@@ -196,7 +258,7 @@ fn event_resolves_every_container_kind_with_its_children() {
         play(10, 20),
         mixer(20, &[21, 22, 23, 24, 25]),
         random(21, &[30]),
-        switch(22, &[31]),
+        switch(22, &[31], 0, &[]),
         layer(23, &[32]),
         untyped(ObjectKind::MUSIC_TRACK, 24),
         untyped(ObjectKind(17), 25),
@@ -216,10 +278,18 @@ fn event_resolves_every_container_kind_with_its_children() {
                 PlayNode::Random {
                     id: ObjectId(21),
                     children: vec![banked_sound(30, 300)],
+                    mode: PlayMode::Random,
+                    playlist: vec![PlaylistEntry {
+                        child: 0,
+                        weight: DEFAULT_WEIGHT,
+                    }],
                 },
                 PlayNode::Switch {
                     id: ObjectId(22),
                     children: vec![banked_sound(31, 310)],
+                    group: 7,
+                    default_switch: 0,
+                    pick: SwitchPick::FirstChild,
                 },
                 PlayNode::Layer {
                     id: ObjectId(23),
@@ -236,6 +306,181 @@ fn event_resolves_every_container_kind_with_its_children() {
             ],
         }
     );
+}
+
+#[test]
+fn event_places_playlist_items_at_their_child_index() {
+    let events = hierarchy_bank([
+        event(1, &[10]),
+        play(10, 20),
+        weighted(20, &[30, 31, 32], &[(32, 3), (30, 1)]),
+        sound(30, 300, StreamType::DATA_BANK),
+        sound(31, 310, StreamType::DATA_BANK),
+        sound(32, 320, StreamType::DATA_BANK),
+    ]);
+    let set = set(events, &[300, 310, 320], &[]);
+
+    let tree = resolve(&set, 1);
+
+    let PlayNode::Random { mode, playlist, .. } = target(&tree) else {
+        panic!("not a random container: {tree:?}");
+    };
+    assert_eq!(*mode, PlayMode::Random);
+    assert_eq!(
+        playlist,
+        &[
+            PlaylistEntry {
+                child: 2,
+                weight: 3,
+            },
+            PlaylistEntry {
+                child: 0,
+                weight: 1,
+            },
+        ]
+    );
+}
+
+#[test]
+fn event_weighs_playlist_items_equally_if_container_uses_no_weights() {
+    let events = hierarchy_bank([
+        event(1, &[10]),
+        play(10, 20),
+        playlist_container(
+            20,
+            &[30, 31],
+            ContainerMode::SEQUENCE,
+            0,
+            &[(31, 9), (30, 2)],
+        ),
+        sound(30, 300, StreamType::DATA_BANK),
+        sound(31, 310, StreamType::DATA_BANK),
+    ]);
+    let set = set(events, &[300, 310], &[]);
+
+    let tree = resolve(&set, 1);
+
+    let PlayNode::Random { mode, playlist, .. } = target(&tree) else {
+        panic!("not a random container: {tree:?}");
+    };
+    assert_eq!(*mode, PlayMode::Sequence);
+    assert_eq!(
+        playlist,
+        &[
+            PlaylistEntry {
+                child: 1,
+                weight: 1,
+            },
+            PlaylistEntry {
+                child: 0,
+                weight: 1,
+            },
+        ]
+    );
+}
+
+#[test]
+fn event_drops_playlist_item_of_child_visited_before() {
+    let events = hierarchy_bank([
+        event(1, &[10]),
+        play(10, 20),
+        mixer(20, &[30, 21]),
+        random(21, &[30, 31]),
+        sound(30, 300, StreamType::DATA_BANK),
+        sound(31, 310, StreamType::DATA_BANK),
+    ]);
+    let set = set(events, &[300, 310], &[]);
+
+    let tree = resolve(&set, 1);
+
+    let PlayNode::Mixer { children, .. } = target(&tree) else {
+        panic!("not a mixer: {tree:?}");
+    };
+    assert_eq!(
+        children[1],
+        PlayNode::Random {
+            id: ObjectId(21),
+            children: vec![banked_sound(31, 310)],
+            mode: PlayMode::Random,
+            playlist: vec![PlaylistEntry {
+                child: 0,
+                weight: DEFAULT_WEIGHT,
+            }],
+        }
+    );
+}
+
+#[test]
+fn event_plays_nodes_of_default_switch() {
+    let events = hierarchy_bank([
+        event(1, &[10]),
+        play(10, 20),
+        switch(20, &[30, 31, 32], 5, &[(4, &[30]), (5, &[32, 31])]),
+        sound(30, 300, StreamType::DATA_BANK),
+        sound(31, 310, StreamType::DATA_BANK),
+        sound(32, 320, StreamType::DATA_BANK),
+    ]);
+    let set = set(events, &[300, 310, 320], &[]);
+
+    let tree = resolve(&set, 1);
+
+    let PlayNode::Switch {
+        group,
+        default_switch,
+        pick,
+        ..
+    } = target(&tree)
+    else {
+        panic!("not a switch container: {tree:?}");
+    };
+    assert_eq!((*group, *default_switch), (7, 5));
+    assert_eq!(pick, &SwitchPick::Default { nodes: vec![2, 1] });
+}
+
+#[test]
+fn event_plays_first_child_if_default_switch_has_no_nodes() {
+    let events = hierarchy_bank([
+        event(1, &[10]),
+        play(10, 20),
+        switch(20, &[30, 31], 9, &[(4, &[31])]),
+        sound(30, 300, StreamType::DATA_BANK),
+        sound(31, 310, StreamType::DATA_BANK),
+    ]);
+    let set = set(events, &[300, 310], &[]);
+
+    let tree = resolve(&set, 1);
+
+    let PlayNode::Switch { pick, .. } = target(&tree) else {
+        panic!("not a switch container: {tree:?}");
+    };
+    assert_eq!(pick, &SwitchPick::FirstChild);
+}
+
+#[test]
+fn event_reads_delay_of_play_action() {
+    let events = hierarchy_bank([
+        event(1, &[10, 11]),
+        delayed_play(10, 30, 250),
+        delayed_play(11, 31, -40),
+        sound(30, 300, StreamType::DATA_BANK),
+        sound(31, 310, StreamType::DATA_BANK),
+    ]);
+    let set = set(events, &[300, 310], &[]);
+
+    let tree = resolve(&set, 1);
+
+    let delays: Vec<Duration> = tree.actions.iter().map(|action| action.delay).collect();
+    assert_eq!(delays, [Duration::from_millis(250), Duration::ZERO]);
+}
+
+#[test]
+fn event_marks_play_target_that_no_bank_holds_as_missing() {
+    let events = hierarchy_bank([event(1, &[10]), play(10, 20)]);
+    let set = set(events, &[], &[]);
+
+    let tree = resolve(&set, 1);
+
+    assert_eq!(target(&tree), &PlayNode::Missing { id: ObjectId(20) });
 }
 
 #[test]
@@ -299,16 +544,19 @@ fn event_keeps_class_of_action_other_than_play_with_no_target() {
                 id: ObjectId(10),
                 class: Some(0x0100),
                 target: None,
+                delay: Duration::ZERO,
             },
             ActionNode {
                 id: ObjectId(11),
                 class: Some(0x0400),
                 target: Some(banked_sound(30, 300)),
+                delay: Duration::ZERO,
             },
             ActionNode {
                 id: ObjectId(12),
                 class: None,
                 target: None,
+                delay: Duration::ZERO,
             },
         ]
     );

@@ -27,6 +27,12 @@ describe("voiceTime", () => {
     ).toBe(5);
   });
 
+  it("returns the start of the media while a voice waits on its delay", () => {
+    expect(
+      voiceTime({ offset: -0.5, startedAt: 10, running: true, repeat: "loop", duration: 5 }, 10.2),
+    ).toBe(0);
+  });
+
   it("wraps a looped voice to the start of its media", () => {
     const voice = { offset: 4, startedAt: 10, running: true, repeat: "loop", duration: 5 } as const;
 

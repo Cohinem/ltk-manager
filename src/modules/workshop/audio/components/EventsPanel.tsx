@@ -29,9 +29,9 @@ import {
   eventKey,
   eventLabel,
   eventRows,
-  eventSounds,
+  eventVoices,
   filterEvents,
-  pickSounds,
+  nodeVoices,
   type RandomSource,
   sortEvents,
   type TreeState,
@@ -101,14 +101,14 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
       const { tree } = await queryClient.fetchQuery(
         audioQueries.event(sandbox, asset, version, row.event.id),
       );
-      player.play(row.key, eventSounds(tree, random));
+      player.play(row.key, eventVoices(tree, random));
       return;
     }
     if (row.kind === "action" && row.action.node !== null) {
-      player.play(row.key, pickSounds(row.action.node, random));
+      player.play(row.key, nodeVoices(row.action.node, random));
       return;
     }
-    if (row.kind === "node") player.play(row.key, pickSounds(row.node, random));
+    if (row.kind === "node") player.play(row.key, nodeVoices(row.node, random));
   }
 
   function copyRow(row: EventRow) {

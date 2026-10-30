@@ -169,7 +169,7 @@ pub enum BankContent {
 /// The files of a list of bank units, with their objects and media indexed by ID.
 ///
 /// Every index keeps the first match: the first file of the set, then the first object of the
-/// file. This is the order of `ltk_wwise::hierarchy::event_sources`.
+/// file. This is the order of `ltk_wwise::hierarchy::event_tree`.
 #[derive(Debug)]
 pub struct BankSet {
     units: Vec<BankUnit>,
@@ -244,6 +244,17 @@ impl BankSet {
         };
         let object = bank.hierarchy()?.objects().get(site.object)?;
         Some((site.file, bank, object))
+    }
+
+    /// Returns the banks of the set that have a hierarchy, in file order.
+    pub(crate) fn hierarchy_banks(&self) -> Vec<&Bank> {
+        self.files
+            .iter()
+            .filter_map(|file| match &file.content {
+                BankContent::Bank { bank } if bank.hierarchy().is_some() => Some(bank),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Returns the index of the first file whose media index contains `source`.

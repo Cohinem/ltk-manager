@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
+| 2026-10-30 | Pick by playlist, default switch and delay      |
 | 2026-10-29 | Add ability sound                               |
 | 2026-10-29 | Add bank units and contextual event names       |
 | 2026-10-29 | Add the waveform column                         |
@@ -190,15 +191,16 @@ A project layer's copy of a file comes before the game's, as the client reads th
 | Row       | Shows                                                                        |
 | --------- | ---------------------------------------------------------------------------- |
 | Event     | The name, the action count and the status                                    |
-| Action    | The class name, such as Play, Stop or SetVolume, and the ID of its target    |
+| Action    | The class name, such as Play, Stop or SetVolume, the ID of its target, delay |
 | Container | The kind and the ID, and the rule of what plays                              |
 | Sound     | The ID, the source ID and the file name of the file that contains the media  |
 | Other     | The object kind and the ID, marked as not playing. Music objects say "music" |
 | Missing   | The ID of an object that no bank of the set contains                         |
 
-An action class outside the table of Wwise classes shows as `0x` and four hex digits. A Play
-action expands into the object it plays. An event's tree is read when the event expands or
-plays, so a bank of hundreds of events lists at once.
+An action class outside the table of Wwise classes shows as `0x` and four hex digits. An action
+with a delay shows it in milliseconds. A Play action expands into the object it plays. An
+event's tree is read when the event expands or plays, so a bank of hundreds of events lists at
+once.
 
 | Status         | Tone    | When                                                        |
 | -------------- | ------- | ----------------------------------------------------------- |
@@ -210,19 +212,26 @@ plays, so a bank of hundreds of events lists at once.
 
 A press on a row plays what one press of the game plays from that row:
 
-| Node             | Plays                                                     |
-| ---------------- | --------------------------------------------------------- |
-| Random container | One child, picked uniformly on every press                |
-| Switch container | The first child. The row says that the switch is not read |
-| Layer container  | Every child at once                                       |
-| Actor-mixer      | Every child at once                                       |
-| Sound            | Its media                                                 |
+| Node               | Plays                                                                      |
+| ------------------ | -------------------------------------------------------------------------- |
+| Random container   | One playlist item, picked by its weight on every press                     |
+| Sequence container | The first item of its playlist                                             |
+| Switch container   | The nodes of its default switch, or the first child if the switch has none |
+| Layer container    | Every child at once                                                        |
+| Actor-mixer        | Every child at once                                                        |
+| Sound              | Its media                                                                  |
 
-An event plays the picks of all its Play actions at once. Action delays are zero until
-`ltk_wwise` decodes the property bundles. A press stops what the press before it started, so
-a second press on a random container plays another variation. A sound whose media is missing
-and an object that does not play give nothing to play and show no play button. Every media
-plays at the volume of the media table's player.
+A random container that does not use weights picks every playlist item with the same chance. A
+child outside the playlist does not play. A switch row says whether the default switch plays or
+the first child. The press does not read a switch or a state that the game sets, and it does not
+avoid a repeat or shuffle the playlist.
+
+An event plays the picks of all its Play actions, and each pick starts after the `DelayTime` of
+its action. The random range of a delay is not read. A press on an action or a node row starts at
+once. A seek on the waveform moves every voice of the press to the playhead without its delay. A
+press stops what the press before it started, so a second press on a random container plays
+another variation. A sound whose media is missing and an object that does not play give nothing
+to play and show no play button. Every media plays at the volume of the media table's player.
 
 ### Keyboard
 
@@ -288,8 +297,9 @@ The waveform is one tab stop, a slider of the playhead.
 ### Waveform column
 
 Each row of the media table and of the event tree ends in a small waveform of its media. A row
-of the event tree draws the first media that a press on it plays, with the first child of each
-random container. An event row reads its event first. A row that plays no media draws none.
+of the event tree draws the first media that a press on it plays, with the first playlist item
+that has a weight in each random container. An event row reads its event first. A row that plays
+no media draws none.
 
 - A row decodes when it scrolls into view, three rows at a time. A row that leaves the view
   before its turn does not decode.

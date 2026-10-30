@@ -7,7 +7,7 @@ export type ThumbnailSource =
   | { readonly kind: "media"; readonly media: MediaLocation }
   | { readonly kind: "event"; readonly id: number };
 
-/** Picks the first child of every random container, so a row draws the same media each time. */
+/** Picks the first weighted playlist item, so a row draws the same media each time. */
 const FIRST_PICK: RandomSource = () => 0;
 
 /**

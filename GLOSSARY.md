@@ -441,12 +441,14 @@ in which the client reads them. A `.wpk` path is mounted as a package and every 
 as a bank. A file that no store contains, or that fails to read, stays in the set as a missing or a
 failed file. A voice-over path is read under the client's locale first.
 
-**Sound lookup** - the walk that resolves an event of a bank set into its play tree. It visits each
-object once and takes the first bank of the set that contains an ID.
+**Sound lookup** - the resolution of an event of a bank set into its play tree, through the
+`event_tree` query of `ltk_wwise`. It visits each object once and takes the first bank of the set
+that contains an ID.
 
 **Play tree** - what one event plays: its actions, and under each Play action the tree of sounds and
-containers. A node keeps its container kind, so a random container plays one child and a layer
-container plays every child. A sound names the file of the set that contains its media.
+containers. A node keeps its container kind and what picks its children: a random container keeps
+its playlist and a switch container its default switch. A sound names the file of the set that
+contains its media.
 
 **Audio index** - the game-wide table of event names and source IDs, built once per game build. It
 names the events that no bank unit of a set lists.
