@@ -2,9 +2,11 @@ import { MinusCircleIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -21,9 +23,22 @@ import { createGuideStore, GuideStoreContext } from "../../shared/state/treeGuid
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import type { TreePicks } from "../hooks/useTreePicks";
+import { useTypeAhead } from "../hooks/useTypeAhead";
 import { useNodeNames } from "../state/nodeNames";
+import { beginRowDrag, useRowDrops } from "../state/rowDrag";
+import {
+  dropAction,
+  type DragPayload,
+  type DropAction,
+  type DropSlot,
+  type ListPlace,
+} from "../utils/dropTargets";
+import { eventLabel } from "../utils/eventTree";
+import { type AudioCommandId, resolveCommand } from "../utils/keymap";
 import { rowLanes } from "../utils/lanes";
-import { movedIndex, treeStep } from "../utils/rowKeys";
+import { resetEdit } from "../utils/nodeFields";
+import { type NodeNames, nodeText } from "../utils/nodeNames";
+import { headIndex, movedIndex, pageRows, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import { isEditable, type TreeEditing } from "../utils/treeEditing";
 import {
@@ -45,9 +60,9 @@ import { AddNodeLine } from "./AddNodeLine";
 import { AUDIO_LIST_GROUP } from "./audioRow";
 import type { NodeActions } from "./EventMenu";
 import { EditedMark, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
-import { nodeKey } from "./nodeKeys";
 import { PlayedByCell } from "./PlayedBy";
 import { EventContent, Status } from "./RowContent";
+import { RowDragGhost } from "./RowDragGhost";
 import {
   GroupName,
   groupText,
@@ -93,6 +108,21 @@ interface VoiceListProps {
   readonly onStructure: () => void;
   /** The row that a request from another view asks the list to scroll to, once per token. */
   readonly reveal?: { readonly key: string; readonly token: number } | null;
+  /** The keys of the rows whose nodes are cut and wait for a paste. */
+  readonly cut: ReadonlySet<string>;
+  /** Runs a drop of a file on a row. A move within a playlist runs in the list. */
+  readonly onDropAction: (action: DropAction) => void;
+}
+
+/** Returns the name that the type-ahead matches and the drag ghost shows for `row`. */
+function rowLabel(row: VoiceRow, names: NodeNames): string {
+  if (row.kind === "event") return eventLabel(row.event);
+  if (row.kind === "voice") return nodeText(names, row.line.voice.node);
+  if (row.kind === "group" && row.group.container !== null) {
+    return nodeText(names, row.group.container);
+  }
+
+  return "";
 }
 
 /** The height of a row in px at 100% zoom: `min-h-6` is six spacing units of 4.5px. */
@@ -142,8 +172,11 @@ export function VoiceList({
   files,
   onStructure,
   reveal = null,
+  cut,
+  onDropAction,
 }: VoiceListProps) {
   const scroller = useRef<HTMLDivElement>(null);
+  const listId = useId();
   const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
   const openKeys = useMemo(
     () => new Set(rows.flatMap((row) => (row.open ? [row.key] : []))),
@@ -246,108 +279,222 @@ export function VoiceList({
     returnFocus();
   }
 
-  /** Applies the edit key of `event` to `row`. Returns `true` if the key was an edit key. */
-  function editKey(event: KeyboardEvent<HTMLDivElement>, row: VoiceRow): boolean {
-    const plain = !event.ctrlKey && !event.metaKey && !event.altKey;
-    if (plain && (event.key === "F2" || event.key === "Enter")) {
-      const cell = activeCell(row);
-      if (cell !== null) return enterCell(row, cell) || event.key === "F2";
-
-      if (row.kind === "add") {
-        onAdding(row.key);
-        return true;
-      }
-      if (row.kind === "empty") {
-        onStructure();
-        return true;
-      }
-      if (event.key === "F2") return true;
-    }
-
-    if (nodeKey(event, actions)) return true;
-
-    const parent = editableParent(row);
+  /** Returns the place of `row` in the playlist of its random parent, which a move reorders. */
+  function placeOf(row: VoiceRow): ListPlace | null {
     const placed = placedNode(row);
+    const parent = editableParent(row);
+    if (placed === null || parent?.kind !== "random") return null;
 
-    const moving = event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown");
-    if (moving && parent !== null && editing !== null && placed !== null) {
-      if (parent.kind !== "random") return true;
+    const id = placed.node.id;
+    const index = parent.playlist.findIndex((item) => parent.children[item.child]?.id === id);
+    return index < 0 ? null : { list: `c:${parent.id}`, index };
+  }
 
-      const child = placed.node.id;
-      const at = parent.playlist.findIndex((item) => parent.children[item.child]?.id === child);
-      const index = at + (event.key === "ArrowUp" ? -1 : 1);
-      if (at >= 0 && index >= 0 && index < parent.playlist.length) {
-        void editing.edit({ kind: "moveChild", container: parent.id, child, index });
-      }
-      return true;
+  /** Moves `row` to `index` of the playlist of its random parent. */
+  function moveTo(row: VoiceRow, index: number) {
+    const placed = placedNode(row);
+    const parent = editableParent(row);
+    if (editing === null || placed === null || parent?.kind !== "random") return;
+    if (index < 0 || index >= parent.playlist.length) return;
+
+    void editing.edit({ kind: "moveChild", container: parent.id, child: placed.node.id, index });
+  }
+
+  /** Returns what a drop on `row` reads, or null for a row that takes no drop. */
+  function slotOf(row: VoiceRow): DropSlot | null {
+    if (editing === null) return null;
+    if (row.kind === "add") return { kind: "add", key: row.key, into: row.into };
+    if (row.kind === "group") return { kind: "container", key: row.key, place: placeOf(row) };
+
+    const line = voiceLine(row);
+    if (line === null) return null;
+
+    const node = line.voice.node;
+    const source = node.kind === "sound" ? node.source : null;
+    return { kind: "sound", key: row.key, source, place: placeOf(row) };
+  }
+
+  /** Returns what a drag of `row` carries: a named event, or a row of a playlist. */
+  function payloadOf(row: VoiceRow): DragPayload | null {
+    if (row.kind === "event") {
+      return row.event.name === null ? null : { kind: "event", name: row.event.name };
     }
-    return false;
+
+    const place = placeOf(row);
+    return place === null ? null : { kind: "row", key: row.key, place };
+  }
+
+  useRowDrops(scroller, (key, payload) => {
+    const row = byKey.get(key);
+    const slot = row === undefined ? null : slotOf(row);
+    const action = slot === null ? null : dropAction(payload, slot);
+    if (action === null) return false;
+
+    const moved = action.kind === "move" ? byKey.get(action.key) : undefined;
+    if (moved !== undefined && action.kind === "move") moveTo(moved, action.index);
+    else onDropAction(action);
+    return true;
+  });
+
+  const typeAhead = useTypeAhead(
+    () => rows.map((row) => rowLabel(row, names)),
+    selectedIndex,
+    (index) => selectAt(index),
+  );
+
+  /** Plays `row`, or stops it if it plays. */
+  function togglePlay(row: VoiceRow) {
+    if (player.playing === row.key) player.stop();
+    else onPlay(row);
+  }
+
+  /** Opens the entry of the active cell or the add row, or plays a row without either. */
+  function enterRow(key: string, row: VoiceRow) {
+    const cell = activeCell(row);
+    if (cell !== null && enterCell(row, cell)) return;
+    if (row.kind === "add") {
+      onAdding(row.key);
+      return;
+    }
+    if (row.kind === "empty") {
+      onStructure();
+      return;
+    }
+    if (key === "Enter") onPlay(row);
+  }
+
+  /** Sets the field of the active cell of `row` to its default. */
+  function resetCell(row: VoiceRow): boolean {
+    const cell = activeCell(row);
+    const field = cell === null || cell === "media" ? undefined : rowCells(row)?.fields.cells[cell];
+    const edit = field === undefined ? null : resetEdit(field);
+    if (editing === null || edit === null) return false;
+
+    void editing.edit(edit).then((applied) => {
+      if (applied) onReplay(row);
+    });
+    return true;
+  }
+
+  /** Moves between the cells of `row` with ArrowLeft and ArrowRight, then folds or walks the tree. */
+  function stepCells(key: string, row: VoiceRow) {
+    if (key === "ArrowRight" && row.kind === "group" && !row.open) {
+      fold(row, true);
+      return;
+    }
+
+    const cells = cellsOf(row);
+    const at = cells.indexOf(activeCell(row) ?? "media");
+    const next = cells.length > 1 ? movedCell(key, at, cells.length) : null;
+    const cell = next === null ? undefined : cells[next];
+    if (cell !== undefined) {
+      setCellName(cell);
+      return;
+    }
+
+    const step = treeStep(key, rows, selectedIndex, openKeys);
+    const stepped = step?.kind === "expand" ? byKey.get(step.key) : undefined;
+    if (step?.kind === "expand" && stepped !== undefined) fold(stepped, step.open);
+    if (step?.kind === "select") selectAt(step.index);
+  }
+
+  /** Runs the node action of `command` on the picks. A bank that takes no edit swallows the key. */
+  function runAction(command: AudioCommandId) {
+    if (actions === null) return;
+
+    if (command === "wrap") actions.wrap?.("random");
+    if (command === "add") actions.add?.();
+    if (command === "duplicate") actions.duplicate?.();
+    if (command === "remove") actions.remove?.();
+    if (command === "cut") actions.cut?.();
+    if (command === "paste") actions.paste?.();
+  }
+
+  /**
+   * Runs `command`, which the key `key` resolved to, on the selected `row`.
+   *
+   * Returns `true` if the list answers the key, which then reaches no handler above the list.
+   */
+  function run(command: AudioCommandId, key: string, row: VoiceRow | undefined): boolean {
+    switch (command) {
+      case "moveRow":
+      case "movePage":
+      case "moveEnd":
+      case "extendRange": {
+        const page = pageRows(scroller.current, rowHeight);
+        const target = movedIndex(key, selectedIndex, rows.length, page);
+        if (target !== null) selectAt(target, command === "extendRange");
+        return true;
+      }
+      case "nextEvent":
+      case "previousEvent": {
+        const at = headIndex(rows, selectedIndex, command === "nextEvent" ? 1 : -1, "event");
+        if (at !== null) selectAt(at);
+        return true;
+      }
+      case "selectAll":
+        picks.pickAll();
+        return true;
+      case "copy":
+        onCopy();
+        return true;
+      case "add":
+      case "duplicate":
+      case "remove":
+      case "wrap":
+      case "cut":
+      case "paste":
+        runAction(command);
+        return true;
+      default:
+        break;
+    }
+
+    if (row === undefined) return false;
+
+    switch (command) {
+      case "play":
+        togglePlay(row);
+        return true;
+      case "playAll": {
+        const head = rows.find((each) => each.kind === "event" && each.eventId === row.eventId);
+        if (head !== undefined) onPlay(head);
+        return true;
+      }
+      case "stop":
+        if (player.playing !== null) player.stop();
+        else if (picks.picked.size > 1) picks.pick(row.key, "only");
+        else return false;
+        return true;
+      case "stepRight":
+      case "stepLeft":
+        stepCells(key, row);
+        return true;
+      case "enter":
+        enterRow(key, row);
+        return true;
+      case "reset":
+        return resetCell(row);
+      case "moveUp":
+      case "moveDown": {
+        const place = placeOf(row);
+        if (place !== null) moveTo(row, place.index + (command === "moveUp" ? -1 : 1));
+        return place !== null;
+      }
+      default:
+        return false;
+    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
-    const row = selectedRow;
-    if (row !== undefined && editKey(event, row)) {
-      event.preventDefault();
-      return;
-    }
+    const command = resolveCommand(event, "voices");
+    const handled = command === null ? typeAhead(event) : run(command, event.key, selectedRow);
+    if (!handled) return;
 
-    const target = event.altKey ? null : movedIndex(event.key, selectedIndex, rows.length);
-    if (target !== null) {
-      event.preventDefault();
-      selectAt(target, event.shiftKey);
-      return;
-    }
-
-    if (event.key === "a" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      picks.pickAll();
-      return;
-    }
-
-    if (row === undefined) return;
-
-    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-      event.preventDefault();
-      if (event.key === "ArrowRight" && row.kind === "group" && !row.open) {
-        fold(row, true);
-        return;
-      }
-
-      const cells = cellsOf(row);
-      const at = cells.indexOf(activeCell(row) ?? "media");
-      const next = cells.length > 1 ? movedCell(event.key, at, cells.length) : null;
-      const cell = next === null ? undefined : cells[next];
-      if (cell !== undefined) {
-        setCellName(cell);
-        return;
-      }
-
-      const step = treeStep(event.key, rows, selectedIndex, openKeys);
-      const stepped = step?.kind === "expand" ? byKey.get(step.key) : undefined;
-      if (step?.kind === "expand" && stepped !== undefined) fold(stepped, step.open);
-      if (step?.kind === "select") selectAt(step.index);
-      return;
-    }
-
-    if (event.key === " " || event.key === "Enter") {
-      event.preventDefault();
-      onPlay(row);
-      return;
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      if (player.playing !== null) player.stop();
-      else picks.pick(row.key, "only");
-      return;
-    }
-
-    if (event.key === "c" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      onCopy();
-    }
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   function closePicking() {
@@ -411,11 +558,27 @@ export function VoiceList({
 
   function line(row: VoiceRow, index: number): ReactNode {
     const lane = lanes[index];
+    const slot = slotOf(row);
+    const payload = payloadOf(row);
+    const plays = row.kind === "event" || row.kind === "group" || row.kind === "voice";
     const frame = {
       row,
       open: row.open,
       selected: row.key === selected || picks.picked.has(row.key),
       playing: player.playing === row.key,
+      cut: cut.has(row.key),
+      drops:
+        slot === null
+          ? undefined
+          : slot.kind === "container"
+            ? ("row" as const)
+            : ("file" as const),
+      onDragPress:
+        payload === null
+          ? undefined
+          : (event: ReactPointerEvent) =>
+              beginRowDrag(event, payload, listId, rowLabel(row, names)),
+      onPlay: plays ? () => togglePlay(row) : undefined,
       blocks: lane?.blocks ?? [],
       ends: lane?.ends,
       index,
@@ -638,6 +801,7 @@ export function VoiceList({
         </ContextMenu.Trigger>
         {menuRow !== null && <ContextMenu.Content>{menu(menuRow)}</ContextMenu.Content>}
       </ContextMenu.Root>
+      <RowDragGhost source={listId} />
     </GuideStoreContext>
   );
 }

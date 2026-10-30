@@ -14,16 +14,7 @@ import {
 import { ContextMenu } from "@/components";
 import { m } from "@/i18n";
 
-/** The keys of the line actions, as the Voice lines list binds them. */
-export const LINE_KEYS = {
-  play: "Space",
-  add: "Ctrl+Enter",
-  duplicate: "Ctrl+D",
-  remove: "Delete",
-  moveUp: "Alt+Up",
-  moveDown: "Alt+Down",
-  copy: "Ctrl+C",
-} as const;
+import { menuShortcut } from "../utils/keymap";
 
 /** What the menu of a line does, each null where it does not apply to the line. */
 export interface LineActions {
@@ -60,25 +51,33 @@ export function VoiceLineMenu({ actions }: { actions: LineActions }) {
   return (
     <>
       {actions.play !== null && (
-        <ContextMenu.Item icon={<PlayIcon />} shortcut={LINE_KEYS.play} onClick={actions.play}>
+        <ContextMenu.Item
+          icon={<PlayIcon />}
+          shortcut={menuShortcut("play")}
+          onClick={actions.play}
+        >
           {m.audio_voice_play_action()}
         </ContextMenu.Item>
       )}
       {actions.playAll !== null && (
-        <ContextMenu.Item icon={<PlaylistIcon />} onClick={actions.playAll}>
+        <ContextMenu.Item
+          icon={<PlaylistIcon />}
+          shortcut={menuShortcut("playAll")}
+          onClick={actions.playAll}
+        >
           {m.audio_voice_play_all_action()}
         </ContextMenu.Item>
       )}
       {edits && <ContextMenu.Separator />}
       {actions.add !== null && (
-        <ContextMenu.Item icon={<PlusIcon />} shortcut={LINE_KEYS.add} onClick={actions.add}>
+        <ContextMenu.Item icon={<PlusIcon />} shortcut={menuShortcut("add")} onClick={actions.add}>
           {m.audio_voice_add_rule_action()}
         </ContextMenu.Item>
       )}
       {actions.duplicate !== null && (
         <ContextMenu.Item
           icon={<CopySimpleIcon />}
-          shortcut={LINE_KEYS.duplicate}
+          shortcut={menuShortcut("duplicate")}
           onClick={actions.duplicate}
         >
           {m.audio_voice_duplicate_action()}
@@ -87,7 +86,7 @@ export function VoiceLineMenu({ actions }: { actions: LineActions }) {
       {actions.moveUp !== null && (
         <ContextMenu.Item
           icon={<ArrowUpIcon />}
-          shortcut={LINE_KEYS.moveUp}
+          shortcut={menuShortcut("moveUp")}
           onClick={actions.moveUp}
         >
           {m.audio_voice_move_up_action()}
@@ -96,7 +95,7 @@ export function VoiceLineMenu({ actions }: { actions: LineActions }) {
       {actions.moveDown !== null && (
         <ContextMenu.Item
           icon={<ArrowDownIcon />}
-          shortcut={LINE_KEYS.moveDown}
+          shortcut={menuShortcut("moveDown")}
           onClick={actions.moveDown}
         >
           {m.audio_voice_move_down_action()}
@@ -105,7 +104,7 @@ export function VoiceLineMenu({ actions }: { actions: LineActions }) {
       {actions.remove !== null && (
         <ContextMenu.Item
           icon={<TrashIcon />}
-          shortcut={LINE_KEYS.remove}
+          shortcut={menuShortcut("remove")}
           variant="danger"
           onClick={actions.remove}
         >
@@ -130,7 +129,11 @@ export function VoiceLineMenu({ actions }: { actions: LineActions }) {
         </ContextMenu.Item>
       )}
       {actions.copyShort !== null && (
-        <ContextMenu.Item icon={<CopyIcon />} shortcut={LINE_KEYS.copy} onClick={actions.copyShort}>
+        <ContextMenu.Item
+          icon={<CopyIcon />}
+          shortcut={menuShortcut("copy")}
+          onClick={actions.copyShort}
+        >
           {m.audio_voice_copy_short_action()}
         </ContextMenu.Item>
       )}

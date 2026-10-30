@@ -94,6 +94,28 @@ export function wrapEdit(
   return batched(edits);
 }
 
+/**
+ * Returns the one edit that moves each cut sound and container of `cut` into `container`, which
+ * holds `above` over it, or null if no cut node takes the move.
+ *
+ * Events and actions take no move, and a node below another cut node moves with it. The
+ * container itself and a node above it are left out, because the move would hold a container
+ * inside itself.
+ */
+export function pasteEdit(
+  cut: readonly NodeTarget[],
+  container: number,
+  above: readonly number[] = [],
+): BankEdit | null {
+  const edits: BankEdit[] = outermost(cut).flatMap((target): BankEdit[] => {
+    const node = target.kind === "sound" || target.kind === "container";
+    if (!node || target.object === container || above.includes(target.object)) return [];
+
+    return [{ kind: "addChild", container, child: target.object }];
+  });
+  return batched(edits);
+}
+
 /** Returns `true` if every one of `targets` takes `property`. */
 export function takesProperty(targets: readonly NodeTarget[], property: NodeProperty): boolean {
   return targets.length > 0 && targets.every((target) => TAKES[target.kind].has(property));

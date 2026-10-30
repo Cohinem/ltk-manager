@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AudioEvent } from "@/lib/tauri";
 
 import { eventKey, type EventRow } from "../eventTree";
-import { movedIndex, PAGE_ROWS, treeStep } from "../rowKeys";
+import { headIndex, movedIndex, PAGE_ROWS, treeStep } from "../rowKeys";
 
 const EVENT: AudioEvent = {
   id: 100,
@@ -45,6 +45,21 @@ describe("movedIndex", () => {
   it("returns null for a key that moves nothing and for an empty list", () => {
     expect(movedIndex(" ", 0, 3)).toBeNull();
     expect(movedIndex("ArrowDown", -1, 0)).toBeNull();
+  });
+});
+
+describe("headIndex", () => {
+  const rows = [{ kind: "event" }, { kind: "voice" }, { kind: "voice" }, { kind: "event" }];
+
+  it("returns the next or the previous head row from the index", () => {
+    expect(headIndex(rows, 0, 1, "event")).toBe(3);
+    expect(headIndex(rows, 2, -1, "event")).toBe(0);
+    expect(headIndex(rows, 3, -1, "event")).toBe(0);
+  });
+
+  it("returns null past the last head row", () => {
+    expect(headIndex(rows, 3, 1, "event")).toBeNull();
+    expect(headIndex(rows, 0, -1, "event")).toBeNull();
   });
 });
 

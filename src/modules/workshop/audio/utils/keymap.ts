@@ -323,6 +323,14 @@ export function sheetGroups(scope: readonly AudioSurface[]): SheetGroup[] {
   })).filter((section) => section.bindings.length > 0);
 }
 
+/** Returns `true` if `target` takes typed text, which keeps every key that it receives. */
+export function typesText(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  return target.closest("input, textarea, select, [role='combobox'], [role='textbox']") !== null;
+}
+
 /** The words that a keycap shows for a key whose `KeyboardEvent.key` name is not one. */
 const KEY_WORDS: Readonly<Record<string, string>> = {
   ArrowUp: "Up",
@@ -348,6 +356,11 @@ export function bindingOf(id: AudioCommandId): AudioBinding {
   if (binding === undefined) throw new Error(`The audio keymap has no binding for "${id}"`);
 
   return binding;
+}
+
+/** Returns the chord that a menu item of `id` shows on its right, or undefined for none. */
+export function menuShortcut(id: AudioCommandId): string | undefined {
+  return shortcutOf(id) ?? undefined;
 }
 
 /** Returns the first chord of `id` as `chordLabel` writes it, or null for a command without a key. */

@@ -4,9 +4,10 @@ import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewSoundUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
-import { plainVoice, toggleSolo } from "../player/solo";
+import { plainVoice } from "../player/solo";
 import type { SoundChannel } from "../player/soundPlayer";
-import { PREVIEW_VOLUME, useChannelState, useSoundChannel } from "../player/useSoundChannel";
+import { useChannelState, useSoundChannel } from "../player/useSoundChannel";
+import { usePreviewRepeat, usePreviewVolume } from "../state/previewTransport";
 
 /** The one player of an audio file document. */
 export interface MediaPlayer {
@@ -25,12 +26,14 @@ export interface MediaPlayer {
 /**
  * Plays the media of `asset` on a channel of the shared player, one source at a time.
  *
- * Playing a source stops the one before it. The channel stops when the file changes on disk and
- * when the document unmounts. Per "Media table" in docs/ux/AUDIO.md.
+ * Playing a source stops the one before it. The channel plays at the preview volume, loops while
+ * Loop is on, and stops when the file changes on disk and when the document unmounts. Per "Media
+ * table" in docs/ux/AUDIO.md.
  */
 export function useMediaPlayer(asset: AssetRef): MediaPlayer {
   const version = useAssetVersion(asset);
-  const channel = useSoundChannel(PREVIEW_VOLUME);
+  const channel = useSoundChannel(usePreviewVolume());
+  const repeat = usePreviewRepeat();
   const state = useChannelState(channel);
 
   useEffect(() => () => channel.stopAll(), [channel, version]);
@@ -47,8 +50,16 @@ export function useMediaPlayer(asset: AssetRef): MediaPlayer {
   );
 
   const toggle = useCallback(
-    (source: number) => toggleSolo(channel, String(source), [plainVoice(url(source))]),
-    [channel, url],
+    (source: number) => {
+      const key = String(source);
+      const stopping = channel.state().playing.has(key);
+      channel.stopAll();
+      if (stopping) return;
+
+      channel.resume();
+      channel.play(key, [plainVoice(url(source))], repeat, 0);
+    },
+    [channel, repeat, url],
   );
 
   return { playing, failed, toggle, url, channel };

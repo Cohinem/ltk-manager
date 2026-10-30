@@ -183,6 +183,24 @@ export function fieldEdit(field: NodeField, value: number): BankEdit {
   }
 }
 
+/** The weight that Wwise gives a new playlist item, in the unit that the row shows. */
+const DEFAULT_WEIGHT = 50;
+
+/**
+ * Returns the edit that sets `field` to its default: the property's default, or a weight of 50.
+ *
+ * Returns null for a target or a source, which has no default, and for a field that takes no edit.
+ */
+export function resetEdit(field: NodeField): BankEdit | null {
+  if (!field.editable) return null;
+
+  const { target } = field;
+  if (target.kind === "property") return fieldEdit(field, PROPERTY_DEFAULTS[target.property]);
+  if (target.kind === "weight") return fieldEdit(field, DEFAULT_WEIGHT);
+
+  return null;
+}
+
 /** A unit that a typed value may end in, and what the number is divided by to reach the field's. */
 interface TypedUnit {
   readonly suffix: string;

@@ -1,6 +1,7 @@
 import {
   ArrowSquareOutIcon,
   BracketsSquareIcon,
+  ClipboardTextIcon,
   CopyIcon,
   CopySimpleIcon,
   GitForkIcon,
@@ -9,6 +10,7 @@ import {
   PencilSimpleIcon,
   PlugsConnectedIcon,
   PlusIcon,
+  ScissorsIcon,
   SwapIcon,
   ShuffleIcon,
   TrashIcon,
@@ -25,14 +27,7 @@ import { useOpenDocumentAs } from "../../state";
 import { useOpenSiteRow, useOpenVoiceLine } from "../hooks/useOpenSiteRow";
 import { useFocusMedia } from "../state/mediaFocus";
 import type { EventRow } from "../utils/eventTree";
-
-/** The keys of the node actions, as the trees bind them. Per "Selection" in docs/ux/AUDIO.md. */
-export const NODE_KEYS = {
-  add: "Ctrl+Enter",
-  duplicate: "Ctrl+D",
-  remove: "Delete",
-  copy: "Ctrl+C",
-} as const;
+import { menuShortcut } from "../utils/keymap";
 
 /** What the menu of a row does to the picked rows, each null where it does not apply. */
 export interface NodeActions {
@@ -48,6 +43,10 @@ export interface NodeActions {
   readonly assignTo: ((event: AudioEvent) => void) | null;
   /** Replaces the media that the picked sound plays with a file. */
   readonly replace: ((source: number) => void) | null;
+  /** Holds the picked sounds and containers for a paste that moves them. */
+  readonly cut: (() => void) | null;
+  /** Moves the cut nodes into the selected container. */
+  readonly paste: (() => void) | null;
 }
 
 const WRAPS: readonly {
@@ -89,7 +88,12 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
   const replace = source === null ? null : actions?.replace;
   const creates =
     actions !== null &&
-    (actions.add !== null || actions.duplicate !== null || rename != null || assignTo != null);
+    (actions.add !== null ||
+      actions.duplicate !== null ||
+      actions.cut !== null ||
+      actions.paste !== null ||
+      rename != null ||
+      assignTo != null);
   const copyLabel =
     count > 1
       ? m.audio_node_copy_many_action({ count })
@@ -105,17 +109,39 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
             <ExperimentalChip />
           </ContextMenu.GroupLabel>
           {actions.add !== null && (
-            <ContextMenu.Item icon={<PlusIcon />} shortcut={NODE_KEYS.add} onClick={actions.add}>
+            <ContextMenu.Item
+              icon={<PlusIcon />}
+              shortcut={menuShortcut("add")}
+              onClick={actions.add}
+            >
               {m.audio_node_add_action()}
             </ContextMenu.Item>
           )}
           {actions.duplicate !== null && (
             <ContextMenu.Item
               icon={<CopySimpleIcon />}
-              shortcut={NODE_KEYS.duplicate}
+              shortcut={menuShortcut("duplicate")}
               onClick={actions.duplicate}
             >
               {m.audio_node_duplicate_action()}
+            </ContextMenu.Item>
+          )}
+          {actions.cut !== null && (
+            <ContextMenu.Item
+              icon={<ScissorsIcon />}
+              shortcut={menuShortcut("cut")}
+              onClick={actions.cut}
+            >
+              {m.audio_node_cut_action()}
+            </ContextMenu.Item>
+          )}
+          {actions.paste !== null && (
+            <ContextMenu.Item
+              icon={<ClipboardTextIcon />}
+              shortcut={menuShortcut("paste")}
+              onClick={actions.paste}
+            >
+              {m.audio_node_paste_action()}
             </ContextMenu.Item>
           )}
           {actions.wrap !== null && <WrapItems wrap={actions.wrap} />}
@@ -139,7 +165,7 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
       {actions?.remove != null && (
         <ContextMenu.Item
           icon={<TrashIcon />}
-          shortcut={NODE_KEYS.remove}
+          shortcut={menuShortcut("remove")}
           variant="danger"
           onClick={actions.remove}
         >
@@ -150,7 +176,7 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
       {(event || row.kind === "action" || row.kind === "node") && (
         <ContextMenu.Item
           icon={event && count <= 1 ? <CopyIcon /> : <HashIcon />}
-          shortcut={NODE_KEYS.copy}
+          shortcut={menuShortcut("copy")}
           onClick={() => (actions === null ? onCopy(row) : actions.copy())}
         >
           {copyLabel}
@@ -171,7 +197,12 @@ function WrapItems({ wrap }: { wrap: (container: ContainerKind) => void }) {
       </ContextMenu.SubmenuTrigger>
       <ContextMenu.SubmenuContent>
         {WRAPS.map(({ kind, icon: Icon, label }) => (
-          <ContextMenu.Item key={kind} icon={<Icon />} onClick={() => wrap(kind)}>
+          <ContextMenu.Item
+            key={kind}
+            icon={<Icon />}
+            shortcut={kind === "random" ? menuShortcut("wrap") : undefined}
+            onClick={() => wrap(kind)}
+          >
             {label()}
           </ContextMenu.Item>
         ))}

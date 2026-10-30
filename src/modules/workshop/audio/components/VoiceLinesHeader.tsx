@@ -1,4 +1,5 @@
 import { CopySimpleIcon, SidebarSimpleIcon, WarningIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 
 import {
   AlertBox,
@@ -13,6 +14,8 @@ import {
 import { m } from "@/i18n";
 import type { Audience, VoiceLinesResponse, VoiceSkin } from "@/lib/tauri";
 
+import { KeyHint } from "../../bin/atlas/components/KeyHint";
+import { shortcutOf } from "../utils/keymap";
 import { skinLabel } from "../utils/voiceLines";
 import type { TriggerContext } from "../utils/voiceTrigger";
 import { TextControl } from "./VoiceFieldRows";
@@ -39,6 +42,8 @@ interface VoiceLinesHeaderProps {
   readonly choices: { readonly spells: readonly string[]; readonly targets: readonly string[] };
   readonly inspecting: boolean;
   readonly onInspecting: (open: boolean) => void;
+  /** The preview transport and the mark of the keys and gestures, before the inspector switch. */
+  readonly tools?: ReactNode;
 }
 
 /**
@@ -61,6 +66,7 @@ export function VoiceLinesHeader({
   choices,
   inspecting,
   onInspecting,
+  tools,
 }: VoiceLinesHeaderProps) {
   const skin = data.skins.find((each) => each.bin === data.skin) ?? null;
   const pick = (value: string | null) => (value === null || value === ANY ? null : value);
@@ -122,10 +128,17 @@ export function VoiceLinesHeader({
               onClick={() => onOnlyUnresolved(!onlyUnresolved)}
             />
           )}
+          {tools}
           <IconButton
             icon={<SidebarSimpleIcon weight="bold" mirrored />}
             label={m.audio_inspector_toggle_action()}
-            tooltip={m.audio_inspector_toggle_action()}
+            aria-keyshortcuts={shortcutOf("toggleInspector") ?? undefined}
+            tooltip={
+              <KeyHint
+                label={m.audio_inspector_toggle_action()}
+                shortcut={shortcutOf("toggleInspector") ?? ""}
+              />
+            }
             pressed={inspecting}
             onClick={() => onInspecting(!inspecting)}
           />

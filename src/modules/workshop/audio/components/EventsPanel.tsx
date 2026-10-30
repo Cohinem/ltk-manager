@@ -15,6 +15,7 @@ import {
   SegmentedControl,
   Stack,
   useConfirm,
+  useToast,
 } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
@@ -33,13 +34,16 @@ import {
 } from "@/lib/tauri";
 import { useAudioInspector, useSetAudioInspector } from "@/stores";
 
+import { KeyHint } from "../../bin/atlas/components/KeyHint";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { audioQueries } from "../api/queries";
 import type { BankDocument } from "../hooks/useBankDocument";
 import { useEventPlayer, usePlayerMix } from "../hooks/useEventPlayer";
 import { useTreePicks } from "../hooks/useTreePicks";
 import { NodeNamesContext } from "../state/nodeNames";
+import { usePanelCommands } from "../state/panelCommands";
 import { useBankEventRequest, useBankEventStore } from "../state/voiceLines";
+import type { DropAction } from "../utils/dropTargets";
 import {
   addKey,
   type EventRow,
@@ -55,6 +59,7 @@ import {
   sortEvents,
   type TreeState,
 } from "../utils/eventTree";
+import { shortcutOf } from "../utils/keymap";
 import {
   asksBeforeReplace,
   type FormatChange,
@@ -65,6 +70,7 @@ import {
   deleteEdit,
   duplicateEdit,
   type NodeTarget,
+  pasteEdit,
   propertyEdit,
   takesProperty,
   wrapEdit,
@@ -104,6 +110,14 @@ interface EventsPanelProps {
 /** The view of the events: the voices each one plays, or the full Wwise tree. */
 type EventsView = "voices" | "structure";
 
+/** The sounds and containers that a cut holds for a paste, and the keys of their rows. */
+interface CutNodes {
+  readonly targets: readonly NodeTarget[];
+  readonly keys: ReadonlySet<string>;
+}
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
 /**
  * The Events view of an event bank: its tools in the document toolbar, the notices about its
  * bank set, and the event tree with one player.
@@ -127,6 +141,9 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const [naming, setNaming] = useState<Naming | null>(null);
   const [using, setUsing] = useState<AudioEvent | null>(null);
   const confirm = useConfirm();
+  const toast = useToast();
+  const [cut, setCut] = useState<CutNodes | null>(null);
+  const filterBox = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<EventsView>("voices");
   const voices = view === "voices";
   const inspecting = useAudioInspector();
@@ -420,30 +437,100 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
           : (event) => setNaming({ copyOf: null, renames: event.id, initial: eventLabel(event) }),
       assignTo: copiedEvent === undefined ? null : setUsing,
       replace: only?.kind === "sound" ? (source) => void replaceMedia(source) : null,
+      cut: cutOf(targets),
+      paste: pasteInto(),
+    };
+  }
+
+  /** Returns the cut of the picked sounds and containers that sit in a container, or null. */
+  function cutOf(targets: readonly NodeTarget[]): (() => void) | null {
+    const movable = targets.filter(
+      (target) =>
+        (target.kind === "sound" || target.kind === "container") &&
+        target.parentKind === "container",
+    );
+    if (movable.length === 0) return null;
+
+    return () => {
+      const keys = new Set(
+        [...picks.picked].filter((key) => {
+          const target = targetByKey.get(key);
+          return target !== undefined && movable.includes(target);
+        }),
+      );
+      setCut({ targets: movable, keys });
+      toast.info(m.audio_cut_done_label({ count: movable.length, key: shortcutOf("paste") ?? "" }));
     };
   }
 
   /**
-   * Replaces the media `source` with a file the reader picks, after a confirm if several sounds
-   * share the media or its format changes. Per "Replacing media" in docs/ux/AUDIO.md.
+   * Returns the paste of the cut nodes into the selected container, or into the container of the
+   * selected row, or null if no cut waits or no container takes it.
    */
-  async function replaceMedia(source: number) {
-    const file = await open({
-      multiple: false,
-      directory: false,
-      title: m.audio_replace_file_title(),
-      filters: [{ name: m.audio_replace_file_filter_label(), extensions: [...REPLACE_EXTENSIONS] }],
-    });
-    if (typeof file !== "string") return;
+  function pasteInto(): (() => void) | null {
+    const at = selected === null ? undefined : targetByKey.get(selected);
+    if (cut === null || editing === null || at === undefined) return null;
 
-    const replacement = await bank.previewReplace(source, file);
+    const into =
+      at.kind === "container" ? at.object : at.parentKind === "container" ? at.parent : null;
+    const edit = into === null ? null : pasteEdit(cut.targets, into, at.ancestors);
+    if (edit === null || into === null || !isEditable(editing, into)) return null;
+
+    return () => {
+      void editing.edit(edit).then((applied) => {
+        if (applied) setCut(null);
+      });
+    };
+  }
+
+  /**
+   * Replaces the media `source` with `file`, or with a file the reader picks, after a confirm if
+   * several sounds share the media or its format changes. Per "Replacing media" in
+   * docs/ux/AUDIO.md.
+   */
+  async function replaceMedia(source: number, file: string | null = null) {
+    const picked =
+      file ??
+      (await open({
+        multiple: false,
+        directory: false,
+        title: m.audio_replace_file_title(),
+        filters: [
+          { name: m.audio_replace_file_filter_label(), extensions: [...REPLACE_EXTENSIONS] },
+        ],
+      }));
+    if (typeof picked !== "string") return;
+
+    const replacement = await bank.previewReplace(source, picked);
     if (replacement === null) return;
     if (asksBeforeReplace(replacement) && !(await confirm(replaceQuestion(replacement)))) return;
 
-    await bank.replaceMedia(source, file);
+    await bank.replaceMedia(source, picked);
+  }
+
+  /** Runs a drop of a file on a row: a replacement of a sound's media, or an import. */
+  function dropFile(action: DropAction) {
+    if (action.kind === "replace") void replaceMedia(action.source, action.file);
+    if (action.kind === "import" && editing !== null)
+      void editing.importWem(action.into, action.file);
   }
 
   const actions = nodeActions();
+  const wrap = actions?.wrap ?? null;
+
+  usePanelCommands("events", {
+    toggleVoices: () => setView(voices ? "structure" : "voices"),
+    toggleInspector: voices ? () => setInspecting(!inspecting) : undefined,
+    find: () => filterBox.current?.select(),
+    stop: player.playing === null ? undefined : player.stop,
+    copy: picks.targets.length > 0 ? copyPicks : undefined,
+    add: actions?.add ?? undefined,
+    duplicate: actions?.duplicate ?? undefined,
+    remove: actions?.remove ?? undefined,
+    wrap: wrap === null ? undefined : () => wrap("random"),
+    cut: actions?.cut ?? undefined,
+    paste: actions?.paste ?? undefined,
+  });
 
   const announcement =
     player.playing === null ? m.audio_stopped_label() : m.audio_event_playing_label();
@@ -467,6 +554,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
         <SearchField
           value={filter}
           onChange={setFilter}
+          inputRef={filterBox}
           label={m.audio_events_filter_label()}
           clearLabel={m.audio_filter_clear_label()}
         />
@@ -509,7 +597,13 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
           <IconButton
             icon={<SidebarSimpleIcon weight="bold" mirrored />}
             label={m.audio_inspector_toggle_action()}
-            tooltip={m.audio_inspector_toggle_action()}
+            aria-keyshortcuts={shortcutOf("toggleInspector") ?? undefined}
+            tooltip={
+              <KeyHint
+                label={m.audio_inspector_toggle_action()}
+                shortcut={shortcutOf("toggleInspector") ?? ""}
+              />
+            }
             pressed={inspecting}
             onClick={() => setInspecting(!inspecting)}
           />
@@ -573,6 +667,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
               files={files}
               onStructure={() => setView("structure")}
               reveal={reveal}
+              cut={cut?.keys ?? NO_KEYS}
+              onDropAction={dropFile}
               menu={(row) => {
                 const shown = structureRow(row);
                 if (shown === null) return null;
@@ -638,6 +734,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
             files={files}
             adding={adding}
             onAdding={setAdding}
+            cut={cut?.keys ?? NO_KEYS}
+            onDropAction={dropFile}
             onPreview={(key, media) => player.play(key, [{ media, path: PLAIN_PATH }])}
             menu={(row) => (
               <EventMenu

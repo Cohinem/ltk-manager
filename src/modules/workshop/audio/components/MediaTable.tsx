@@ -25,6 +25,8 @@ import { formatBytes } from "@/utils/formatBytes";
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { MediaActions } from "../hooks/useMediaActions";
 import type { MediaPlayer } from "../hooks/useMediaPlayer";
+import { useTypeAhead } from "../hooks/useTypeAhead";
+import { type AudioCommandId, resolveCommand } from "../utils/keymap";
 import {
   codecLabel,
   decodedExtension,
@@ -33,8 +35,8 @@ import {
   type MediaSortKey,
   nextSort,
 } from "../utils/mediaRows";
-import { movedIndex } from "../utils/rowKeys";
-import { AUDIO_LIST_GROUP, audioRowClasses } from "./audioRow";
+import { movedIndex, pageRows } from "../utils/rowKeys";
+import { AUDIO_LIST_GROUP, audioRowClasses, MIDDLE_BUTTON } from "./audioRow";
 import { MediaThumbnail } from "./WaveformThumbnail";
 
 interface MediaTableProps {
@@ -102,28 +104,49 @@ export function MediaTable({
     virtualizer.scrollToIndex(rows.indexOf(row), { align: "auto" });
   }
 
+  const typeAhead = useTypeAhead(
+    () => rows.map((row) => String(row.sourceId)),
+    selectedIndex,
+    (index) => selectAt(index),
+  );
+
+  /** Runs `command`, which `key` resolved to. Returns `true` if the table answers the key. */
+  function run(command: AudioCommandId, key: string): boolean {
+    const row = rows[selectedIndex];
+    switch (command) {
+      case "moveRow":
+      case "movePage":
+      case "moveEnd": {
+        const page = pageRows(scroller.current, rowHeight);
+        const target = movedIndex(key, selectedIndex, rows.length, page);
+        if (target !== null) selectAt(target);
+        return true;
+      }
+      case "play":
+      case "enter":
+        if (row?.playback.kind === "playable") player.toggle(row.sourceId);
+        return row !== undefined;
+      case "stop":
+        if (player.playing === null) return false;
+        player.channel.stopAll();
+        return true;
+      case "copy":
+        if (row !== undefined) actions.copySource(row);
+        return row !== undefined;
+      default:
+        return false;
+    }
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
-    const row = rows[selectedIndex];
-    const target = movedIndex(event.key, selectedIndex, rows.length);
-    if (target !== null) {
-      event.preventDefault();
-      selectAt(target);
-      return;
-    }
+    const command = resolveCommand(event, "media");
+    const handled = command === null ? typeAhead(event) : run(command, event.key);
+    if (!handled) return;
 
-    if (row === undefined) return;
-
-    if ((event.key === " " || event.key === "Enter") && row.playback.kind === "playable") {
-      event.preventDefault();
-      player.toggle(row.sourceId);
-    }
-
-    if (event.key === "c" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      actions.copySource(row);
-    }
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   const header = (key: MediaSortKey, label: string) => (
@@ -284,6 +307,17 @@ function MediaLine({
       data-ui="MediaTable:row"
       className={twMerge(audioRowClasses({ selected, playing }), "gap-3 pl-2")}
       onClick={onSelect}
+      onPointerDown={(event) => {
+        /* A middle press scrolls the page in Chromium unless its default is dropped. */
+        if (event.button === MIDDLE_BUTTON) event.preventDefault();
+      }}
+      onAuxClick={(event) => {
+        if (event.button !== MIDDLE_BUTTON || row.playback.kind !== "playable") return;
+
+        event.preventDefault();
+        onSelect();
+        onToggle();
+      }}
     >
       <span role="gridcell" className={COLUMN.play}>
         <PlayButton

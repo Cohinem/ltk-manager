@@ -7,8 +7,10 @@ import {
   fieldEdit,
   fieldEntryText,
   knobRange,
+  type NodeField,
   nodeFields,
   parseField,
+  resetEdit,
 } from "../nodeFields";
 
 const SOUND: EventNode = { kind: "sound", id: 1, source: 11, stream: "dataBank", media: null };
@@ -309,5 +311,47 @@ describe("knobRange", () => {
     );
 
     expect(fields.map((field) => knobRange(field.name)?.max ?? null)).toEqual([null, 100, null]);
+  });
+});
+
+describe("resetEdit", () => {
+  const field = (name: NodeField["name"], target: NodeField["target"]): NodeField => ({
+    name,
+    owner: "node",
+    value: 7,
+    editable: true,
+    target,
+    detail: { kind: "none" },
+  });
+
+  it("returns the edit that sets a property to its default", () => {
+    expect(resetEdit(field("pitch", { kind: "property", object: 1, property: "pitch" }))).toEqual({
+      kind: "property",
+      object: 1,
+      property: "pitch",
+      value: 0,
+    });
+    expect(
+      resetEdit(field("loopCount", { kind: "property", object: 1, property: "loopCount" })),
+    ).toEqual({ kind: "property", object: 1, property: "loopCount", value: 1 });
+  });
+
+  it("returns the edit that sets a weight to 50", () => {
+    expect(resetEdit(field("weight", { kind: "weight", container: 7, child: 1 }))).toEqual({
+      kind: "weight",
+      container: 7,
+      child: 1,
+      weight: 50000,
+    });
+  });
+
+  it("returns null for a reference and for a field that takes no edit", () => {
+    expect(resetEdit(field("source", { kind: "source", sound: 1 }))).toBeNull();
+    expect(
+      resetEdit({
+        ...field("pitch", { kind: "property", object: 1, property: "pitch" }),
+        editable: false,
+      }),
+    ).toBeNull();
   });
 });

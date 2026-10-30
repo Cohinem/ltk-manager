@@ -1,4 +1,13 @@
-import { type KeyboardEvent, use, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  use,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ContextMenu, EmptyState, Spinner, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
@@ -15,14 +24,19 @@ import { useOpenDocumentAs } from "../../state";
 import { useCopyForSkin, useVoiceEdit, useVoiceLines, ruleTemplate } from "../api/voiceLines";
 import { useLinePlayer } from "../hooks/useLinePlayer";
 import { useTreePicks } from "../hooks/useTreePicks";
+import { useTypeAhead } from "../hooks/useTypeAhead";
+import { useNudgeVolume, useToggleLoop } from "../state/previewTransport";
+import { beginRowDrag, useRowDrops } from "../state/rowDrag";
 import {
   useBankEventStore,
   useChooseVoiceSkin,
   useRuleFocus,
   useVoiceSkin,
 } from "../state/voiceLines";
+import { dropAction, type DragPayload, type DropSlot, ruleShortName } from "../utils/dropTargets";
+import { type AudioCommandId, resolveCommand, typesText } from "../utils/keymap";
 import { rowLanes } from "../utils/lanes";
-import { movedIndex, treeStep } from "../utils/rowKeys";
+import { headIndex, movedIndex, pageRows, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import { spellOf, CLASS } from "../utils/voiceConditions";
 import { ruleChance } from "../utils/voiceConditions";
@@ -50,8 +64,11 @@ import {
   triggerChoices,
   type TriggerContext,
 } from "../utils/voiceTrigger";
+import { AudioGestureHint, AudioKeysDialog, LINES_SCOPE } from "./AudioKeys";
 import { AUDIO_LIST_GROUP } from "./audioRow";
 import { Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
+import { PreviewTransport } from "./PreviewTransport";
+import { RowDragGhost } from "./RowDragGhost";
 import { type InspectorSubject, VoiceLineInspector } from "./VoiceLineInspector";
 import { type LineActions, VoiceLineMenu } from "./VoiceLineMenu";
 import {
@@ -144,6 +161,18 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
     () => (data === undefined ? { spells: [], targets: [] } : triggerChoices(data.lines)),
     [data],
   );
+
+  const listId = useId();
+  const [help, setHelp] = useState(false);
+  const toggleLoop = useToggleLoop();
+  const nudgeVolume = useNudgeVolume();
+  const typeAhead = useTypeAhead(
+    () => rows.map(lineLabel),
+    rows.findIndex((row) => row.key === selected),
+    (index) => selectAt(index),
+  );
+  /* `handleDrop` and `selectAt` are hoisted, and a drop or a key reads them after this render. */
+  useRowDrops(list, handleDrop);
 
   const focus = useRuleFocus(view.entry);
   const settled = useRef(0);
@@ -368,71 +397,190 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
     });
   }
 
+  /** Moves between the cells of a rule with ArrowLeft and ArrowRight, then folds or walks the list. */
+  function stepCells(key: string, row: VoiceLineRow) {
+    const cells = lineCells(row);
+    const at = cells.indexOf(activeCell(row) ?? "short");
+    const next = cells[at + (key === "ArrowRight" ? 1 : -1)];
+    if (row.kind === "rule" && next !== undefined) {
+      setCellName(next);
+      return;
+    }
+
+    const openKeys = new Set(rows.flatMap((each) => (each.open ? [each.key] : [])));
+    const step = treeStep(key, rows, selectedIndex, openKeys);
+    if (step?.kind === "expand") {
+      const stepped = rows.find((each) => each.key === step.key);
+      if (stepped !== undefined) fold(stepped, step.open);
+    }
+    if (step?.kind === "select") selectAt(step.index);
+  }
+
+  /** Plays `row`, or stops what plays if it is `row`. */
+  function togglePlay(row: VoiceLineRow) {
+    if (isPlaying(row, player.playing)) {
+      player.stop();
+      return;
+    }
+
+    actionsOf(row).play?.();
+  }
+
+  /**
+   * Runs `command`, which the key `key` resolved to, on the selected `row`.
+   *
+   * Returns `true` if the list answers the key, which then reaches no handler above the list.
+   */
+  function run(command: AudioCommandId, key: string, row: VoiceLineRow | undefined): boolean {
+    switch (command) {
+      case "moveRow":
+      case "movePage":
+      case "moveEnd":
+      case "extendRange": {
+        const page = pageRows(list.current, LINE_HEIGHT);
+        const target = movedIndex(key, selectedIndex, rows.length, page);
+        if (target !== null) selectAt(target, command === "extendRange");
+        return true;
+      }
+      case "nextEvent":
+      case "previousEvent": {
+        const at = headIndex(rows, selectedIndex, command === "nextEvent" ? 1 : -1, "situation");
+        if (at !== null) selectAt(at);
+        return true;
+      }
+      case "selectAll":
+        picks.pickAll();
+        return true;
+      default:
+        break;
+    }
+
+    if (row === undefined) return false;
+
+    const actions = actionsOf(row);
+    switch (command) {
+      case "play":
+        togglePlay(row);
+        return true;
+      case "playAll":
+        if (row.kind !== "add") playAll(row.situation);
+        return true;
+      case "stop":
+        if (player.playing !== null) player.stop();
+        else if (picks.picked.size > 1) picks.pick(row.key, "only");
+        else return false;
+        return true;
+      case "stepRight":
+      case "stepLeft":
+        stepCells(key, row);
+        return true;
+      case "enter": {
+        const cell = activeCell(row);
+        if (row.kind === "rule" && cell !== null && editable) setEntering(`${row.key}:${cell}`);
+        else if (row.kind === "add") actions.add?.();
+        else if (key === "Enter") actions.play?.();
+        return true;
+      }
+      case "add":
+        actions.add?.();
+        return true;
+      case "duplicate":
+        actions.duplicate?.();
+        return true;
+      case "remove":
+        actions.remove?.();
+        return true;
+      case "moveUp":
+        actions.moveUp?.();
+        return true;
+      case "moveDown":
+        actions.moveDown?.();
+        return true;
+      case "copy":
+        actions.copyShort?.();
+        return true;
+      default:
+        return false;
+    }
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
-    const row = selectedRow;
-    const command = event.ctrlKey || event.metaKey;
-    const actions = row === undefined ? null : actionsOf(row);
-    const run = (action: (() => void) | null | undefined) => {
-      event.preventDefault();
-      action?.();
+    const command = resolveCommand(event, "lines");
+    const handled = command === null ? typeAhead(event) : run(command, event.key, selectedRow);
+    if (!handled) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  /* The view sits in a bin document with no audio document around it, so it answers the document
+     keys that apply to it, from anywhere in the view but a text field. */
+  function handleViewKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (typesText(event.target)) return;
+
+    const command = resolveCommand(event, "lines");
+    const viewKeys: Partial<Record<AudioCommandId, () => void>> = {
+      loop: toggleLoop,
+      volumeDown: () => nudgeVolume(-1),
+      volumeUp: () => nudgeVolume(1),
+      help: () => setHelp(true),
+      toggleInspector: () => setInspecting(!inspecting),
     };
+    const runView = command === null ? undefined : viewKeys[command];
+    if (runView === undefined) return;
 
-    if (
-      row !== undefined &&
-      !command &&
-      !event.altKey &&
-      (event.key === "F2" || event.key === "Enter")
-    ) {
-      const cell = activeCell(row);
-      if (row.kind === "rule" && cell !== null && editable) {
-        event.preventDefault();
-        setEntering(`${row.key}:${cell}`);
-        return;
-      }
-      if (row.kind === "add") return run(actions?.add);
-    }
-    if (command && event.key === "Enter") return run(actions?.add);
-    if (command && event.key.toLowerCase() === "d") return run(actions?.duplicate);
-    if (!command && event.key === "Delete") return run(actions?.remove);
-    if (event.altKey && event.key === "ArrowUp") return run(actions?.moveUp);
-    if (event.altKey && event.key === "ArrowDown") return run(actions?.moveDown);
-    if (command && event.key.toLowerCase() === "c") return run(actions?.copyShort);
-    if (command && event.key.toLowerCase() === "a") return run(picks.pickAll);
-    if (event.key === " ") return run(actions?.play);
-    if (event.key === "Escape") {
-      event.preventDefault();
-      if (player.playing !== null) player.stop();
-      else if (row !== undefined) picks.pick(row.key, "only");
+    event.preventDefault();
+    event.stopPropagation();
+    runView();
+  }
+
+  /** Returns what a drop on `row` reads, or null for a row that takes no drop. */
+  function slotOf(row: VoiceLineRow): DropSlot | null {
+    if (!editable || row.kind !== "rule") return null;
+
+    return { kind: "rule", key: row.key, place: { list: row.situation.path, index: row.index } };
+  }
+
+  /** Points the rule `rule` at the event `name` through the short name of its drawn line. */
+  function targetRule(row: RuleRow, name: string) {
+    const spell = row.rule.conditions.find((each) => each.class === CLASS.spellName);
+    const segment = spell === undefined ? null : spellOf(spell);
+    const short = ruleShortName(name, skin?.tags ?? [], segment);
+    if (short === null) {
+      toast.info(m.audio_drop_target_refused_description({ name }));
       return;
     }
 
-    const target = event.altKey ? null : movedIndex(event.key, selectedIndex, rows.length);
-    if (target !== null) {
-      event.preventDefault();
-      selectAt(target, event.shiftKey);
-      return;
-    }
+    const audience = audienceSummary(row.rule.audio).line?.audience ?? "owner";
+    void editSituations(shortNameEdits(row.rule.path, audience, short));
+  }
 
-    if (row !== undefined && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
-      event.preventDefault();
-      const cells = lineCells(row);
-      const at = cells.indexOf(activeCell(row) ?? "short");
-      const next = cells[at + (event.key === "ArrowRight" ? 1 : -1)];
-      if (row.kind === "rule" && next !== undefined) {
-        setCellName(next);
-        return;
-      }
+  /** Runs a drop of `payload` on the row `key`. Returns `true` if the row took it. */
+  function handleDrop(key: string, payload: DragPayload): boolean {
+    const row = rows.find((each) => each.key === key);
+    const slot = row === undefined ? null : slotOf(row);
+    const action = slot === null ? null : dropAction(payload, slot);
+    if (row?.kind !== "rule" || action === null) return false;
 
-      const openKeys = new Set(rows.flatMap((each) => (each.open ? [each.key] : [])));
-      const step = treeStep(event.key, rows, selectedIndex, openKeys);
-      if (step?.kind === "expand") {
-        const stepped = rows.find((each) => each.key === step.key);
-        if (stepped !== undefined) fold(stepped, step.open);
-      }
-      if (step?.kind === "select") selectAt(step.index);
+    if (action.kind === "move") {
+      const moved = rows.find((each) => each.key === action.key);
+      if (moved?.kind === "rule") void moveRule(moved, action.index);
     }
+    if (action.kind === "target") targetRule(row, action.name);
+    return true;
+  }
+
+  /** Moves the rule of `row` to `index` of its situation, and selects it there. */
+  async function moveRule(row: RuleRow, index: number) {
+    const landed = await editObject({
+      kind: "moveItem",
+      entry: view.entry,
+      path: objectPath(row.rule.path),
+      to: index,
+    });
+    if (landed) setSelected(`r:${rulesPath(row.situation)}[${index}]`);
   }
 
   const subject: InspectorSubject | null =
@@ -447,11 +595,24 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
   function line(row: VoiceLineRow, index: number) {
     const lane = lanes[index];
     const playing = isPlaying(row, player.playing);
+    const slot = slotOf(row);
     const frame = {
       row,
       open: row.open,
       selected: row.key === selected || picks.picked.has(row.key),
       playing,
+      drops: slot === null ? undefined : ("row" as const),
+      onDragPress:
+        slot === null || slot.kind !== "rule"
+          ? undefined
+          : (event: ReactPointerEvent) =>
+              beginRowDrag(
+                event,
+                { kind: "row", key: row.key, place: slot.place },
+                listId,
+                lineLabel(row),
+              ),
+      onPlay: row.kind === "add" ? undefined : () => togglePlay(row),
       onSelect: (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) =>
         picks.pick(row.key, pickMode(event)),
       onExpand: (next: boolean) => fold(row, next),
@@ -561,6 +722,7 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
     <div
       data-ui="VoiceLinesView"
       className="flex flex-col rounded-md border border-surface-700/50 bg-surface-900"
+      onKeyDown={handleViewKeyDown}
     >
       <VoiceLinesHeader
         data={data}
@@ -576,6 +738,12 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
         choices={choices}
         inspecting={inspecting}
         onInspecting={setInspecting}
+        tools={
+          <>
+            <PreviewTransport />
+            <AudioGestureHint onOpen={() => setHelp(true)} />
+          </>
+        }
       />
       {shared && (
         <SharedNotice
@@ -641,8 +809,22 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
           </div>
         )}
       </div>
+      <RowDragGhost source={listId} />
+      <AudioKeysDialog open={help} onClose={() => setHelp(false)} scope={LINES_SCOPE} />
     </div>
   );
+}
+
+/** The height of a line in px at 100% zoom, which a page of the list counts. */
+const LINE_HEIGHT = 27;
+
+/** Returns the name that the type-ahead matches and the drag ghost shows for `row`. */
+function lineLabel(row: VoiceLineRow): string {
+  if (row.kind === "situation") return row.situation.name ?? row.situation.path;
+  if (row.kind === "rule")
+    return audienceSummary(row.rule.audio).line?.short ?? row.rule.name ?? "";
+
+  return "";
 }
 
 /** Returns `true` if `playing`, the key of what plays, is a line of `row` or its situation. */

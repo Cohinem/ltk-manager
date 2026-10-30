@@ -1,5 +1,5 @@
 import { PlayIcon, StopIcon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -11,8 +11,9 @@ import {
   RowGuides,
 } from "../../shared/components/PropertyRowParts";
 import { nameColumnCols, rowNameCols } from "../../shared/utils/propertyRows";
+import { SLOT_ATTRIBUTE } from "../state/rowDrag";
 import { childrenOf, type EventRow } from "../utils/eventTree";
-import { audioRowClasses } from "./audioRow";
+import { audioRowClasses, MIDDLE_BUTTON } from "./audioRow";
 import { fieldName } from "./FieldRows";
 
 /** Returns the DOM id of the row `key`, which the tree names as its active row. */
@@ -75,10 +76,22 @@ export interface RowFrameProps {
   readonly onHover: () => void;
   /** Opens the editor of the row on a double click. Absent, a double click expands the row. */
   readonly onEdit?: () => void;
+  /** Plays the row or stops it, which a middle click runs. Absent, a middle click does nothing. */
+  readonly onPlay?: () => void;
+  /** Starts a drag of the row from a press. Absent, the row does not drag. */
+  readonly onDragPress?: (event: ReactPointerEvent) => void;
+  /** What the row takes as a drop: another row, or a row or a file. Absent, it takes none. */
+  readonly drops?: "row" | "file";
+  /** `true` while the row's node is cut and waits for a paste. */
+  readonly cut?: boolean;
   readonly children: ReactNode;
 }
 
-/** One line of the tree, which selects on a click and expands or edits on a double click. */
+/**
+ * One line of the tree, which selects on a click, expands or edits on a double click and plays
+ * on a middle click. A row that drags or takes drops gets the handlers of "Keys and gestures" in
+ * docs/ux/AUDIO.md.
+ */
 export function RowFrame({
   row,
   open,
@@ -88,6 +101,10 @@ export function RowFrame({
   onExpand,
   onHover,
   onEdit,
+  onPlay,
+  onDragPress,
+  drops,
+  cut = false,
   children,
 }: RowFrameProps) {
   return (
@@ -98,11 +115,24 @@ export function RowFrame({
       aria-expanded={row.expandable ? open : undefined}
       aria-selected={selected}
       data-ui="EventTree:row"
-      className={twMerge(PROPERTY_ROW_CLASSES, audioRowClasses({ selected, playing }), "pl-1")}
+      {...{ [SLOT_ATTRIBUTE]: drops === undefined ? undefined : row.key }}
+      data-asset-drop={drops === "file" ? "" : undefined}
+      className={twMerge(PROPERTY_ROW_CLASSES, audioRowClasses({ selected, playing, cut }), "pl-1")}
       onClick={onSelect}
       onDoubleClick={() => {
         if (onEdit !== undefined) onEdit();
         else if (row.expandable) onExpand(!open);
+      }}
+      onPointerDown={(event) => {
+        /* A middle press scrolls the page in Chromium unless its default is dropped. */
+        if (event.button === MIDDLE_BUTTON && onPlay !== undefined) event.preventDefault();
+        onDragPress?.(event);
+      }}
+      onAuxClick={(event) => {
+        if (event.button !== MIDDLE_BUTTON || onPlay === undefined) return;
+
+        event.preventDefault();
+        onPlay();
       }}
       onPointerEnter={onHover}
     >

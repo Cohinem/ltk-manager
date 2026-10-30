@@ -2,15 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ObjectProperties } from "@/lib/tauri";
 
-import { playSolo } from "../player/solo";
 import type { ChannelVoice, SoundChannel } from "../player/soundPlayer";
-import {
-  mediaUrl,
-  PREVIEW_VOLUME,
-  useChannelState,
-  useSoundChannel,
-} from "../player/useSoundChannel";
+import { mediaUrl, useChannelState, useSoundChannel } from "../player/useSoundChannel";
 import { useMixDraftStore } from "../state/mixDrafts";
+import { usePreviewRepeat, usePreviewVolume } from "../state/previewTransport";
 import type { EventVoice } from "../utils/eventTree";
 import { voiceMix, withDrafts } from "../utils/voiceMix";
 import type { WaveformSubject } from "../utils/waveformSync";
@@ -40,10 +35,12 @@ export interface EventPlayer {
  * with the properties along its path.
  *
  * A press stops what the press before it started. The row stops playing when every media ends,
- * and everything stops when the tree unmounts.
+ * or when it stops while Loop is on, and everything stops when the tree unmounts. The channel
+ * plays at the preview volume.
  */
 export function useEventPlayer(): EventPlayer {
-  const channel = useSoundChannel(PREVIEW_VOLUME);
+  const channel = useSoundChannel(usePreviewVolume());
+  const repeat = usePreviewRepeat();
   const state = useChannelState(channel);
   const [playing = null] = state.playing;
   const [played, setPlayed] = useState<WaveformSubject | null>(null);
@@ -52,11 +49,13 @@ export function useEventPlayer(): EventPlayer {
   const play = useCallback(
     (key: string, voices: readonly EventVoice[]) => {
       const sent = voices.map(channelVoice);
-      playSolo(channel, key, sent);
+      channel.stopAll();
+      channel.resume();
+      channel.play(key, sent, repeat, 0);
 
       if (sent.length > 0) setPlayed({ key, voices: sent });
     },
-    [channel],
+    [channel, repeat],
   );
   const mix = useCallback(
     (properties: ReadonlyMap<number, ObjectProperties>) =>

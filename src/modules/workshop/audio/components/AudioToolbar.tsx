@@ -8,6 +8,7 @@ import { DocumentToolbar, useNarrowToolbar } from "@/modules/editor";
 
 import { KeyHint } from "../../bin/atlas/components/KeyHint";
 import type { BankDocument } from "../hooks/useBankDocument";
+import { shortcutOf } from "../utils/keymap";
 
 /** The element of the toolbar that the open panel's tools render into. */
 export const AudioToolsSlotContext = createContext<HTMLElement | null>(null);
@@ -21,6 +22,8 @@ interface AudioToolbarProps {
   readonly views: ReactNode;
   /** Receives the element that `AudioPanelTools` renders into. */
   readonly toolsRef: Ref<HTMLSpanElement>;
+  /** The Loop switch, the preview volume and the mark of the keys and gestures. */
+  readonly transport: ReactNode;
   /** The bank unit menu. Empty for a file that no unit can name. */
   readonly unit: ReactNode;
   /** The kebab of the file. */
@@ -30,11 +33,19 @@ interface AudioToolbarProps {
 /**
  * The one row of controls of the audio file document, in the toolbar row of its surface.
  *
- * From the left: the history, the view switch, the tools of the open panel, the bank unit menu
- * and the kebab. A panel adds its tools through `AudioPanelTools`, so its state stays in the
+ * From the left: the history, the view switch, the tools of the open panel, the transport, the
+ * bank unit menu and the kebab. A panel adds its tools through `AudioPanelTools`, so its state stays in the
  * panel. Per "The audio file document" in docs/ux/AUDIO.md.
  */
-export function AudioToolbar({ active, history, views, toolsRef, unit, menu }: AudioToolbarProps) {
+export function AudioToolbar({
+  active,
+  history,
+  views,
+  toolsRef,
+  transport,
+  unit,
+  menu,
+}: AudioToolbarProps) {
   return (
     <DocumentToolbar active={active}>
       <div
@@ -49,6 +60,7 @@ export function AudioToolbar({ active, history, views, toolsRef, unit, menu }: A
         )}
         {views}
         <span ref={toolsRef} className="contents" />
+        {transport}
         {unit}
         {menu}
       </div>
@@ -104,9 +116,9 @@ export function AudioPanelTools({
   );
 }
 
-const SAVE_KEY = "Ctrl+S";
-const UNDO_KEY = "Ctrl+Z";
-const REDO_KEY = "Ctrl+Shift+Z";
+const SAVE_KEY = shortcutOf("save") ?? "";
+const UNDO_KEY = shortcutOf("undo") ?? "";
+const REDO_KEY = shortcutOf("redo") ?? "";
 
 /**
  * Save, Undo and Redo of an event bank open for edits, each with its key in the tooltip.

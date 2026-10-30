@@ -7,6 +7,7 @@ import {
   duplicateEdit,
   type NodeTarget,
   outermost,
+  pasteEdit,
   propertyEdit,
   takesProperty,
   wrapEdit,
@@ -157,5 +158,30 @@ describe("propertyEdit", () => {
     const edit = propertyEdit([sound(5, 10), container], "loopCount", 5, 1, 3, new Map());
 
     expect(edit).toEqual({ kind: "property", object: 5, property: "loopCount", value: 3 });
+  });
+});
+
+describe("pasteEdit", () => {
+  it("moves each cut sound and container into the container, as one edit", () => {
+    expect(pasteEdit([sound(2, 20, [1, 20]), container], 50)).toEqual({
+      kind: "batch",
+      edits: [
+        { kind: "addChild", container: 50, child: 2 },
+        { kind: "addChild", container: 50, child: 10 },
+      ],
+    });
+  });
+
+  it("leaves out events, a node below another cut node, and the container itself", () => {
+    expect(pasteEdit([event, container, sound(2, 10, [1, 10])], 50)).toEqual({
+      kind: "addChild",
+      container: 50,
+      child: 10,
+    });
+    expect(pasteEdit([container], 10)).toBeNull();
+  });
+
+  it("refuses a container that a cut node holds above it", () => {
+    expect(pasteEdit([container], 11, [1, 10])).toBeNull();
   });
 });
