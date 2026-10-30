@@ -29,22 +29,26 @@ export function draggedValue(
   return snapped(start + moved / divisor, range, range.step / divisor);
 }
 
+/** A coarse key, with Ctrl held, moves this many steps. */
+const COARSE_FACTOR = 10;
+
 /** A Page key moves this fraction of the range. */
 const PAGE_FRACTION = 0.1;
 
 /**
  * Returns the value that `key` turns a knob at `value` to.
  *
- * The arrows move one step, or a tenth of one if `fine`. Page Up and Page Down move a tenth of the
- * range, and Home and End go to the bounds. Returns null for any other key.
+ * The arrows move one step, a tenth of one if `fine`, or ten if `coarse`. Page Up and Page Down
+ * move a tenth of the range, and Home and End go to the bounds. Returns null for any other key.
  */
 export function keyedValue(
   value: number,
   key: string,
   range: KnobRange,
   fine: boolean,
+  coarse = false,
 ): number | null {
-  const step = fine ? range.step / FINE_DIVISOR : range.step;
+  const step = fine ? range.step / FINE_DIVISOR : coarse ? range.step * COARSE_FACTOR : range.step;
   const page = (range.max - range.min) * PAGE_FRACTION;
 
   switch (key) {

@@ -42,6 +42,11 @@ describe("keyedValue", () => {
     expect(keyedValue(40, "ArrowDown", LPF, true)).toBe(39.9);
   });
 
+  it("steps ten times as far with Ctrl held", () => {
+    expect(keyedValue(40, "ArrowUp", LPF, false, true)).toBe(50);
+    expect(keyedValue(95, "ArrowUp", LPF, false, true)).toBe(100);
+  });
+
   it("takes a tenth of the range on Page Up and Page Down", () => {
     expect(keyedValue(40, "PageUp", LPF, false)).toBe(50);
     expect(keyedValue(-48, "PageDown", VOLUME, false)).toBe(-59);

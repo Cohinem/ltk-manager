@@ -70,7 +70,8 @@ const RADIUS = 9;
  * A bounded number turned by a vertical drag, the wheel or the keys, as a dial.
  *
  * It follows the slider contract: `role="slider"`, the arrows step, the Page keys move a tenth of
- * the range, Home and End go to the bounds and Shift steps finer. Alt+click, Delete and Backspace
+ * the range, Home and End go to the bounds, Shift steps finer and Ctrl ten steps at a time. The
+ * wheel steps only while the pointer is over the knob. Alt+click, Delete and Backspace
  * reset to `defaultValue`. A double click, F2 or Enter opens a value entry under the knob,
  * prefilled and selected: Enter and a press outside commit, Escape cancels. A typed value outside
  * the range is kept. Each drag, key run, wheel run, reset and entry calls `onCommit` once, so one
@@ -167,7 +168,13 @@ export function Knob({
       return;
     }
 
-    const next = keyedValue(value, event.key, range, event.shiftKey);
+    const next = keyedValue(
+      value,
+      event.key,
+      range,
+      event.shiftKey,
+      event.ctrlKey || event.metaKey,
+    );
     if (next === null) return;
 
     event.preventDefault();
