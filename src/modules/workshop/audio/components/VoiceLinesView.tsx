@@ -306,10 +306,7 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
       duplicate: editable
         ? () =>
             void editSituations(
-              duplicateEdits(
-                row.situation,
-                rules.map(({ rule, index }) => ({ rule, index })),
-              ),
+              situationsOf(rules).flatMap(([situation, group]) => duplicateEdits(situation, group)),
             )
         : null,
       remove: editable
@@ -544,7 +541,11 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
                     ),
                   short: (short) =>
                     editSituations(
-                      shortNameEdits(row.rule.path, shown?.audience ?? "owner", short),
+                      shortNameEdits(
+                        row.rule.path,
+                        audienceSummary(row.rule.audio).line?.audience ?? "owner",
+                        short,
+                      ),
                     ),
                 }
               : null
@@ -650,4 +651,15 @@ function isPlaying(row: VoiceLineRow, playing: string | null): boolean {
   if (row.kind === "situation") return playing === `s:${row.situation.path}`;
   if (row.kind === "rule") return playing.startsWith(`${row.rule.path}:`);
   return false;
+}
+
+/** Returns `rules` grouped by their situation, in the order of their first rule. */
+function situationsOf(rules: readonly RuleRow[]): [VoiceSituation, RuleRow[]][] {
+  const groups = new Map<string, [VoiceSituation, RuleRow[]]>();
+  for (const rule of rules) {
+    const group = groups.get(rule.situation.path) ?? [rule.situation, []];
+    group[1].push(rule);
+    groups.set(rule.situation.path, group);
+  }
+  return [...groups.values()];
 }

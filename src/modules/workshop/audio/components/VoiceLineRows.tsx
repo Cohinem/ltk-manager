@@ -1,5 +1,5 @@
 import { PlusIcon, WarningIcon } from "@phosphor-icons/react";
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 
 import { Knob, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -410,10 +410,18 @@ export function LineEntry({
 }: LineEntryProps) {
   const [text, setText] = useState(initial);
   const [refused, setRefused] = useState(false);
+  /* The blur that follows an Enter or an Escape must not commit a second time. */
+  const settled = useRef(false);
+
+  function close() {
+    settled.current = true;
+    onClose();
+  }
 
   function commit() {
+    if (settled.current) return;
     if (text === initial) {
-      onClose();
+      close();
       return;
     }
     const pattern = numeric === "integer" ? INTEGER : NUMBER;
@@ -422,9 +430,14 @@ export function LineEntry({
       return;
     }
 
+    settled.current = true;
     void onCommit(text).then((applied) => {
-      if (applied) onClose();
-      else setRefused(true);
+      if (applied) {
+        onClose();
+        return;
+      }
+      settled.current = false;
+      setRefused(true);
     });
   }
 
@@ -436,7 +449,7 @@ export function LineEntry({
     }
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      close();
     }
   }
 
