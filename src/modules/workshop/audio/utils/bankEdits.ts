@@ -1,5 +1,7 @@
 import type { BankNode, NodeProperty } from "@/lib/tauri";
 
+import { NO_NAMES, nodeMatches, type NodeNames } from "./nodeNames";
+
 /** The value that an object without the property plays with, as the backend removes it. */
 export const PROPERTY_DEFAULTS: Readonly<Record<NodeProperty, number>> = {
   volume: 0,
@@ -66,7 +68,8 @@ export function parseId(text: string): number | null {
 }
 
 /**
- * Returns the nodes whose decimal ID or kind name contains `query`, leaving out `exclude`.
+ * Returns the nodes whose decimal ID, derived name in `names` or kind name contains `query`,
+ * leaving out `exclude`.
  *
  * Returns the first fifty, in the order of `nodes`.
  */
@@ -74,6 +77,7 @@ export function matchingNodes(
   nodes: readonly BankNode[],
   query: string,
   exclude: ReadonlySet<number>,
+  names: NodeNames = NO_NAMES,
 ): BankNode[] {
   const needle = query.trim().replace(/^#/, "").toLowerCase();
   const matches: BankNode[] = [];
@@ -82,7 +86,7 @@ export function matchingNodes(
 
     const found =
       needle === "" ||
-      String(node.id).includes(needle) ||
+      nodeMatches(names, node.id, needle) ||
       node.kindName.toLowerCase().includes(needle);
     if (!found) continue;
 

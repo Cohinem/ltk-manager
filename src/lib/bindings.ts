@@ -318,6 +318,11 @@ export type AudioBankState = {
 	edited: number[],
 	/**  The source IDs of the media that a replacement changed. */
 	replaced: number[],
+	/**
+	 *  The media that the document imported from a file, by source ID. The list keeps a media
+	 *  that an undo removed, so a redo names it again.
+	 */
+	imported: ImportedMedia[],
 };
 
 /**  The kind of Wwise file. */
@@ -354,6 +359,11 @@ export type AudioEvent = {
 	contexts: EventContext[],
 	/**  The `events[i]` row of the first ranked bank unit that lists the event's name. */
 	listed: SiteRow | null,
+	/**
+	 *  The sounds and containers that the event's Play actions reach, each once, in the order
+	 *  that the event tree draws them. The frontend derives their names from it.
+	 */
+	nodes: ReachedNode[],
 };
 
 /**  The events of an opened event bank, and the files of its bank set. */
@@ -3717,6 +3727,14 @@ export type ImportGitRepoArgs = {
 	branch?: string | null,
 };
 
+/**  A media that an open event bank imported, and the file name of the WEM file it came from. */
+export type ImportedMedia = {
+	/**  The source ID of the media. */
+	source: number,
+	/**  The file name of the WEM file, with its extension. */
+	file: string,
+};
+
 /**  The record the manager keeps for one game that went wrong. */
 export type Incident = Incident_Serialize | Incident_Deserialize;
 
@@ -5966,6 +5984,21 @@ export type NodeProperty =
 /**  `Loop` of a sound: the number of plays, where zero loops forever. */
 "loopCount";
 
+/**  What a node does in a play tree: a sound, or a container of one kind. */
+export type NodeRole = 
+/**  A sound, kind 2. */
+"sound" | 
+/**  A random container, kind 5, whose pick is random. */
+"random" | 
+/**  A random container, kind 5, that plays its playlist in order. */
+"sequence" | 
+/**  A switch container, kind 6. */
+"switch" | 
+/**  A layer container, kind 9. */
+"layer" | 
+/**  An actor-mixer, kind 7. */
+"mixer";
+
 /**  One notice that concerns the running build, and has not expired. */
 export type Notice = {
 	/**  Stable across edits, which is what a dismissal is kept by. */
@@ -7228,6 +7261,16 @@ export type PublishingContext = {
 	canPublishWithoutReview: boolean,
 	/**  The categories a new post may take. */
 	categories: string[],
+};
+
+/**  A sound or container that a Play action of an event reaches. */
+export type ReachedNode = {
+	/**  The object ID of the node. */
+	id: number,
+	/**  The kind of the node. */
+	role: NodeRole,
+	/**  The source ID of a sound's media, and `None` for a container. */
+	source: number | null,
 };
 
 /**  Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md. */

@@ -277,6 +277,15 @@ pub enum ContainerKind {
     Switch,
 }
 
+/// The sound that an import added, and the source ID of the media that it plays.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct ImportedSound {
+    /// The object ID of the new sound.
+    pub sound: u32,
+    /// The source ID of the new media.
+    pub source: u32,
+}
+
 /// What an edit checks its references against, and where it reads a media file from.
 #[derive(Clone, Copy)]
 pub struct EditContext<'a> {
@@ -680,7 +689,7 @@ impl EventBankDocument {
     }
 
     /// Adds the WEM `wem` as a new media of the set and a new sound under `parent` that plays it,
-    /// as one undo step, and returns the ID of the sound.
+    /// as one undo step, and returns the IDs of the sound and the media.
     ///
     /// The media goes into the media bank of the set if the template sound plays from a bank,
     /// and into the package if it streams. The file is read through the files of `context` the
@@ -695,13 +704,17 @@ impl EventBankDocument {
         parent: &NodeParent,
         wem: Vec<u8>,
         context: &EditContext<'_>,
-    ) -> Result<u32, BankEditError> {
-        let mut sound = 0;
+    ) -> Result<ImportedSound, BankEditError> {
+        let mut imported = ImportedSound::default();
         self.transact(context, |tx| {
-            sound = structure::import(tx, parent, wem)?.0;
+            let (sound, source) = structure::import(tx, parent, wem)?;
+            imported = ImportedSound {
+                sound: sound.0,
+                source: source.0,
+            };
             Ok(())
         })?;
-        Ok(sound)
+        Ok(imported)
     }
 
     /// Reverts the last edit. Returns `false` if there is no edit to revert.

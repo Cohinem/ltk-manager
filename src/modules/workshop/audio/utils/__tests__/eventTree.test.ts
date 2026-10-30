@@ -34,6 +34,7 @@ function event(id: number, name: string | null): AudioEvent {
     status: { kind: "resolved" },
     contexts: [],
     listed: null,
+    nodes: [],
   };
 }
 

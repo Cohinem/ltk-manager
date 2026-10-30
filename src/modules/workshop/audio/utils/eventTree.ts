@@ -10,6 +10,7 @@ import type {
 } from "@/lib/tauri";
 
 import { type NodeField, nodeFields } from "./nodeFields";
+import { NO_NAMES, nodeMatches, type NodeNames } from "./nodeNames";
 
 /** The fetch state of one event's tree, as the rows read it. */
 export type TreeState =
@@ -236,14 +237,25 @@ export function eventLabel(event: { readonly id: number; readonly name: string |
   return event.name ?? objectLabel(event.id);
 }
 
-/** Returns the events whose name or decimal ID contains `filter`, without regard to case. */
-export function filterEvents(events: readonly AudioEvent[], filter: string): AudioEvent[] {
-  const needle = filter.trim().toLowerCase();
+/**
+ * Returns the events whose name or decimal ID contains `filter`, without regard to case, and the
+ * events that reach a node whose derived name in `names` or decimal ID contains it.
+ *
+ * A leading `#` of the filter is dropped.
+ */
+export function filterEvents(
+  events: readonly AudioEvent[],
+  filter: string,
+  names: NodeNames = NO_NAMES,
+): AudioEvent[] {
+  const needle = filter.trim().replace(/^#/, "").toLowerCase();
   if (needle === "") return [...events];
 
   return events.filter(
     (event) =>
-      String(event.id).includes(needle) || (event.name?.toLowerCase().includes(needle) ?? false),
+      String(event.id).includes(needle) ||
+      (event.name?.toLowerCase().includes(needle) ?? false) ||
+      event.nodes.some((node) => nodeMatches(names, node.id, needle)),
   );
 }
 

@@ -117,7 +117,7 @@ pub(super) fn add_node(
 }
 
 /// Adds the WEM `wem` as a new media and a new sound that plays it under `parent`, and returns the
-/// sound's ID.
+/// sound's ID and the media's source ID.
 ///
 /// The media goes into the file that the template sound's stream type reads: the media bank for a
 /// sound of a bank's media index, the package for a streamed one. If the set has no such file,
@@ -126,10 +126,11 @@ pub(super) fn import(
     tx: &mut Tx<'_, '_>,
     parent: &NodeParent,
     wem: Vec<u8>,
-) -> Result<ObjectId, BankEditError> {
+) -> Result<(ObjectId, SourceId), BankEditError> {
     check_wem(&wem)?;
 
-    place(tx, parent, move |tx, parent, near| {
+    let mut added = SourceId(0);
+    let sound = place(tx, parent, |tx, parent, near| {
         let template = template_sound(tx, near)?;
         let streamed = template.source.stream_type != StreamType::DATA_BANK;
         let (file, stream) = media_file(tx, streamed)?;
@@ -137,11 +138,13 @@ pub(super) fn import(
         let source = tx.fresh_source(&wem);
         let size = u32::try_from(wem.len()).unwrap_or(u32::MAX);
         tx.add_media(file, source, wem);
+        added = source;
 
         let mut sound = new_sound(tx, &template, parent, source, stream, size);
         sound.source.plugin_id = VORBIS_PLUGIN;
         Ok(Typed::Sound(sound))
-    })
+    })?;
+    Ok((sound, added))
 }
 
 /// Adds a copy of `object` beside it, with every object below it of the opened bank copied.

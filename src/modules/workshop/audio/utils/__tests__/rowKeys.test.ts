@@ -13,6 +13,7 @@ const EVENT: AudioEvent = {
   status: { kind: "resolved" },
   contexts: [],
   listed: null,
+  nodes: [],
 };
 
 const EVENT_ROW: EventRow = {

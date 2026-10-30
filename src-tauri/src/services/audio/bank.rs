@@ -43,6 +43,8 @@ struct OpenBank {
     path: String,
     /// The bin documents that the bank's edits change, and the steps of the history.
     linked: LinkedBins,
+    /// The file name of each WEM file that an import added, by the source ID of its media.
+    imported: HashMap<u32, String>,
 }
 
 /// Every open event bank, by id.
@@ -125,9 +127,32 @@ pub struct AudioBankState {
     pub edited: Vec<u32>,
     /// The source IDs of the media that a replacement changed.
     pub replaced: Vec<u32>,
+    /// The media that the document imported from a file, by source ID. The list keeps a media
+    /// that an undo removed, so a redo names it again.
+    pub imported: Vec<ImportedMedia>,
+}
+
+/// A media that an open event bank imported, and the file name of the WEM file it came from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedMedia {
+    /// The source ID of the media.
+    pub source: u32,
+    /// The file name of the WEM file, with its extension.
+    pub file: String,
 }
 
 fn state_of(id: AudioBankId, open: &OpenBank) -> AudioBankState {
+    let mut imported: Vec<ImportedMedia> = open
+        .imported
+        .iter()
+        .map(|(&source, file)| ImportedMedia {
+            source,
+            file: file.clone(),
+        })
+        .collect();
+    imported.sort_unstable_by_key(|media| media.source);
+
     AudioBankState {
         id,
         revision: open.document.revision(),
@@ -137,6 +162,7 @@ fn state_of(id: AudioBankId, open: &OpenBank) -> AudioBankState {
         asset: open.asset.clone(),
         edited: open.document.edited().into_iter().map(|id| id.0).collect(),
         replaced: open.document.replaced(),
+        imported,
     }
 }
 
@@ -166,6 +192,7 @@ pub async fn audio_bank_open(
             sandbox,
             path,
             linked: LinkedBins::default(),
+            imported: HashMap::new(),
         };
         let state = state_of(id, &open);
         documents.open.lock().insert(id, Arc::new(Mutex::new(open)));
@@ -238,10 +265,21 @@ pub async fn audio_bank_import(
 ) -> IpcResult<AudioBankState> {
     off_thread(move || {
         let wem = fs::read(&file)?;
+        let mut imported = None;
         change(&app_handle, id, |document, context| {
-            document.import(&parent, wem, context)?;
+            imported = Some(document.import(&parent, wem, context)?);
             Ok(())
-        })
+        })?;
+
+        let open = app_handle.state::<AudioBankDocuments>().get(id)?;
+        let mut open = open.lock();
+        let name = Path::new(&file)
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned());
+        if let (Some(imported), Some(name)) = (imported, name) {
+            open.imported.insert(imported.source, name);
+        }
+        Ok(state_of(id, &open))
     })
     .await
 }

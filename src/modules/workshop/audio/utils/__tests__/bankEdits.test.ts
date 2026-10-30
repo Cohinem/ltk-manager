@@ -10,6 +10,7 @@ import {
   parseWeight,
   weightText,
 } from "../bankEdits";
+import { NO_NAMES } from "../nodeNames";
 
 describe("parseValue", () => {
   it("reads a decimal number", () => {
@@ -67,5 +68,11 @@ describe("matchingNodes", () => {
   it("keeps the nodes whose ID or kind contains the query, without the excluded IDs", () => {
     expect(matchingNodes(nodes, "0", new Set([300])).map((node) => node.id)).toEqual([100, 205]);
     expect(matchingNodes(nodes, "random", new Set()).map((node) => node.id)).toEqual([205]);
+  });
+
+  it("keeps the nodes whose derived name contains the query", () => {
+    const names = { ...NO_NAMES, nodes: new Map([[300, "Death3D_cast #2"]]) };
+
+    expect(matchingNodes(nodes, "death3d", new Set(), names).map((node) => node.id)).toEqual([300]);
   });
 });

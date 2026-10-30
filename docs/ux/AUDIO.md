@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                     |
 | ---------- | ------------------------------------------ |
+| 2026-10-30 | Add derived node names                     |
 | 2026-10-30 | Add new objects and selection              |
 | 2026-10-30 | Replace the document head with a toolbar   |
 | 2026-10-30 | Add the Voices view                        |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-29 | Add ability sound                          |
 | 2026-10-29 | Add bank units and contextual event names  |
 | 2026-10-29 | Add the waveform column                    |
-| 2026-10-29 | Add the waveform                           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -164,7 +164,8 @@ A layer file that changes on disk lists again, and its media play from the new b
 
 The Events view lists every event of the bank. A named event shows its name, and an event that
 no name hashes to shows `#` and its decimal ID. Named events come first, by name, then the
-unnamed ones, by ID. The filter keeps the events whose name or decimal ID contains its text.
+unnamed ones, by ID. The filter keeps the events whose name or decimal ID contains its text, and
+the events that reach a node whose name or ID contains it, per "Node names".
 
 The Events view has two views of the events. The Voices view is the default and lists the sounds
 that each event can play, per "Voices". The Voices and Structure switch in the toolbar changes to
@@ -201,6 +202,32 @@ view shows an info notice and lists the events with the names of the project alo
 when the build finishes. The index uses `events` as a name source only, never as a list of what
 a bank contains, because the skin loader reads neither `BankUnit.name` nor `BankUnit.events`.
 
+### Node names
+
+A shipped bank names its events and no other object. Every other object shows a name that is
+derived from the events of the bank and stored nowhere, then its decimal ID as a muted `#id`.
+
+| Object    | Name                                                       | Example                 |
+| --------- | ---------------------------------------------------------- | ----------------------- |
+| Play      | The stem of its event and `Play`                           | `Death3D_cast / Play`   |
+| Container | The stem of its events and its kind                        | `Death3D_cast / Random` |
+| Sound     | The stem of its events and its slot                        | `Death3D_cast #2`       |
+| Imported  | A sound whose media the document imported: the file's name | `my_cast`               |
+| Media     | The name of the first sound that plays it, in the pickers  | `Death3D_cast #2`       |
+
+The stem of an event is its name without the prefix of the verb, the category and the champion,
+such as `Play_sfx_Rumble_`. The stem of a node is the stem of the named events whose Play actions
+reach it, and for a node that several events reach, their longest common stem. A common stem that
+cuts a `_` segment short falls back to the last whole segment. A slot counts the sounds of the
+first named event that reaches the sound, in the order that the tree draws them, from 1. A node
+that no named event reaches, or whose events share no stem of three or more characters, shows its
+kind, such as `Random #500572873`. A switch group and a switch show their IDs.
+
+The names are a function of the events and their trees, so an edit renames only what it moves: a
+new or copied node takes its name from its new parent, and an undo returns the names before it. An
+imported file names its media until the document closes. Copy and Copy object ID copy the ID. The
+filter of the Events view and the filters of the pickers match a name and an ID.
+
 ### Bank set
 
 The media of an event live in other files. The bank set of an opened event bank is the bank
@@ -221,9 +248,9 @@ The Structure view draws these rows:
 | Row       | Shows                                                                        |
 | --------- | ---------------------------------------------------------------------------- |
 | Event     | The name, the action count and the status                                    |
-| Action    | The class name, such as Play, Stop or SetVolume, the ID of its target, delay |
-| Container | The kind and the ID, and the rule of what plays                              |
-| Sound     | The ID and the file name of the file that contains the media                 |
+| Action    | The name or class, such as Play, Stop or SetVolume, the ID, target, delay    |
+| Container | The name and the ID, and the rule of what plays                              |
+| Sound     | The name, the ID and the file name of the file that contains the media       |
 | Other     | The object kind and the ID, marked as not playing. Music objects say "music" |
 | Missing   | The ID of an object that no bank of the set contains                         |
 | Field     | One field of the action or the node above it: a name and the value           |
@@ -242,15 +269,15 @@ text in its authoring unit, and an ID shows the name of the object or the media 
 
 ```
 v > Play_sfx_Rumble_Death3D_cast              1 action
-    v > Play  #500572873
-          target            Random #500572873
+    v > Death3D_cast / Play #91827  Death3D_cast / Random #500572873
+          target            Death3D_cast / Random  #500572873
           delay             0 s
-        v > Random #500572873  one child plays, picked by weight
+        v > Death3D_cast / Random  #500572873  one child plays, picked by weight
               volume      (o)  -3.0 dB
               pitch       (o)  +120 cents
               lpf         (o)  0 %
               children         1 child
-            v > Sound #546979792  Rumble_Base_SFX_audio.wem
+            v > Death3D_cast #1  #546979792  Rumble_Base_SFX_audio.wem
                   source       Rumble_Base_SFX_audio.wem  #4047148852
                   loopCount    Plays once
                   weight  (o)  50  100% of picks
@@ -327,10 +354,10 @@ each voice under that action.
 
 ```
 v Play_sfx_Rumble_Death3D_cast                 1 action
-    Play +250 ms > Random by weight > 3 voices
-      > Rumble_Base_SFX_audio.bnk  #4047148852  (o) -3.0 dB  (o) +120 cents  (o) 50  50% of picks
-      > Rumble_Base_SFX_audio.bnk  #4047148853  (o)  0.0 dB  (o) 0 cents     (o) 30  30% of picks
-      > Rumble_Base_SFX_audio.bnk  #4047148854  (o)  0.0 dB  (o) 0 cents     (o) 20  20% of picks
+    Play +250 ms > Death3D_cast / Random by weight > 3 voices
+      > Death3D_cast #1  #546979792  Rumble_Base_SFX_audio.bnk  (o) -3.0 dB  (o) 50  50% of picks
+      > Death3D_cast #2  #546979793  Rumble_Base_SFX_audio.bnk  (o)  0.0 dB  (o) 30  30% of picks
+      > Death3D_cast #3  #546979794  Rumble_Base_SFX_audio.bnk  (o)  0.0 dB  (o) 20  20% of picks
       + Add variation
 ```
 
@@ -348,6 +375,8 @@ under it that is the only child of the container above it.
 | Layer container    | Layer                                                            |
 | Actor-mixer        | Actor-mixer                                                      |
 
+A container whose name is derived draws the stem before its name on the line, unless the container
+before it draws the same stem. The tooltip of each press gives the name and the ID of its object.
 No table names a switch group or a switch, so the line shows the ID of the default switch. The Play
 and each container on the line are a press. A press opens the field rows of the object under the
 line, as "What an edit changes" lists them: `target` and `delay` for the Play, and the properties of
@@ -358,7 +387,7 @@ a container. A second press closes them. A Play is retargeted through its `targe
 | Cell     | Shows                                                                       |
 | -------- | --------------------------------------------------------------------------- |
 | (play)   | The play button of the voice                                                |
-| Media    | The path prefix, the file name of the file that contains the media, the ID  |
+| Media    | The path prefix, the sound's name and ID, the file that contains the media  |
 | `volume` | The knob and the value in dB                                                |
 | `pitch`  | The knob and the value in cents                                             |
 | `weight` | The knob, the weight and its share, if the pick of the parent reads weights |
@@ -374,7 +403,7 @@ A random container lists its voices in playlist order, and every other container
 switch container lists the voices of its default switch, or of its first child if the default
 switch names no child. Its other children are listed under a fold row that counts their voices.
 
-A sound whose media is missing shows its source ID greyed and the Media missing status. An object
+A sound whose media is missing shows its name greyed and the Media missing status. An object
 that no bank contains, and an object that does not play, show the reason in place of the media.
 
 ### States
@@ -396,7 +425,8 @@ the same marks. A knob turns and an entry opens as "Knob" describes.
 - A double click or F2 on the media cell opens the media picker in place of the name. It lists the
   media of the bank set that the sound can read: the media of the banks for a sound of a bank's
   media index, and the media of the packages for a streamed sound. A prefetched sound takes no
-  pick. The text filters by source ID or file name, and a source ID that two files hold is listed
+  pick. A media shows its name, per "Node names", its source ID and the file that holds it. The
+  text filters by name, source ID or file name, and a source ID that two files hold is listed
   once, from the first. A highlighted media plays. Enter points the `source` of the sound at the
   highlighted media and plays it, and Escape closes the picker. Replacing the file of a media is
   not part of the picker.
@@ -466,7 +496,7 @@ bank list their fields read-only, and their entry does not open.
 
 | Field        | Wwise property                        | Shows                                           | Default |
 | ------------ | ------------------------------------- | ----------------------------------------------- | ------- |
-| `target`     | the object ID of a Play               | The title of the object, such as `Random #7`    |         |
+| `target`     | the object ID of a Play               | The name of the object, then `#` and the ID     |         |
 | `source`     | the source ID of a sound              | The file name of the media, then `#` and the ID |         |
 | `volume`     | `Volume`                              | dB, signed, one decimal                         | 0       |
 | `makeUpGain` | `MakeUpGain`                          | dB, signed, one decimal                         | 0       |
@@ -557,8 +587,8 @@ These are the edit keys of the Structure view. The edit keys of the Voices view 
 
 The add row of a container sits at the end of its `children` row, and opening it expands the
 container and the row. A double click on the count of the `children` row also opens it. The node
-picker of Existing lists the sounds and containers of the bank set by kind and ID, filtered as the
-text is typed. Enter adds the highlighted one and Escape closes the picker. A child row and the
+picker of Existing lists the sounds and containers of the bank set by name and ID, filtered by
+name, kind or ID as the text is typed. Enter adds the highlighted one and Escape closes the picker. A child row and the
 `children` row also show their action on hover: Remove from container, and Add child.
 
 ### New objects
