@@ -6,18 +6,18 @@ and of `ltk_wwise`.
 
 ## Changes
 
-| Date       | Change                                     |
-| ---------- | ------------------------------------------ |
-| 2026-10-30 | Replace media, follow units, use events    |
-| 2026-10-30 | Add derived node names                     |
-| 2026-10-30 | Add new objects and selection              |
-| 2026-10-30 | Replace the document head with a toolbar   |
-| 2026-10-30 | Add the Voices view                        |
-| 2026-10-30 | Edit fields as rows, add the knob          |
-| 2026-10-30 | Add event bank editing                     |
-| 2026-10-30 | Pick by playlist, default switch and delay |
-| 2026-10-29 | Add ability sound                          |
-| 2026-10-29 | Add bank units and contextual event names  |
+| Date       | Change                                        |
+| ---------- | --------------------------------------------- |
+| 2026-10-30 | Group voices under headers, add the inspector |
+| 2026-10-30 | Replace media, follow units, use events       |
+| 2026-10-30 | Add derived node names                        |
+| 2026-10-30 | Add new objects and selection                 |
+| 2026-10-30 | Replace the document head with a toolbar      |
+| 2026-10-30 | Add the Voices view                           |
+| 2026-10-30 | Edit fields as rows, add the knob             |
+| 2026-10-30 | Add event bank editing                        |
+| 2026-10-30 | Pick by playlist, default switch and delay    |
+| 2026-10-29 | Add ability sound                             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -342,32 +342,36 @@ object at the first rule that plays the event, and Show in bank unit, which open
 contains Show media, which opens the document of the file that contains the media, switches it to the
 Media view and selects the row of the source ID.
 
-In the Voices view, an event row takes the menu of an event, a chain line the menu of its action and
-a voice row the menu of its sound. An editable bank adds the actions of "New objects" to each menu.
-Every item of a menu shows its icon, and its key where it has one.
+In the Voices view, an event row takes the menu of an event, a header row the menu of its container,
+or of its action when the action plays a sound, and a voice row the menu of its sound. A header row
+also offers Show in inspector while the inspector is hidden. An editable bank adds the actions of
+"New objects" to each menu. Every item of a menu shows its icon, and its key where it has one.
 
 ## Voices
 
 The Voices view lists what an event plays rather than how Wwise holds it. A voice is one sound that
-an event can play. An expanded event lists one chain line for each Play action, then one row for
-each voice under that action.
+an event can play. An expanded event lists one group header for each container that holds voices,
+and one row for each voice under its header.
 
 ```
-v Play_sfx_Rumble_Death3D_cast                 1 action
-    Play +250 ms > Death3D_cast / Random by weight > 3 voices
-      > Death3D_cast #1  #546979792  Rumble_Base_SFX_audio.bnk  (o) -3.0 dB  (o) 50  50% of picks
-      > Death3D_cast #2  #546979793  Rumble_Base_SFX_audio.bnk  (o)  0.0 dB  (o) 30  30% of picks
-      > Death3D_cast #3  #546979794  Rumble_Base_SFX_audio.bnk  (o)  0.0 dB  (o) 20  20% of picks
-      + Add variation
+v Play_sfx_Rumble_BasicAttack_OnHit   1 action  +250 ms
+|-- v Switch default · Random  4 voices          (o) 0.0 dB  (o) 0 cents
+|   |-- > OnHit #1  #3125548773  audio.bnk       (o) 0.0 dB  (o) 0 cents
+|   |-- > OnHit #2  #3125548774  audio.bnk       (o) 0.0 dB  (o) 0 cents
+|   |-- + Add
+|-- > Switch #2 · Random  4 voices
+|-- + Add
 ```
 
-### Chain line
+### Group headers
 
-The chain line names the path from a Play action to its voices: the action and its delay, the
-containers of the run, and the voice count. The run is the node of the action, then each container
-under it that is the only child of the container above it.
+A header row has the shape and the value columns of a voice row: the caret, the play button, the
+name, the voice count, and the knobs of its container. A header's knobs edit the container's own
+fields. A header shows `volume` and `pitch`, the `weight` if the pick of its parent reads weights,
+and `delay`, LPF and HPF if they are not 0. A press on the play button plays what the container
+plays.
 
-| Container          | Name on the line                                                 |
+| Container          | Name on the header                                               |
 | ------------------ | ---------------------------------------------------------------- |
 | Random container   | Random by weight if its pick reads the weights, else Random      |
 | Sequence container | Sequence                                                         |
@@ -375,36 +379,75 @@ under it that is the only child of the container above it.
 | Layer container    | Layer                                                            |
 | Actor-mixer        | Actor-mixer                                                      |
 
-A container whose name is derived draws the stem before its name on the line, unless the container
-before it draws the same stem. The tooltip of each press gives the name and the ID of its object.
-No table names a switch group or a switch, so the line shows the ID of the default switch. The Play
-and each container on the line are a press. A press opens the field rows of the object under the
-line, as "What an edit changes" lists them: `target` and `delay` for the Play, and the properties of
-a container. A second press closes them. A Play is retargeted through its `target` field.
+- A container whose derived name has a stem draws the stem before its name, unless the header
+  above it, or else the event, has the same stem. The tooltip of the name gives the name and the
+  ID of the container.
+- A container whose only child is a container of another kind than switch has no header. Its name
+  is drawn muted before the name of the header below it, such as `Actor-mixer / Random`. Its fields
+  are edited in the inspector.
+- A switch container has one header per switch state. The default state comes first and is open.
+  Each other child is a state of its own, named `Switch #n` after its place among the children,
+  and starts folded. No table names a switch, so a state is named by its place. A state of one
+  container names the state, then the container, such as `Switch default · Random`. A state of
+  sounds names the state alone, and its knobs are those of the switch.
+- The delay of the Play action of an event with one Play action is drawn on the event row, such
+  as `+250 ms`. An event with several Play actions has one header per action, named after its
+  target, with the delay of the action. The header of an action whose node gives one header is
+  that header.
+- A random container lists its children in playlist order, and every other container in file
+  order.
+- Left folds a header on its name cell and Right opens a folded one. A fold is kept while the
+  document is open.
+
+### Lanes
+
+The rows of the Voices view draw bracket lanes in place of plain guides. A lane runs from below a
+header's caret down the rows of the header, and on the last row it stops at the row's middle and
+turns toward the row. Nested headers draw nested lanes. The lane of the selected row's header
+takes the accent. While the pointer is over a row, the lane of its header lifts a rung from the
+header down to that row. The Structure view and the bin tree keep their plain guides.
 
 ### Voice rows
 
 | Cell     | Shows                                                                       |
 | -------- | --------------------------------------------------------------------------- |
 | (play)   | The play button of the voice                                                |
-| Media    | The path prefix, the sound's name and ID, the file that contains the media  |
+| Media    | The sound's name and ID, the file that contains the media                   |
 | `volume` | The knob and the value in dB                                                |
 | `pitch`  | The knob and the value in cents                                             |
 | `weight` | The knob, the weight and its share, if the pick of the parent reads weights |
 | `delay`  | The value in seconds, if it is not 0                                        |
 | LPF, HPF | A smaller knob and the value in %, if it is not 0                           |
 
-The cells of the voices of one chain line up. A column that one voice of the chain shows is drawn
-on every voice row of the chain, and it stays empty on a row without that value. A voice in a
-container below the run names its path from the last container of the run before the media, such
-as `Switch default / Random`.
-
-A random container lists its voices in playlist order, and every other container in file order. A
-switch container lists the voices of its default switch, or of its first child if the default
-switch names no child. Its other children are listed under a fold row that counts their voices.
+The cells of the headers and the voices of one event line up. A column that one row of the event
+shows is drawn on every header and voice row of the event, and it stays empty on a row without
+that value.
 
 A sound whose media is missing shows its name greyed and the Media missing status. An object
 that no bank contains, and an object that does not play, show the reason in place of the media.
+
+### Inspector
+
+The Inspector button of the toolbar shows a pane on the right of the Voices view. The pane is
+remembered per user. It lists every field of the selected row's objects as field rows, with the
+knobs, the value entry and the units of "Editing". The rows above stay editable in place, and the
+pane adds the fields that they hide.
+
+| Selected row  | The pane lists                                                                     |
+| ------------- | ---------------------------------------------------------------------------------- |
+| Voice         | The sound: `source` and its media, every property, and `weight` in a random parent |
+| Header        | The container, then each container that the header names muted, and its switch     |
+| Action header | The same, then the Play action: `target` and `delay`                               |
+| Event         | Each Play action, then the sound that the event row draws inline                   |
+
+- A container also lists its facts read-only: the playlist mode and the pick of a random
+  container, and the switch group and the default switch of a switch container.
+- The pane starts with the path from the Play action down to the row, as muted text that takes no
+  press. It is the one place that the Voices view writes a path.
+- With several voice and header rows picked, the pane lists the properties that every pick has,
+  with the values of the first. An edit applies to each pick as "Selection" describes.
+- Each field row is a tab stop. F2, Enter or a double click opens its entry, and the row takes
+  focus back when the entry closes. An edit in the pane replays as an edit of the selected row.
 
 ### States
 
@@ -420,8 +463,8 @@ The Voices view sends the edits of "Editing" to the same document, with the same
 the same marks. A knob turns and an entry opens as "Knob" describes.
 
 - When an edit of a cell of a voice row lands, the voice plays once at the volume of the player. An
-  edit of a field row of the chain line plays the event once. Playback applies no property of the
-  bank, so the replay plays the media as its file contains it.
+  edit of a header's cell plays the event once. Playback applies no property of the bank, so the
+  replay plays the media as its file contains it.
 - A double click or F2 on the media cell opens the media picker in place of the name. It lists the
   media of the bank set that the sound can read: the media of the banks for a sound of a bank's
   media index, and the media of the packages for a streamed sound. A prefetched sound takes no
@@ -430,35 +473,37 @@ the same marks. A knob turns and an entry opens as "Knob" describes.
   once, from the first. A highlighted media plays. Enter points the `source` of the sound at the
   highlighted media and plays it, and Escape closes the picker. Replacing the file of a media is
   not part of the picker.
-- A chain whose run ends in a container that takes a child has a `+ Add` row under its voices,
-  and an expanded event ends in its own. A press or Enter on one opens the menu of "New objects".
-- Delete deletes the picked voices from their parents, and Alt+Up and Alt+Down move the selected
-  voice in the playlist of a random parent. A weight is edited in its cell.
-- Every other change of the tree is made in the Structure view.
+- A header whose container takes a child has a `+ Add` row under its rows, and an expanded event
+  ends in its own. A press or Enter on one opens the menu of "New objects".
+- Delete deletes the picked voices and headers from their parents, and Alt+Up and Alt+Down move
+  the selected voice or header in the playlist of a random parent. A weight is edited in its cell.
+- A Play is retargeted through its `target` field in the inspector. Every other change of the tree
+  is made in the Structure view.
 
 ### Keyboard
 
 The list is one tab stop. Focus selects the first row if no row is selected.
 
-| Key                | Action                                                                              |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| Up, Down           | Move the selection one row                                                          |
-| Page Up, Page Down | Move the selection ten rows                                                         |
-| Home, End          | Select the first or the last row                                                    |
-| Left, Right        | Move between the cells of a voice row, or between the presses of a chain line       |
-| Left, Right        | On the first cell or press, and on another row, collapse or expand as in "Keyboard" |
-| Enter, F2          | Open the entry of the cell, or the media picker on the media cell                   |
-| Enter, F2          | Open the fields of a press, the entry of a field row, or the picker of the add row  |
-| Space              | Play the selected row, or the picked rows together                                  |
-| Shift+Up, Down     | Pick the range to the next row, per "Selection"                                     |
-| Ctrl+A             | Pick every drawn row                                                                |
-| Ctrl+Enter         | Open the add row of the chain or the event                                          |
-| Ctrl+D             | Duplicate the picked rows                                                           |
-| Delete             | Delete the picked rows from their parents                                           |
-| Alt+Up, Alt+Down   | Move the selected voice in the playlist of its random container                     |
-| Escape             | Stop what plays, or keep only the selected row picked                               |
-| Ctrl+C             | Copy the names of the picked events and the IDs of the others                       |
-| Shift+F10, Menu    | Open the context menu of the selected row                                           |
+| Key                | Action                                                                      |
+| ------------------ | --------------------------------------------------------------------------- |
+| Up, Down           | Move the selection one row, over headers and voices                         |
+| Page Up, Page Down | Move the selection ten rows                                                 |
+| Home, End          | Select the first or the last row                                            |
+| Left, Right        | Move between the cells of a voice or header row                             |
+| Right              | Open a folded header or event                                               |
+| Left               | On the first cell, fold an open header or event, or select the row's parent |
+| Enter, F2          | Open the entry of the cell, or the media picker on the media cell           |
+| Enter, F2          | Open the picker of the add row                                              |
+| Space              | Play the selected row, or the picked rows together                          |
+| Shift+Up, Down     | Pick the range to the next row, per "Selection"                             |
+| Ctrl+A             | Pick every drawn row                                                        |
+| Ctrl+Enter         | Open the add row of the nearest header that has one, or of the event        |
+| Ctrl+D             | Duplicate the picked rows                                                   |
+| Delete             | Delete the picked rows from their parents                                   |
+| Alt+Up, Alt+Down   | Move the selected voice or header in the playlist of its random container   |
+| Escape             | Stop what plays, or keep only the selected row picked                       |
+| Ctrl+C             | Copy the names of the picked events and the IDs of the others               |
+| Shift+F10, Menu    | Open the context menu of the selected row                                   |
 
 ## Editing
 
