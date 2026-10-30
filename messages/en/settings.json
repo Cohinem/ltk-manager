@@ -8,6 +8,7 @@
   "settings_about_open_log_action": "Open Log File",
   "settings_about_title": "About",
   "settings_about_version_label": "Version {version}",
+  "settings_audio_title": "Audio",
   "settings_backup_confirm_description": "The data location and the diagnostics identity stay. A path from the backup that does not exist on this machine is skipped.",
   "settings_backup_confirm_heading": "Restore {count} settings from the backup?",
   "settings_backup_confirm_title": "Restore settings",
@@ -235,5 +236,9 @@
   "settings_viewport_sound_volume_title": "Viewport volume",
   "settings_viewport_title": "Viewport",
   "settings_welcome_description": "To get started, please configure your League of Legends installation path below. You can use auto-detection or browse to the folder manually.",
-  "settings_welcome_title": "Welcome to LTK Manager!"
+  "settings_welcome_title": "Welcome to LTK Manager!",
+  "settings_wwise_console_description": "A .wav, .ogg or .flac converts to a Vorbis WEM through WwiseConsole.exe when it replaces media.",
+  "settings_wwise_console_dialog_title": "Select WwiseConsole.exe",
+  "settings_wwise_console_placeholder": "Not set",
+  "settings_wwise_console_title": "Wwise console"
 }

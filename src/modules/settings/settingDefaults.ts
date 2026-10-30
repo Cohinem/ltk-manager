@@ -1,5 +1,5 @@
 import { MONO_FACES, SANS_FACES } from "@/lib/fonts";
-import type { BuiltinModSettings, Settings } from "@/lib/tauri";
+import type { AudioSettings, BuiltinModSettings, Settings } from "@/lib/tauri";
 import type { AppearanceKey, LayoutSettingKey } from "@/stores";
 
 import { LTK_PRESET } from "./api";
@@ -17,6 +17,7 @@ export function settingValue(
   if (key.startsWith("layout.")) return layout[key.slice(7) as LayoutSettingKey];
   if (key.startsWith("builtinMods."))
     return settings.builtinMods[key.slice(12) as keyof BuiltinModSettings];
+  if (key.startsWith("audio.")) return settings.audio[key.slice(6) as keyof AudioSettings];
   return settings[key as keyof Settings];
 }
 

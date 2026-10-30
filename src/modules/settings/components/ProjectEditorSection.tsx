@@ -1,6 +1,6 @@
 import { TabsIcon } from "@phosphor-icons/react";
 
-import { Inline, SectionCard, Separator, Slider, Switch } from "@/components";
+import { Inline, PathField, SectionCard, Separator, Slider, Switch } from "@/components";
 import { m } from "@/i18n";
 import {
   useForwardLookingMeta,
@@ -16,6 +16,7 @@ import {
   useSetPreviewOnClick,
 } from "@/stores";
 
+import { useLoadedSettings, useUpdateSettings } from "../api";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
@@ -73,6 +74,7 @@ export function ProjectEditorSection() {
       </SettingRows>
 
       <ViewportGroup />
+      <AudioGroup />
     </SectionCard>
   );
 }
@@ -114,6 +116,37 @@ function ViewportGroup() {
             />
             <VolumeReading volume={volume} />
           </Inline>
+        }
+      />
+    </SettingGroup>
+  );
+}
+
+/** The tools that audio editing runs. */
+function AudioGroup() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
+  const setConsole = (wwiseConsolePath: string | null) =>
+    update({ audio: { ...settings.audio, wwiseConsolePath } });
+
+  return (
+    <SettingGroup id="workshop.audio" title={m.settings_audio_title()}>
+      <SettingRow
+        kind="action"
+        layout="stacked"
+        setting="audio.wwiseConsolePath"
+        description={m.settings_wwise_console_description()}
+        control={
+          <PathField
+            pick="file"
+            filters={[{ name: m.settings_wwise_console_title(), extensions: ["exe"] }]}
+            aria-label={m.settings_wwise_console_title()}
+            value={settings.audio.wwiseConsolePath ?? ""}
+            onSelect={setConsole}
+            onClear={() => setConsole(null)}
+            placeholder={m.settings_wwise_console_placeholder()}
+            dialogTitle={m.settings_wwise_console_dialog_title()}
+          />
         }
       />
     </SettingGroup>

@@ -102,6 +102,11 @@ const INDEX = [
     key: "layout.previewSoundVolume",
     title: m.settings_viewport_sound_volume_title(),
   },
+  {
+    id: "workshop.wwiseConsolePath",
+    key: "audio.wwiseConsolePath",
+    title: m.settings_wwise_console_title(),
+  },
 
   {
     id: "builtins.defaultWardSkins",
