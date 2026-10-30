@@ -64,6 +64,10 @@ interface FieldValueProps {
   readonly onEntering: (open: boolean) => void;
   /** The entry or the knob was left, after any commit. */
   readonly onLeave: () => void;
+  /** An edit of the field landed. */
+  readonly onCommitted?: () => void;
+  /** Draws the knob a size smaller. */
+  readonly compact?: boolean;
 }
 
 /**
@@ -73,7 +77,15 @@ interface FieldValueProps {
  * place of the text. A knob sends one edit at the end of each gesture. Per "Editing" in
  * docs/ux/AUDIO.md.
  */
-export function FieldValue({ field, editing, entering, onEntering, onLeave }: FieldValueProps) {
+export function FieldValue({
+  field,
+  editing,
+  entering,
+  onEntering,
+  onLeave,
+  onCommitted,
+  compact = false,
+}: FieldValueProps) {
   const [draft, setDraft] = useState<{ value: number; over: number } | null>(null);
   if (draft !== null && draft.over !== field.value) setDraft(null);
 
@@ -97,7 +109,8 @@ export function FieldValue({ field, editing, entering, onEntering, onLeave }: Fi
     }
 
     return editing.edit(fieldEdit(field, value)).then((applied) => {
-      if (!applied) setDraft(null);
+      if (applied) onCommitted?.();
+      else setDraft(null);
       return applied;
     });
   }
@@ -145,6 +158,7 @@ export function FieldValue({ field, editing, entering, onEntering, onLeave }: Fi
             entryOpen={editable && entering}
             onEntryOpenChange={openChange}
             disabled={!editable}
+            className={compact ? "size-4" : undefined}
             aria-label={m.audio_edit_knob_label({ field: label })}
             onChange={turn}
             onCommit={send}
@@ -225,15 +239,14 @@ function FieldText({ display }: { display: FieldDisplay }) {
 }
 
 interface FieldNameCellProps {
-  /** A field row or a children row. */
-  readonly row: EventRow;
+  /** The name of the field, or null for a row without one. */
+  readonly name: string | null;
   /** The guides and the caret before the name. */
   readonly lead: ReactNode;
 }
 
 /** The name cell of a field row or a children row: the guides, the caret and the name. */
-export function FieldNameCell({ row, lead }: FieldNameCellProps) {
-  const name = fieldName(row);
+export function FieldNameCell({ name, lead }: FieldNameCellProps) {
   if (name === null) return null;
 
   return (

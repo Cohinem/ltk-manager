@@ -38,7 +38,8 @@ export function RowContent({ row }: { row: EventRow }) {
   }
 }
 
-function EventContent({ event }: { event: AudioEvent }) {
+/** The name, the action count, the status and the contexts of an event row. */
+export function EventContent({ event }: { event: AudioEvent }) {
   return (
     <>
       <span
@@ -226,7 +227,7 @@ function NodeContent({ node }: { node: EventNode }) {
 }
 
 /** A status label with its glyph. DS-TEXT. */
-function Status({ tone, children }: { tone: "warning" | "danger"; children: ReactNode }) {
+export function Status({ tone, children }: { tone: "warning" | "danger"; children: ReactNode }) {
   const Icon = tone === "warning" ? WarningIcon : XCircleIcon;
   return (
     <span

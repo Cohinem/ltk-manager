@@ -31,8 +31,17 @@ export function nameColumns(rows: readonly EventRow[]): number {
   return nameColumnCols(widths);
 }
 
+/** The parts of a tree row that the frame, the guides and the caret read. */
+export interface TreeRowShape {
+  readonly key: string;
+  readonly kind: string;
+  readonly depth: number;
+  readonly parent: string | null;
+  readonly expandable: boolean;
+}
+
 /** Returns the key of the row that holds each guide level of `row`, outermost first. */
-export function guideBlocks(row: EventRow, byKey: ReadonlyMap<string, EventRow>): string[] {
+export function guideBlocks(row: TreeRowShape, byKey: ReadonlyMap<string, TreeRowShape>): string[] {
   const blocks: string[] = [];
   let parent = row.parent;
   while (parent !== null) {
@@ -52,7 +61,7 @@ export function isPlayable(row: EventRow): boolean {
 }
 
 export interface RowFrameProps {
-  readonly row: EventRow;
+  readonly row: TreeRowShape;
   readonly open: boolean;
   readonly selected: boolean;
   readonly playing: boolean;
@@ -98,7 +107,7 @@ export function RowFrame({
 }
 
 interface LeadProps {
-  readonly row: EventRow;
+  readonly row: TreeRowShape;
   readonly blocks: readonly string[];
   readonly open: boolean;
   readonly expandable: boolean;
@@ -126,19 +135,20 @@ export function Lead({ row, blocks, open, expandable, onExpand }: LeadProps) {
 }
 
 interface PlayButtonProps {
-  readonly row: EventRow;
+  /** `true` if a press on the row plays something. `false` leaves the slot empty. */
+  readonly playable: boolean;
   readonly playing: boolean;
   readonly onToggle: () => void;
 }
 
 /** The play button of a row that plays, and an empty slot of its width on any other row. */
-export function PlayButton({ row, playing, onToggle }: PlayButtonProps) {
+export function PlayButton({ playable, playing, onToggle }: PlayButtonProps) {
   const label = playing ? m.audio_event_stop_action() : m.audio_event_play_action();
   const Glyph = playing ? StopIcon : PlayIcon;
 
   return (
     <span className="flex w-5 shrink-0 justify-center">
-      {isPlayable(row) && (
+      {playable && (
         <IconButton
           size="row"
           tabIndex={-1}

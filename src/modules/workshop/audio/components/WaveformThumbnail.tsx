@@ -8,6 +8,7 @@ import { eventThumbnailQuery, thumbnailQuery } from "../api/waveform";
 import { mediaUrl } from "../player/useSoundChannel";
 import type { EventRow } from "../utils/eventTree";
 import { thumbnailSource } from "../utils/thumbnailSource";
+import { voiceLine, type VoiceRow } from "../utils/voices";
 
 /** The bar height that a silent bin draws, so a quiet stretch still reads as a line. */
 const MIN_BAR = 0.08;
@@ -44,6 +45,28 @@ export function EventRowThumbnail({ asset, version, row, playing }: EventRowThum
     return <MediaThumbnail url={mediaUrl(source.media)} playing={playing} />;
   }
   return <EventThumbnail asset={asset} version={version} event={source.id} playing={playing} />;
+}
+
+interface VoiceRowThumbnailProps {
+  readonly asset: AssetRef;
+  readonly version: number;
+  readonly row: VoiceRow;
+  readonly playing: boolean;
+}
+
+/** The waveform column of one row of the Voices view: its voice, or the first media of its event. */
+export function VoiceRowThumbnail({ asset, version, row, playing }: VoiceRowThumbnailProps) {
+  const line = voiceLine(row);
+  const node = line?.voice.node;
+  if (node?.kind === "sound" && node.media !== null) {
+    return <MediaThumbnail url={mediaUrl(node.media)} playing={playing} />;
+  }
+  if (row.kind === "event" && row.event.mediaCount > 0) {
+    return (
+      <EventThumbnail asset={asset} version={version} event={row.event.id} playing={playing} />
+    );
+  }
+  return <ThumbnailBars bars={null} playing={false} />;
 }
 
 interface EventThumbnailProps {

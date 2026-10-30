@@ -14,8 +14,8 @@ import type { MediaPlayer } from "../hooks/useMediaPlayer";
 import { useWaveformColors } from "../hooks/useWaveformColors";
 import type { SoundChannel } from "../player/soundPlayer";
 import { mediaUrl, useChannelState } from "../player/useSoundChannel";
-import type { EventRow } from "../utils/eventTree";
 import { formatDuration } from "../utils/mediaRows";
+import type { WaveformSelection } from "../utils/viewRows";
 import {
   createWaveformSync,
   seekKeyTime,
@@ -92,18 +92,16 @@ export function MediaWaveform({ player, rows, selected }: MediaWaveformProps) {
 
 interface EventWaveformProps {
   readonly player: EventPlayer;
-  readonly rows: readonly EventRow[];
-  readonly selected: string | null;
+  /** The selected row, if it draws a sound with media. */
+  readonly selection: WaveformSelection | null;
 }
 
 /** The waveform of the event tree: the first media of the last press, or the selected sound. */
-export function EventWaveform({ player, rows, selected }: EventWaveformProps) {
-  const row = rows.find((each) => each.key === selected);
-  const media = row?.kind === "node" && row.node.kind === "sound" ? row.node.media : null;
+export function EventWaveform({ player, selection }: EventWaveformProps) {
   const subject = shownSubject(
     player.played,
     player.playing,
-    row !== undefined && media !== null ? { key: row.key, urls: [mediaUrl(media)] } : null,
+    selection === null ? null : { key: selection.key, urls: [mediaUrl(selection.media)] },
   );
 
   return <Waveform channel={player.channel} subject={subject} />;

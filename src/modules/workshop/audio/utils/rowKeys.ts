@@ -1,5 +1,3 @@
-import type { EventRow } from "./eventTree";
-
 /** The number of rows that PageUp and PageDown move the selection by. */
 export const PAGE_ROWS = 10;
 
@@ -24,6 +22,13 @@ export function movedIndex(key: string, index: number, count: number): number | 
   return Math.max(0, Math.min(count - 1, target));
 }
 
+/** The parts of a tree row that `treeStep` reads. */
+export interface TreeStepRow {
+  readonly key: string;
+  readonly parent: string | null;
+  readonly expandable: boolean;
+}
+
 /** What an ArrowRight or an ArrowLeft does to the selected row of the event tree. */
 export type TreeStep =
   | { readonly kind: "expand"; readonly key: string; readonly open: boolean }
@@ -38,7 +43,7 @@ export type TreeStep =
  */
 export function treeStep(
   key: string,
-  rows: readonly EventRow[],
+  rows: readonly TreeStepRow[],
   index: number,
   expanded: ReadonlySet<string>,
 ): TreeStep | null {

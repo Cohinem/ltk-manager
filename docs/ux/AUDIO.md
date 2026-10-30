@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                     |
 | ---------- | ------------------------------------------ |
+| 2026-10-30 | Add the Voices view                        |
 | 2026-10-30 | Edit fields as rows, add the knob          |
 | 2026-10-30 | Add event bank editing                     |
 | 2026-10-30 | Pick by playlist, default switch and delay |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-29 | Add the waveform                           |
 | 2026-10-29 | Add VFX sound                              |
 | 2026-10-29 | Add viewport sound                         |
-| 2026-10-29 | Add the event tree                         |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -145,6 +145,12 @@ The Events tab lists every event of the bank. A named event shows its name, and 
 no name hashes to shows `#` and its decimal ID. Named events come first, by name, then the
 unnamed ones, by ID. The filter keeps the events whose name or decimal ID contains its text.
 
+The tab has two views of the events. The Voices view is the default and lists the sounds that each
+event can play, per "Voices". The Structure toggle in the tab's toolbar switches to the Structure
+view, which lists the full tree of each event, per "Rows". Both views keep the same expanded
+events, the same selection and the same player. The names, the bank set, "What plays" and the row
+actions apply to both views.
+
 ### Names
 
 An event takes its name from the first of:
@@ -188,6 +194,8 @@ units name, a file that no layer and no game archive contains is listed in a war
 A project layer's copy of a file comes before the game's, as the client reads them.
 
 ### Rows
+
+The Structure view draws these rows:
 
 | Row       | Shows                                                                        |
 | --------- | ---------------------------------------------------------------------------- |
@@ -260,7 +268,8 @@ to play and show no play button. Every media plays at the volume of the media ta
 
 ### Keyboard
 
-The tree is one tab stop. Focus selects the first row if no row is selected.
+The tree of the Structure view is one tab stop. Focus selects the first row if no row is
+selected. The keys of the Voices view are in "Voices".
 
 | Key                | Action                                                         |
 | ------------------ | -------------------------------------------------------------- |
@@ -283,12 +292,123 @@ object at the first rule that plays the event, and Show in bank unit, which open
 contains Show media, which opens the document of the file that contains the media, switches it to the
 Media tab and selects the row of the source ID.
 
+In the Voices view, an event row takes the menu of an event, a chain line the menu of its action and
+a voice row the menu of its sound.
+
+## Voices
+
+The Voices view lists what an event plays rather than how Wwise holds it. A voice is one sound that
+an event can play. An expanded event lists one chain line for each Play action, then one row for
+each voice under that action.
+
+```
+v Play_sfx_Rumble_Death3D_cast                 1 action
+    Play +250 ms > Random by weight > 3 voices
+      > Rumble_Base_SFX_audio.bnk  #4047148852  (o) -3.0 dB  (o) +120 cents  (o) 50  50% of picks
+      > Rumble_Base_SFX_audio.bnk  #4047148853  (o)  0.0 dB  (o) 0 cents     (o) 30  30% of picks
+      > Rumble_Base_SFX_audio.bnk  #4047148854  (o)  0.0 dB  (o) 0 cents     (o) 20  20% of picks
+      + Add variation
+```
+
+### Chain line
+
+The chain line names the path from a Play action to its voices: the action and its delay, the
+containers of the run, and the voice count. The run is the node of the action, then each container
+under it that is the only child of the container above it.
+
+| Container          | Name on the line                                                 |
+| ------------------ | ---------------------------------------------------------------- |
+| Random container   | Random by weight if its pick reads the weights, else Random      |
+| Sequence container | Sequence                                                         |
+| Switch container   | Switch and the ID of its default switch, or Switch (first child) |
+| Layer container    | Layer                                                            |
+| Actor-mixer        | Actor-mixer                                                      |
+
+No table names a switch group or a switch, so the line shows the ID of the default switch. The Play
+and each container on the line are a press. A press opens the field rows of the object under the
+line, as "What an edit changes" lists them: `target` and `delay` for the Play, and the properties of
+a container. A second press closes them. A Play is retargeted through its `target` field.
+
+### Voice rows
+
+| Cell     | Shows                                                                       |
+| -------- | --------------------------------------------------------------------------- |
+| (play)   | The play button of the voice                                                |
+| Media    | The path prefix, the file name of the file that contains the media, the ID  |
+| `volume` | The knob and the value in dB                                                |
+| `pitch`  | The knob and the value in cents                                             |
+| `weight` | The knob, the weight and its share, if the pick of the parent reads weights |
+| `delay`  | The value in seconds, if it is not 0                                        |
+| LPF, HPF | A smaller knob and the value in %, if it is not 0                           |
+
+The cells of the voices of one chain line up. A column that one voice of the chain shows is drawn
+on every voice row of the chain, and it stays empty on a row without that value. A voice in a
+container below the run names its path from the last container of the run before the media, such
+as `Switch default / Random`.
+
+A random container lists its voices in playlist order, and every other container in file order. A
+switch container lists the voices of its default switch, or of its first child if the default
+switch names no child. Its other children are listed under a fold row that counts their voices.
+
+A sound whose media is missing shows its source ID greyed and the Media missing status. An object
+that no bank contains, and an object that does not play, show the reason in place of the media.
+
+### States
+
+- An event that plays one sound without a container draws the cells of the sound on its own row,
+  and the row does not expand. The row reads the event's tree when it scrolls into view.
+- An event whose actions are all of another class than Play lists one row, No voices, with a Show
+  structure press that switches to the Structure view.
+- The game sandbox takes no edit. The knobs are disabled, and no picker opens.
+
+### Edits
+
+The Voices view sends the edits of "Editing" to the same document, with the same undo history and
+the same marks. A knob turns and an entry opens as "Knob" describes.
+
+- When an edit of a cell of a voice row lands, the voice plays once at the volume of the player. An
+  edit of a field row of the chain line plays the event once. Playback applies no property of the
+  bank, so the replay plays the media as its file contains it.
+- A double click or F2 on the media cell opens the media picker in place of the name. It lists the
+  media of the bank set that the sound can read: the media of the banks for a sound of a bank's
+  media index, and the media of the packages for a streamed sound. A prefetched sound takes no
+  pick. The text filters by source ID or file name, and a source ID that two files hold is listed
+  once, from the first. A highlighted media plays. Enter points the `source` of the sound at the
+  highlighted media and plays it, and Escape closes the picker. Replacing the file of a media is
+  not part of the picker.
+- A chain whose run ends in a random container or an actor-mixer has an Add variation row under its
+  voices. A press or Enter on it opens the child picker of that container.
+- Delete removes the selected voice from its parent container, and Alt+Up and Alt+Down move it in
+  the playlist of a random parent. A weight is edited in its cell.
+- Every other change of the tree is made in the Structure view.
+
+### Keyboard
+
+The list is one tab stop. Focus selects the first row if no row is selected.
+
+| Key                | Action                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| Up, Down           | Move the selection one row                                                          |
+| Page Up, Page Down | Move the selection ten rows                                                         |
+| Home, End          | Select the first or the last row                                                    |
+| Left, Right        | Move between the cells of a voice row, or between the presses of a chain line       |
+| Left, Right        | On the first cell or press, and on another row, collapse or expand as in "Keyboard" |
+| Enter, F2          | Open the entry of the cell, or the media picker on the media cell                   |
+| Enter, F2          | Open the fields of a press, the entry of a field row, or the picker of the add row  |
+| Space              | Play the selected row                                                               |
+| Delete             | Remove the selected voice from its container                                        |
+| Alt+Up, Alt+Down   | Move the selected voice in the playlist of its random container                     |
+| Escape             | Stop what plays                                                                     |
+| Ctrl+C             | Copy the name of an event, or the ID of an action or a sound                        |
+| Shift+F10, Menu    | Open the context menu of the selected row                                           |
+
 ## Editing
 
 Inside a project, an event bank opens as a document that takes edits. The tab takes the unsaved
 dot, `Ctrl+S` saves it, and `Ctrl+Z`, `Ctrl+Shift+Z` and `Ctrl+Y` step its history. The game
 sandbox takes no edit. Every read of the tree applies the unsaved edits, so a press plays the
-edited bank before a save.
+edited bank before a save. Both views of the Events tab edit the one document. The rows and keys
+below are those of the Structure view, and "Voices" lists those of the Voices view.
 
 Each edit decodes one object, changes it and encodes it at the bank's version, so every other
 object keeps its bytes. Only the objects of the opened bank take edits. An object of another bank
@@ -384,6 +504,8 @@ text holds no number stays open and marked on Enter, and a press outside drops i
 
 ### Keyboard
 
+These are the edit keys of the Structure view. The edit keys of the Voices view are in "Voices".
+
 | Key              | Action                                                                  |
 | ---------------- | ----------------------------------------------------------------------- |
 | F2               | Open the value entry of a field row, or the child picker of `children`  |
@@ -451,8 +573,8 @@ The waveform is one tab stop, a slider of the playhead.
 
 Each row of the media table and of the event tree ends in a small waveform of its media. A row
 of the event tree draws the first media that a press on it plays, with the first playlist item
-that has a weight in each random container. An event row reads its event first. A row that plays
-no media draws none.
+that has a weight in each random container. An event row reads its event first. A voice row of the
+Voices view draws its own media. A row that plays no media draws none.
 
 - A row decodes when it scrolls into view, three rows at a time. A row that leaves the view
   before its turn does not decode.

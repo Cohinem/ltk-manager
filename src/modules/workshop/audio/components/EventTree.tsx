@@ -33,13 +33,14 @@ import { AUDIO_LIST_GROUP } from "./audioRow";
 import {
   EditedMark,
   guideBlocks,
+  isPlayable,
   Lead,
   nameColumns,
   PlayButton,
   RowFrame,
   rowId,
 } from "./EventRowParts";
-import { ChildrenValue, FieldNameCell, FieldValue, NodePicker } from "./FieldRows";
+import { ChildrenValue, FieldNameCell, fieldName, FieldValue, NodePicker } from "./FieldRows";
 import { RowContent } from "./RowContent";
 
 interface EventTreeProps {
@@ -261,7 +262,7 @@ export function EventTree({
           {...frame}
           onEdit={editing !== null && row.field.editable ? () => enter(true) : undefined}
         >
-          <FieldNameCell row={row} lead={<Lead {...frame} expandable={false} />} />
+          <FieldNameCell name={fieldName(row)} lead={<Lead {...frame} expandable={false} />} />
           <FieldValue
             field={row.field}
             editing={editing}
@@ -278,7 +279,7 @@ export function EventTree({
       const picking = editing !== null && adding !== null && adding === row.parent;
       return (
         <RowFrame {...frame}>
-          <FieldNameCell row={row} lead={<Lead {...frame} expandable />} />
+          <FieldNameCell name={fieldName(row)} lead={<Lead {...frame} expandable />} />
           {!picking && (
             <ChildrenValue
               count={row.count}
@@ -308,7 +309,7 @@ export function EventTree({
       <RowFrame {...frame}>
         <Lead {...frame} expandable={row.expandable} />
         <PlayButton
-          row={row}
+          playable={isPlayable(row)}
           playing={frame.playing}
           onToggle={() => {
             onSelect(row.key);

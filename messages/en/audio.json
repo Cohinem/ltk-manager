@@ -206,6 +206,44 @@
   "audio_viewport_volume_reading": "{percent}%",
   "audio_viewport_volume_reset_action": "Reset the volume",
   "audio_viewport_volume_slider_label": "Volume",
+  "audio_voices_add_action": "Add variation",
+  "audio_voices_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} voice",
+        "countPlural=other": "{count} voices"
+      }
+    }
+  ],
+  "audio_voices_delay_label": "+{ms} ms",
+  "audio_voices_empty": "No voices",
+  "audio_voices_layer_label": "Layer",
+  "audio_voices_media_empty": "No media matches",
+  "audio_voices_media_label": "Media to play",
+  "audio_voices_media_option": "{name} #{id}",
+  "audio_voices_mixer_label": "Actor-mixer",
+  "audio_voices_others_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} voice on other switches",
+        "countPlural=other": "{count} voices on other switches"
+      }
+    }
+  ],
+  "audio_voices_random_label": "Random",
+  "audio_voices_random_weighted_label": "Random by weight",
+  "audio_voices_sequence_label": "Sequence",
+  "audio_voices_show_structure_action": "Show structure",
+  "audio_voices_structure_action": "Structure",
+  "audio_voices_switch_default_label": "Switch default",
+  "audio_voices_switch_first_label": "Switch (first child)",
+  "audio_voices_switch_label": "Switch (default #{id})",
+  "audio_voices_switch_other_label": "Switch other",
+  "audio_voices_tree_label": "Voices of the events of the bank",
   "audio_waveform_empty": "No media selected",
   "audio_waveform_failed_empty": "The waveform cannot be read",
   "audio_waveform_label": "Playhead",
