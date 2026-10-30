@@ -45,6 +45,7 @@ export * from "./ListEditor";
 export * from "./LoadingState";
 export * from "./MarkdownView";
 export * from "./Menu";
+export * from "./Menubar";
 export * from "./MultiSelect";
 export * from "./NumberField";
 export * from "./Overline";
