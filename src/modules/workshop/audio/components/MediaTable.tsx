@@ -1,4 +1,10 @@
-import { PlayIcon, StopIcon } from "@phosphor-icons/react";
+import {
+  DownloadSimpleIcon,
+  FileArrowDownIcon,
+  HashIcon,
+  PlayIcon,
+  StopIcon,
+} from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type KeyboardEvent,
@@ -363,6 +369,9 @@ function unplayableReason(row: MediaRow, failed: boolean): string | null {
   return null;
 }
 
+/** The key that copies the source ID of the selected row. */
+const COPY_KEY = "Ctrl+C";
+
 /** The actions of one row: its two saves and the copy of its source ID. */
 function MediaContextMenu({ row, actions }: { row: MediaRow; actions: MediaActions }) {
   const decodable = row.playback.kind === "playable";
@@ -370,15 +379,24 @@ function MediaContextMenu({ row, actions }: { row: MediaRow; actions: MediaActio
   return (
     <ContextMenu.Content>
       <ContextMenu.Item
+        icon={<DownloadSimpleIcon />}
         disabled={!decodable || actions.busy}
         onClick={() => actions.saveDecoded(row)}
       >
         {m.audio_save_decoded_action({ extension: decodedExtension(row) })}
       </ContextMenu.Item>
-      <ContextMenu.Item disabled={actions.busy} onClick={() => actions.saveOriginal(row)}>
+      <ContextMenu.Item
+        icon={<FileArrowDownIcon />}
+        disabled={actions.busy}
+        onClick={() => actions.saveOriginal(row)}
+      >
         {m.audio_save_original_action()}
       </ContextMenu.Item>
-      <ContextMenu.Item onClick={() => actions.copySource(row)}>
+      <ContextMenu.Item
+        icon={<HashIcon />}
+        shortcut={COPY_KEY}
+        onClick={() => actions.copySource(row)}
+      >
         {m.audio_copy_source_action()}
       </ContextMenu.Item>
     </ContextMenu.Content>
