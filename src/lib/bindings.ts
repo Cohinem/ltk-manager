@@ -2776,10 +2776,17 @@ export type FieldSource =
  *  What one fix run did to a file, as against how much of it.
  * 
  *  The counts beside this say how much a rule changed. This says whether the
- *  file survived, which is what an archive edit has to know before it can state
- *  the repair as a chunk write.
+ *  file was written, removed or left unchanged, which is what an archive edit
+ *  has to know before it can state the repair as a chunk write. A file written
+ *  beside the file of a finding counts no finding and is still written.
  */
-export type FileChange = "written" | "removed";
+export type FileChange = 
+/**  The run wrote the file. */
+"written" | 
+/**  The run deleted the file. */
+"removed" | 
+/**  The run read the file and wrote nothing over it. */
+"unchanged";
 
 /**  What one fix run did to one file. */
 export type FileOutcome = {

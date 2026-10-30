@@ -4,6 +4,7 @@
 
 | Date       | Change                                                      |
 | ---------- | ----------------------------------------------------------- |
+| 2026-10-30 | A base skin with another skin's audio only is repairable    |
 | 2026-10-29 | A finding offers an alternative repair on a separate press  |
 | 2026-10-12 | A missing linked object is a rule, in place of the badge    |
 | 2026-10-06 | A page's own actions follow the items in the status bar     |
@@ -13,7 +14,6 @@
 | 2026-09-03 | An archive repair reads the archive where it lies           |
 | 2026-09-02 | A press about one mod opens the panel on that mod           |
 | 2026-09-02 | A pick no longer withholds the panel from a press           |
-| 2026-09-02 | The library is checked by hand, over all of it or a pick    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -690,6 +690,16 @@ event bank to version 145 with `Bank::upgrade`, and removal stays its fix. The c
 offered only where a dry run reads back and passes the client's check, and it is the only repair
 of a bank that a bank unit asks for and the game does not contain. It stays experimental until the
 upgrade check of the in-game audio checks (#954) passes.
+
+### A skinhack of audio only
+
+`bin/skinhack` has a fix if every hit of the finding is audio: a bank unit or a tag of another
+skin in the base skin. The fix removes them, so a mod with no other finding reads `repairable`,
+and the launch ask offers Repair before the patcher's scan turns the overlay off. A mesh hit or a
+`ChampionSkinName` hit has no fix, and the mod reads `broken`. The repair is a fix and not an
+alternative, because the game ships the base skin's audio that it leaves. Under the rule of a
+mod that Repair reaches, the drawer draws a note that says what Repair removes. Read "The skinhack
+rule" in [PROJECT_PROBLEMS.md](PROJECT_PROBLEMS.md#the-skinhack-rule) for what it writes.
 
 ## Launching with something broken
 

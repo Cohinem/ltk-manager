@@ -346,13 +346,13 @@ impl<'a> FixRun<'a> {
 
     /// Record a file the rule read and left alone.
     pub fn skipped(&mut self, layer: &str, path: &str, skipped: u32) {
-        self.record(layer, path, 0, skipped, FileChange::Written);
+        self.record(layer, path, 0, skipped, FileChange::Unchanged);
     }
 
     /// Record problems at one file that a write to a different file repaired.
     /// The file itself is unchanged.
     pub fn repaired(&mut self, layer: &str, path: &str, applied: u32) {
-        self.record(layer, path, applied, 0, FileChange::Written);
+        self.record(layer, path, applied, 0, FileChange::Unchanged);
     }
 
     /// Record every one of `problems` as skipped, for a rule that derives no repair for them.
@@ -478,9 +478,10 @@ impl<'a> FixRun<'a> {
             outcome.applied += applied;
             outcome.skipped += skipped;
             // A removal is the last thing that can happen to a file, so it is
-            // what the row says however it was reached.
-            if change == FileChange::Removed {
-                outcome.change = FileChange::Removed;
+            // what the row says however it was reached. A write outranks a
+            // file that was only read.
+            if change == FileChange::Removed || outcome.change == FileChange::Unchanged {
+                outcome.change = change;
             }
             return;
         }
@@ -871,15 +872,20 @@ pub struct FileOutcome {
 /// What one fix run did to a file, as against how much of it.
 ///
 /// The counts beside this say how much a rule changed. This says whether the
-/// file survived, which is what an archive edit has to know before it can state
-/// the repair as a chunk write.
+/// file was written, removed or left unchanged, which is what an archive edit
+/// has to know before it can state the repair as a chunk write. A file written
+/// beside the file of a finding counts no finding and is still written.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum FileChange {
+    /// The run wrote the file.
     #[default]
     Written,
+    /// The run deleted the file.
     Removed,
+    /// The run read the file and wrote nothing over it.
+    Unchanged,
 }
 
 /// What stopped a fix.
