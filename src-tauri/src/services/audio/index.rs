@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use fs_err as fs;
-use ltk_manager_audio::{read_game, AudioIndex, BinAudio, GameFile};
+use ltk_manager_audio::{read_game, AudioIndex, BinAudio, GameFile, SoundField};
 use ltk_manager_base::budget::{files_at_once, Budget};
 use ltk_manager_base::game_build::GameBuild;
 use ltk_manager_base::utils::fs::atomic_write;
@@ -217,6 +217,37 @@ pub(crate) fn project_audio_index(project: &str) -> AudioIndex {
         }
     }
     builder.build()
+}
+
+/// Returns the sound fields of the bins of `project`'s layers, by the chunk path of each bin.
+///
+/// A bin that does not read is skipped and logged.
+pub(crate) fn project_sound_fields(project: &str) -> Vec<(String, Vec<SoundField>)> {
+    let bins = layer_bins(project).unwrap_or_else(|e| {
+        tracing::warn!(
+            project,
+            "Failed to list the bins of the project's layers: {e}"
+        );
+        Vec::new()
+    });
+
+    bins.into_iter()
+        .filter_map(|bin| {
+            let audio = fs::read(&bin.path)
+                .map_err(|e| e.to_string())
+                .and_then(|bytes| BinAudio::read(&bytes).map_err(|e| e.to_string()));
+            match audio {
+                Ok(audio) if !audio.sound_fields.is_empty() => {
+                    Some((chunk_path(&bin.file).to_owned(), audio.sound_fields))
+                }
+                Ok(_) => None,
+                Err(e) => {
+                    tracing::debug!(file = %bin.file, "Skipped a bin of the sound fields: {e}");
+                    None
+                }
+            }
+        })
+        .collect()
 }
 
 /// Returns the chunk path of the layer file `file`: its path below the archive directory.

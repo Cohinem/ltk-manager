@@ -193,6 +193,8 @@ export type AppErrorResponse =
 { code: "UNTRUSTED_DOMAIN"; domain: string } | 
 /**  A call to RuneForge failed. The variant says which and carries what the dialog renders. */
 { code: "RUNEFORGE"; error: RuneforgeError } | 
+/**  A file gives no WEM for a media replacement. The variant says why. */
+{ code: "AUDIO_CONVERT"; error: AudioConvertError } | 
 /**
  *  Something GitHub publishes could not be read. The kind says which
  *  remedy applies, and the feed says what was being read.
@@ -314,6 +316,8 @@ export type AudioBankState = {
 	asset: AssetRef,
 	/**  The IDs of the objects whose bytes differ from the bank as it was opened, in file order. */
 	edited: number[],
+	/**  The source IDs of the media that a replacement changed. */
+	replaced: number[],
 };
 
 /**  The kind of Wwise file. */
@@ -324,6 +328,15 @@ export type AudioContainer =
 "bank" | 
 /**  One WEM media file (`.wem`). */
 "media";
+
+/**  Why a file gives no WEM for a replacement. */
+export type AudioConvertError = 
+/**  The file needs the Wwise console, and the settings name none. */
+{ kind: "noConsole"; extension: string } | 
+/**  The file is neither a WEM nor of a format that the Wwise console converts. */
+{ kind: "format"; extension: string } | 
+/**  The Wwise console ran and wrote no Vorbis WEM. `detail` is its output. */
+{ kind: "failed"; detail: string };
 
 /**  One event of an event bank, without its tree. */
 export type AudioEvent = {
@@ -402,6 +415,15 @@ export type AudioInfo = {
 	failure: string | null,
 };
 
+/**  The tools that audio editing runs, none by default. */
+export type AudioSettings = {
+	/**
+	 *  `WwiseConsole.exe` of a Wwise install, which converts a `.wav`, `.ogg` or `.flac` into a
+	 *  Vorbis WEM. Default: none, and a replacement then takes a `.wem` only.
+	 */
+	wwiseConsolePath?: string | null,
+};
+
 /**  A saved author profile that can be reused across workshop projects. */
 export type AuthorProfile = {
 	id: string,
@@ -439,6 +461,8 @@ export type BankEdit =
 { kind: "newEvent"; name: string } | 
 /**  Creates the event `name` with a copy of every action of `event` and of what they play. */
 { kind: "copyEvent"; event: number; name: string } | 
+/**  Gives the event `event` the ID of `name`, with its actions. */
+{ kind: "renameEvent"; event: number; name: string } | 
 /**  Adds `node` under `parent`. */
 { kind: "addNode"; parent: NodeParent; node: NewNode } | 
 /**
@@ -1308,6 +1332,8 @@ export type Config_Deserialize = {
 	keepIncidents?: number,
 	/**  Which built-in mods the overlay injects above every other mod. */
 	builtinMods?: BuiltinModSettings,
+	/**  The tools that audio editing runs. */
+	audio?: AudioSettings,
 };
 
 /**
@@ -1422,6 +1448,8 @@ export type Config_Serialize = {
 	keepIncidents: number,
 	/**  Which built-in mods the overlay injects above every other mod. */
 	builtinMods: BuiltinModSettings,
+	/**  The tools that audio editing runs. */
+	audio: AudioSettings,
 };
 
 /**  The account of the stored token. It holds nothing secret, so `settings.json` keeps it. */
@@ -5185,6 +5213,18 @@ export type MediaLocation = {
 	container: MediaContainer,
 };
 
+/**  A media of the bank set, the WEM that replaces it, and the sounds that play it. */
+export type MediaReplacement = {
+	/**  The game path of the file that holds the media. */
+	path: string,
+	/**  The media as the file holds it now. */
+	before: MediaRow,
+	/**  The WEM that replaces it. */
+	after: MediaRow,
+	/**  The sounds of the bank set that play the media, those of the opened bank first. */
+	sounds: ReplacedSound[],
+};
+
 /**  One media of a package, a media bank or a WEM. */
 export type MediaRow = {
 	/**  The source ID of the media, which is 0 for a WEM file. */
@@ -7384,6 +7424,20 @@ export type RenderState = {
 	depthTest: boolean,
 };
 
+/**  A sound that plays a replaced media, and the `in_memory_size` that the replacement writes. */
+export type ReplacedSound = {
+	/**  The object ID of the sound. */
+	id: number,
+	/**  Where the media of the sound is stored. */
+	stream: SoundStream,
+	/**  `true` if the sound is in the opened bank, which the replacement rewrites. */
+	opened: boolean,
+	/**  The `in_memory_size` of the sound now. */
+	size: number,
+	/**  The `in_memory_size` after the replacement. */
+	newSize: number,
+};
+
 /**
  *  How an undo or a redo moved the rows of a tree, so a reader's expanded rows follow them.
  * 
@@ -8640,6 +8694,18 @@ export type SoundStream =
 "streaming" | 
 /**  A stream type that `ltk_wwise` does not name. */
 "other";
+
+/**  A sound field of a bin that an event name can be set in, as a row that a bin edit addresses. */
+export type SoundTarget = {
+	/**  The row of the field. */
+	row: SiteRow,
+	/**  The hash path of the struct that holds the field (ADR-0027). */
+	holder: string,
+	/**  The field hash, as `0x` and eight hex digits. */
+	field: string,
+	/**  The event name of the field. Empty if the field is missing or empty. */
+	value: string,
+};
 
 /**  The install's named spells for one character, without a search result cap. */
 export type SpellCatalog = {

@@ -4,13 +4,16 @@
 //! The `sound` form of the `ltk-asset` protocol reads through [`decoded_sound`].
 
 mod bank;
+mod convert;
 mod events;
 mod index;
+mod linked;
 mod media;
 mod references;
 mod sounds;
 
 pub use bank::*;
+pub use convert::AudioConvertError;
 pub use events::*;
 pub use index::AudioIndexState;
 pub use media::*;

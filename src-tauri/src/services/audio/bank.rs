@@ -10,18 +10,20 @@ use fs_err as fs;
 use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    AudioFile, BankEdit, BankNode, EditContext, EventBankDocument, NodeParent, OpenedBank,
-    OpenedFile,
+    sound_targets, AudioFile, AudioIndex, BankEdit, BankNode, EditContext, EventBankDocument,
+    MediaReplacement, NodeParent, ObjectId, OpenedBank, OpenedFile, SoundCache, SoundTarget,
 };
 use ltk_manager_base::utils::fs::atomic_write;
-use ltk_manager_bin::bin_document::BASE_LAYER;
+use ltk_manager_bin::bin_document::{BinDocuments, HistoryStep, BASE_LAYER};
 use ltk_manager_bin::sandbox::{SandboxRef, SandboxState};
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
+use super::convert::wem_of;
 use super::events::{bank_path, with_edit_context, with_event_bank, BankSource};
-use super::index::game_audio_index;
+use super::index::{game_audio_index, project_audio_index, project_sound_fields};
+use super::linked::{follow_events, save_bins, set_sound_field, step_bins, LinkedBins, Step};
 use super::references::with_site_names;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::shared::{archive_of, off_thread};
@@ -39,6 +41,8 @@ struct OpenBank {
     sandbox: SandboxRef,
     /// The game path of the bank, which its bank units name it by.
     path: String,
+    /// The bin documents that the bank's edits change, and the steps of the history.
+    linked: LinkedBins,
 }
 
 /// Every open event bank, by id.
@@ -119,17 +123,20 @@ pub struct AudioBankState {
     pub asset: AssetRef,
     /// The IDs of the objects whose bytes differ from the bank as it was opened, in file order.
     pub edited: Vec<u32>,
+    /// The source IDs of the media that a replacement changed.
+    pub replaced: Vec<u32>,
 }
 
 fn state_of(id: AudioBankId, open: &OpenBank) -> AudioBankState {
     AudioBankState {
         id,
         revision: open.document.revision(),
-        dirty: open.document.is_dirty(),
+        dirty: open.document.is_dirty() || open.linked.is_dirty(),
         editable: open.document.is_editable(),
         version: open.document.version(),
         asset: open.asset.clone(),
         edited: open.document.edited().into_iter().map(|id| id.0).collect(),
+        replaced: open.document.replaced(),
     }
 }
 
@@ -158,6 +165,7 @@ pub async fn audio_bank_open(
             asset,
             sandbox,
             path,
+            linked: LinkedBins::default(),
         };
         let state = state_of(id, &open);
         documents.open.lock().insert(id, Arc::new(Mutex::new(open)));
@@ -170,11 +178,16 @@ pub async fn audio_bank_open(
 #[tauri::command]
 #[specta::specta]
 pub async fn audio_bank_close(id: AudioBankId, app_handle: AppHandle) -> IpcResult<()> {
-    app_handle
+    let closed = app_handle
         .state::<AudioBankDocuments>()
         .open
         .lock()
         .remove(&id);
+    if let Some(open) = closed {
+        open.lock()
+            .linked
+            .close(&app_handle.state::<BinDocuments>());
+    }
     IpcResult::ok(())
 }
 
@@ -233,8 +246,149 @@ pub async fn audio_bank_import(
     .await
 }
 
-/// Runs `apply` on the document open under `id`, and copies the game files that it changed into
-/// the project layer. A failed copy undoes the change.
+/// Returns what replacing the media `source` of the bank set of the event bank open under `id`
+/// with the file at `file` writes: the media before and after, and the sounds that play it.
+///
+/// A `.wem` is read as it is. A `.wav`, `.ogg` or `.flac` converts through the Wwise console of
+/// the settings. "Replacing media" in `docs/ux/AUDIO.md`.
+///
+/// # Errors
+///
+/// Fails if the file gives no Vorbis WEM, and for the reasons of [`audio_bank_replace`].
+#[tauri::command]
+#[specta::specta]
+pub async fn audio_bank_replace_preview(
+    id: AudioBankId,
+    source: u32,
+    file: String,
+    app_handle: AppHandle,
+) -> IpcResult<MediaReplacement> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let wem = wem_of(Path::new(&file), &config.audio)?;
+        let documents = app_handle.state::<AudioBankDocuments>();
+        let open = documents.get(id)?;
+        let open = open.lock();
+
+        let (game, _) = game_audio_index(&app_handle);
+        with_edit_context(
+            &app_handle,
+            &open.sandbox,
+            BankSource::Opened(opened_of(&open)),
+            game.as_deref(),
+            |_, context| Ok(open.document.replacement(source, &wem, context)?),
+        )
+    })
+    .await
+}
+
+/// Replaces the media `source` of the bank set of the event bank open under `id` with the file
+/// at `file`, at the same source ID, as one undo step.
+///
+/// The media file that holds the media joins the document, and a game file is copied into the
+/// project layer as an edit copies the event bank. Each sound of the bank that plays the media
+/// takes the new size.
+///
+/// # Errors
+///
+/// Fails if the file gives no Vorbis WEM, if the document refuses the replacement, and for the
+/// reasons of [`audio_bank_edit`].
+#[tauri::command]
+#[specta::specta]
+pub async fn audio_bank_replace(
+    id: AudioBankId,
+    source: u32,
+    file: String,
+    app_handle: AppHandle,
+) -> IpcResult<AudioBankState> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let wem = wem_of(Path::new(&file), &config.audio)?;
+        change(&app_handle, id, |document, context| {
+            document.replace(source, wem, context)?;
+            Ok(())
+        })
+    })
+    .await
+}
+
+/// Sets the sound field `field` of the struct at `holder` under the object `entry` of the project
+/// bin `asset` to the event `name`, as one undo step of the event bank open under `id`.
+///
+/// The bin is held open with the bank, so the bank's save writes it and the bank's undo reverts
+/// the edit. "Using an event" in `docs/ux/AUDIO.md`.
+///
+/// # Errors
+///
+/// Fails if `asset` is not a project bin, or if the bin cannot be read or edited.
+#[tauri::command]
+#[specta::specta]
+pub async fn audio_bank_use_event(
+    id: AudioBankId,
+    asset: AssetRef,
+    entry: String,
+    holder: String,
+    field: String,
+    name: String,
+    app_handle: AppHandle,
+) -> IpcResult<AudioBankState> {
+    off_thread(move || {
+        let open = app_handle.state::<AudioBankDocuments>().get(id)?;
+        let mut open = open.lock();
+        let sandbox = open.sandbox.clone();
+        let bin = set_sound_field(
+            &app_handle,
+            &mut open.linked,
+            &sandbox,
+            &asset,
+            (&entry, &holder, &field),
+            &name,
+        )?;
+        open.linked.push(Step {
+            bank: false,
+            bins: vec![bin],
+        });
+        Ok(state_of(id, &open))
+    })
+    .await
+}
+
+/// Lists the sound fields of the bins of the project of the event bank open under `id`: the clip
+/// events, the VFX systems and the emitter audio that an event can be set in.
+///
+/// # Errors
+///
+/// Fails if no event bank is open under `id`, or if the names cannot be read.
+#[tauri::command]
+#[specta::specta]
+pub async fn audio_sound_targets(
+    id: AudioBankId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<SoundTarget>> {
+    off_thread(move || {
+        let sandbox = app_handle
+            .state::<AudioBankDocuments>()
+            .get(id)?
+            .lock()
+            .sandbox
+            .clone();
+        let Some(project) = sandbox.project() else {
+            return Ok(Vec::new());
+        };
+
+        let bins = project_sound_fields(project);
+        with_site_names(&app_handle, &sandbox, |names, _| {
+            bins.iter()
+                .flat_map(|(bin, fields)| sound_targets(bin, fields, names))
+                .collect()
+        })
+    })
+    .await
+}
+
+/// Runs `apply` on the document open under `id`, copies the game files that it changed into the
+/// project layer, and makes the bank units follow the events that it created, renamed or
+/// deleted. A failed copy undoes the change.
 fn change(
     app: &AppHandle,
     id: AudioBankId,
@@ -245,6 +399,8 @@ fn change(
     let copy = layer_copy(&open.sandbox, &open.asset, &open.path, BANK_EXTENSION)?;
     let before = open.document.revision();
     let base = copy.as_ref().map(|_| open.document.bytes().to_vec());
+    let events = open.document.events();
+    let replaced = open.document.replaced();
 
     let (game, _) = game_audio_index(app);
     let sandbox = open.sandbox.clone();
@@ -264,7 +420,89 @@ fn change(
         open.document.undo()?;
         return Err(error);
     }
+
+    let bins = follow_bank_events(app, &mut open, &events, game.as_deref());
+    open.linked.push(Step { bank: true, bins });
+    if replaced != open.document.replaced() || !replaced.is_empty() {
+        forget_replaced(app, &open);
+    }
     Ok(state_of(id, &open))
+}
+
+/// Makes the bank units of the bank follow the events that the last edit added and removed
+/// against `before`, and returns the bin documents that took a step.
+///
+/// A unit that cannot be updated is logged, and the bank edit stays.
+fn follow_bank_events(
+    app: &AppHandle,
+    open: &mut OpenBank,
+    before: &[u32],
+    game: Option<&AudioIndex>,
+) -> Vec<ltk_manager_bin::bin_document::BinDocumentId> {
+    let after = open.document.events();
+    let project = open.sandbox.project().map(project_audio_index);
+    let indexes: Vec<&AudioIndex> = project.iter().chain(game).collect();
+    let created = open.document.created_names();
+    let name_of = |id: u32| {
+        created
+            .iter()
+            .rev()
+            .find(|name| ObjectId::from_name(name).0 == id)
+            .cloned()
+            .or_else(|| {
+                indexes
+                    .iter()
+                    .find_map(|index| index.name(ObjectId(id)).map(str::to_owned))
+            })
+    };
+    let removed: Vec<String> = before
+        .iter()
+        .filter(|id| !after.contains(id))
+        .filter_map(|&id| name_of(id))
+        .collect();
+    let added: Vec<String> = after
+        .iter()
+        .filter(|id| !before.contains(id))
+        .filter_map(|&id| name_of(id))
+        .collect();
+    if removed.is_empty() && added.is_empty() {
+        return Vec::new();
+    }
+
+    let sandbox = open.sandbox.clone();
+    let path = open.path.clone();
+    let followed = with_site_names(app, &sandbox, |names, _| {
+        follow_events(
+            app,
+            &mut open.linked,
+            &sandbox,
+            &path,
+            &indexes,
+            names,
+            &removed,
+            &added,
+        )
+    });
+    match followed {
+        Ok(Ok(bins)) => bins,
+        Ok(Err(error)) | Err(error) => {
+            tracing::warn!(
+                path,
+                ?removed,
+                ?added,
+                %error,
+                "Failed to update the events list of the bank units that name a bank"
+            );
+            Vec::new()
+        }
+    }
+}
+
+/// Drops the decoded media of the project of `open`, whose media at a replaced source ID changed.
+fn forget_replaced(app: &AppHandle, open: &OpenBank) {
+    if let Some(project) = open.sandbox.project() {
+        app.state::<SoundCache>().invalidate_project(project);
+    }
 }
 
 /// Writes the game bytes of each game file that the document changed into the project layer,
@@ -323,12 +561,35 @@ pub async fn audio_bank_step(
     off_thread(move || {
         let open = app_handle.state::<AudioBankDocuments>().get(id)?;
         let mut open = open.lock();
-        let stepped = if undo {
-            open.document.undo()?
+        let direction = if undo {
+            HistoryStep::Undo
         } else {
-            open.document.redo()?
+            HistoryStep::Redo
         };
-        Ok(stepped.then(|| state_of(id, &open)))
+        let replaced = open.document.replaced();
+
+        let Some(step) = open.linked.take(direction) else {
+            return Ok(None);
+        };
+        if step.bank {
+            let stepped = if undo {
+                open.document.undo()?
+            } else {
+                open.document.redo()?
+            };
+            if !stepped {
+                tracing::warn!(
+                    id,
+                    "The bank history held no step that its linked history took"
+                );
+            }
+        }
+        step_bins(&app_handle, &step, direction)?;
+
+        if !replaced.is_empty() || !open.document.replaced().is_empty() {
+            forget_replaced(&app_handle, &open);
+        }
+        Ok(Some(state_of(id, &open)))
     })
     .await
 }
@@ -347,6 +608,7 @@ pub async fn audio_bank_save(id: AudioBankId, app_handle: AppHandle) -> IpcResul
         let open = app_handle.state::<AudioBankDocuments>().get(id)?;
         let mut open = open.lock();
         if !open.document.is_dirty() {
+            save_bins(&app_handle, &mut open.linked)?;
             return Ok(state_of(id, &open));
         }
 
@@ -367,6 +629,7 @@ pub async fn audio_bank_save(id: AudioBankId, app_handle: AppHandle) -> IpcResul
             atomic_write(&target, bytes)?;
         }
         open.document.mark_saved();
+        save_bins(&app_handle, &mut open.linked)?;
         invalidate(&app_handle, &open.asset);
         Ok(state_of(id, &open))
     })
@@ -476,7 +739,7 @@ fn saved_file(asset: &AssetRef) -> AppResult<PathBuf> {
 }
 
 /// Writes `bytes` as the layer file `target`, which must not exist yet.
-fn write_copy(target: &AssetRef, bytes: &[u8]) -> AppResult<()> {
+pub(super) fn write_copy(target: &AssetRef, bytes: &[u8]) -> AppResult<()> {
     let file = saved_file(target)?;
     if file.exists() {
         return Err(AppError::ValidationFailed(format!(

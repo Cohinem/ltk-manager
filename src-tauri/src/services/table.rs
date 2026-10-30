@@ -166,9 +166,13 @@ services! {
         audio_bank_close,
         audio_bank_edit,
         audio_bank_import,
+        audio_bank_replace_preview,
+        audio_bank_replace,
+        audio_bank_use_event,
         audio_bank_step,
         audio_bank_save,
         audio_bank_nodes,
+        audio_sound_targets,
     }
     preview("preview") {
         // Asset preview
