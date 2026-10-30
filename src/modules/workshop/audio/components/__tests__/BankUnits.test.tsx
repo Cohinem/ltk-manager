@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -18,7 +18,7 @@ import { renderWithProviders } from "@/test/utils";
 
 import { objectDocumentId, previewDocumentId } from "../../../documents";
 import { ProjectProvider } from "../../../projects/state/ProjectContext";
-import { BankUnits } from "../BankUnits";
+import { BankUnitMenu } from "../BankUnits";
 
 const PROJECT: WorkshopProject = {
   path: "X:/mods/ahri-vo",
@@ -87,7 +87,8 @@ const REFERENCES: BankReferencesResponse = {
   index: { status: "ready" },
 };
 
-function renderUnits() {
+/** Renders the menu and opens it once the unit name is on its button. */
+async function openUnits() {
   mockInvoke.mockImplementation((command: string) =>
     Promise.resolve({
       ok: true,
@@ -96,8 +97,18 @@ function renderUnits() {
   );
   renderWithProviders(
     <ProjectProvider project={PROJECT}>
-      <BankUnits asset={ASSET} />
+      <BankUnitMenu asset={ASSET} />
     </ProjectProvider>,
+  );
+
+  await userEvent.click(await screen.findByRole("button", { name: "Ahri_Skin07_VO" }));
+}
+
+/** Opens the submenu of the declarations and waits out Base UI's open delay. */
+async function openDeclarations() {
+  await userEvent.click(screen.getByRole("menuitem", { name: /Declared in 2 bins/ }));
+  await waitFor(() =>
+    expect(screen.getByRole("menuitem", { name: /root\.bin/ })).toBeInTheDocument(),
   );
 }
 
@@ -105,43 +116,41 @@ function openTabs(): string[] {
   return Object.keys(useWorkshopEditorStore.getState().byProject[PROJECT.path]?.documents ?? {});
 }
 
-describe("BankUnits", () => {
+describe("BankUnitMenu", () => {
   beforeEach(() => {
     mockInvoke.mockReset();
     useWorkshopEditorStore.setState({ byProject: {} });
   });
 
-  it("marks the opened file and gives a missing file no press", async () => {
-    renderUnits();
+  it("marks the opened file and disables a missing file", async () => {
+    await openUnits();
 
     expect(
-      await screen.findByText("Event bank: Ahri_Skin07_VO_events.bnk, this file"),
-    ).toBeInTheDocument();
+      screen.getByRole("menuitem", { name: "Event bank: Ahri_Skin07_VO_events.bnk, this file" }),
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
-      screen.queryByRole("button", { name: /Ahri_Skin07_VO_events\.bnk/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText("Package: Ahri_Skin07_VO_audio.wpk, missing")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Ahri_Skin07_VO_audio\.wpk/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("menuitem", { name: "Package: Ahri_Skin07_VO_audio.wpk, missing" }),
+    ).toHaveAttribute("aria-disabled", "true");
   });
 
   it("opens a sibling file of the unit in a tab", async () => {
-    renderUnits();
+    await openUnits();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: "Media bank: Ahri_Skin07_VO_audio.bnk" }),
+      screen.getByRole("menuitem", { name: "Media bank: Ahri_Skin07_VO_audio.bnk" }),
     );
 
     expect(openTabs()).toContain(previewDocumentId(MEDIA_ASSET));
   });
 
   it("opens a declaration at its bank unit row", async () => {
-    renderUnits();
+    await openUnits();
+    await openDeclarations();
 
-    await userEvent.click(await screen.findByRole("button", { name: /Declared in 2 bins/ }));
-    await userEvent.click(
-      screen.getByRole("button", {
+    /* `fireEvent`, because userEvent's pointer path leaves the submenu trigger and closes the
+       submenu before the click lands. */
+    fireEvent.click(
+      screen.getByRole("menuitem", {
         name: "Open skinAudioProperties.bankUnits[1] in data/characters/ahri/skins/skin7.bin",
       }),
     );
@@ -154,14 +163,13 @@ describe("BankUnits", () => {
     });
   });
 
-  it("gives a declaration whose bin no store contains no press", async () => {
-    renderUnits();
+  it("disables a declaration whose bin no store contains", async () => {
+    await openUnits();
+    await openDeclarations();
 
-    await userEvent.click(await screen.findByRole("button", { name: /Declared in 2 bins/ }));
-
-    expect(screen.getByText("data/characters/ahri/skins/root.bin")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /data\/characters\/ahri\/skins\/root\.bin/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /root\.bin/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 });

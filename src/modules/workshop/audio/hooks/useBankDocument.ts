@@ -11,6 +11,7 @@ import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { useWorkshopEditorStore } from "../../state";
 import type { BankRevision } from "../api/queries";
+import { afterEdit, afterStep, type HistoryDepth, NO_HISTORY } from "../utils/bankHistory";
 
 /** An event bank held open for edits, and what the event tree does to it. */
 export interface BankDocument {
@@ -22,6 +23,10 @@ export interface BankDocument {
   readonly edit: (edit: BankEdit) => Promise<boolean>;
   /** Steps the history back or forward. Resolves false if it took no step. */
   readonly step: (step: HistoryStep) => Promise<boolean>;
+  /** Writes the unsaved edits. Rejects, after a toast, if the save fails. */
+  readonly save: () => Promise<void>;
+  /** The undo and redo steps that the document counted since it opened. */
+  readonly history: HistoryDepth;
 }
 
 /**
@@ -41,6 +46,7 @@ export function useBankDocument(
   const project = useOptionalProjectContext()?.path ?? null;
   const open = enabled && documentId !== null && sandbox.kind !== "game" && project !== null;
   const [state, setState] = useState<AudioBankState | null>(null);
+  const [history, setHistory] = useState<HistoryDepth>(NO_HISTORY);
   const toast = useToast();
   const latest = useRef(state);
   latest.current = state;
@@ -72,6 +78,7 @@ export function useBankDocument(
     return () => {
       closed = true;
       setState(null);
+      setHistory(NO_HISTORY);
       if (id !== null) void api.audioBankClose(id);
     };
   }, [key, open, toast]);
@@ -87,6 +94,7 @@ export function useBankDocument(
         return false;
       }
       setState(result.value);
+      setHistory(afterEdit);
       return true;
     },
     [toast],
@@ -106,6 +114,7 @@ export function useBankDocument(
         toast.error(title, errorSummary(result.error));
         return false;
       }
+      setHistory((depth) => afterStep(depth, direction, result.value !== null));
       if (result.value === null) return false;
 
       setState(result.value);
@@ -143,7 +152,7 @@ export function useBankDocument(
   }, [project, tab, dirty, setDocumentDirty]);
   useDocumentSave(tab, save);
 
-  const history = useCallback(
+  const stepFromKeys = useCallback(
     (direction: HistoryStep, target: Element | null) => {
       if (target?.closest("[data-draft]")) return false;
 
@@ -152,8 +161,8 @@ export function useBankDocument(
     },
     [step],
   );
-  useDocumentHistory(tab, history, state?.editable === true);
+  useDocumentHistory(tab, stepFromKeys, state?.editable === true);
 
   const revision = state === null ? null : { id: state.id, revision: state.revision };
-  return { state, revision, edit, step };
+  return { state, revision, edit, step, save, history };
 }
