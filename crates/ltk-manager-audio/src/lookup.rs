@@ -263,7 +263,7 @@ impl Walk<'_, '_> {
                     children.extend(self.node(child)?);
                 }
 
-                match container.kind {
+                match container.kind() {
                     ObjectKind::RANDOM_SEQUENCE_CONTAINER => PlayNode::Random { id, children },
                     ObjectKind::SWITCH_CONTAINER => PlayNode::Switch { id, children },
                     ObjectKind::LAYER_CONTAINER => PlayNode::Layer { id, children },

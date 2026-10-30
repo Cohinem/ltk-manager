@@ -94,7 +94,7 @@ ltk_modpkg = "0.12.15"
 ltk_overlay = "0.19.0"
 ltk_wad = "0.5.10"
 # The files a `BankUnit` names: banks, media banks and packages.
-ltk_wwise = "0.1.0"
+ltk_wwise = "0.2.0"
 # Wwise Vorbis WEM media to Ogg Vorbis, with the aoTuV codebooks built in.
 ww2ogg = "0.1.0"
 # Ogg Vorbis decoding, which checks the stream that `ww2ogg` writes.

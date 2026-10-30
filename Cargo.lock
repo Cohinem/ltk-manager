@@ -4237,9 +4237,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_wwise"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8023c7cd288da4a59c0f41283e3b9ed0357ccc857f58849ea6624b340fe56499"
+checksum = "ed44e1dc510701dad23d706280d5a4ee42cadd578da55d6f881e416a9ca65320"
 dependencies = [
  "byteorder",
  "ltk_hash",
