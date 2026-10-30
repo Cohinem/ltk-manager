@@ -8,7 +8,7 @@ import type {
   ObjectProperties,
 } from "@/lib/tauri";
 
-import { childrenOf, eventKey, shownChildOrder, type TreeState } from "./eventTree";
+import { eventKey, shownChildOrder, type TreeState } from "./eventTree";
 import { type NodeField, nodeFields } from "./nodeFields";
 import { takesChild } from "./treeEditing";
 import type { MixPath } from "./voiceMix";
@@ -55,16 +55,19 @@ export interface GroupState {
   readonly state: SwitchState;
 }
 
-/** One header of the Voices view: a container that holds voices, and what is under it. */
+/**
+ * One header of the event tree: a container, a switch state or a Play action, and what is under
+ * it.
+ */
 export interface VoiceGroup {
   readonly key: string;
   /**
-   * The container whose fields the header shows. Null for the header of a Play action that plays
-   * a sound directly.
+   * The container whose fields the header shows. Null for the header of a Play action and for a
+   * switch state that is not one container.
    */
   readonly container: ContainerNode | null;
-  /** The containers above `container` that each hold one container child, outermost first. */
-  readonly wrappers: readonly ContainerNode[];
+  /** `true` for the one-line header of a container whose only child is a container. */
+  readonly compact: boolean;
   /** The switch state of the header, or null for a header outside a switch. */
   readonly state: GroupState | null;
   /** The Play action whose tree holds the header. */
@@ -73,17 +76,19 @@ export interface VoiceGroup {
   readonly actionHeader: boolean;
   /** The containers from the action's node down to the header's parent, as a voice names them. */
   readonly path: readonly VoiceStep[];
-  readonly items: readonly GroupItem[];
+  readonly items: readonly TreeItem[];
   /** The count of the voices under the header, at every depth. */
   readonly count: number;
   /** `false` for the header of a switch state other than the default, which starts folded. */
   readonly defaultOpen: boolean;
 }
 
-/** A row under a header: another header, or a voice. */
-export type GroupItem =
+/** A row of the event tree under an event or a header: a header, a voice, or another action. */
+export type TreeItem =
   | { readonly kind: "group"; readonly group: VoiceGroup }
-  | { readonly kind: "voice"; readonly voice: Voice };
+  | { readonly kind: "voice"; readonly voice: Voice }
+  /** An action that is not a Play with a tree, such as a Stop or a SetSwitch. */
+  | { readonly kind: "action"; readonly key: string; readonly action: EventAction };
 
 function isContainer(node: EventNode): node is ContainerNode {
   return (
@@ -100,29 +105,41 @@ function defaultBranch(node: SwitchNode): ReadonlySet<number> {
 }
 
 /** Returns the count of the voices of `items`, at every depth. */
-function voiceCount(items: readonly GroupItem[]): number {
-  return items.reduce((sum, item) => sum + (item.kind === "voice" ? 1 : item.group.count), 0);
+function voiceCount(items: readonly TreeItem[]): number {
+  return items.reduce((sum, item) => {
+    if (item.kind === "voice") return sum + 1;
+    if (item.kind === "group") return sum + item.group.count;
+
+    return sum;
+  }, 0);
+}
+
+/** Returns `true` for a container other than a switch whose only child is a container. */
+function isWrapper(container: ContainerNode | null): boolean {
+  if (container === null || container.kind === "switch") return false;
+
+  const [only, ...rest] = container.children;
+  return only !== undefined && rest.length === 0 && isContainer(only);
 }
 
 interface GroupDraft {
   readonly key: string;
   readonly container: ContainerNode | null;
-  readonly wrappers?: readonly ContainerNode[];
   readonly state?: GroupState | null;
   readonly play: EventAction;
   readonly actionHeader?: boolean;
   readonly path: readonly VoiceStep[];
-  readonly items: readonly GroupItem[];
+  readonly items: readonly TreeItem[];
 }
 
-function groupItem(draft: GroupDraft): GroupItem {
+function groupItem(draft: GroupDraft): TreeItem {
   const state = draft.state ?? null;
   return {
     kind: "group",
     group: {
-      wrappers: [],
       actionHeader: false,
       ...draft,
+      compact: isWrapper(draft.container),
       state,
       count: voiceCount(draft.items),
       defaultOpen: state?.state.kind !== "other",
@@ -130,76 +147,59 @@ function groupItem(draft: GroupDraft): GroupItem {
   };
 }
 
-/** The switch state that a walk carries into the header of the state's one container. */
-interface PendingState {
-  readonly key: string;
-  readonly state: GroupState;
-}
-
-/** Returns `true` if a header folds `node` into itself: a container of another kind than switch. */
-function foldable(node: EventNode | undefined): node is ContainerNode {
-  return node !== undefined && isContainer(node) && node.kind !== "switch";
-}
-
-/**
- * Returns the header items of the node `node` at `nodeKey`, under the containers of `path`.
- *
- * A container whose only child is a container gives no header of its own and is named on the
- * header below it. A switch container gives one header per switch state.
- */
+/** Returns the rows of the node `node` at `nodeKey`, under the containers of `path`. */
 function nodeItems(
   play: EventAction,
   node: EventNode,
   nodeKey: string,
   path: readonly VoiceStep[],
-  wrappers: readonly ContainerNode[],
-  pending: PendingState | null,
-): GroupItem[] {
-  if (!isContainer(node)) {
-    if (node.kind !== "sound" && node.kind !== "missing" && node.kind !== "unsupported") return [];
+): TreeItem[] {
+  if (isContainer(node)) return [containerItem(play, node, nodeKey, path, nodeKey, null)];
+  if (node.kind !== "sound" && node.kind !== "missing" && node.kind !== "unsupported") return [];
 
-    return [{ kind: "voice", voice: { key: nodeKey, node, path, play } }];
-  }
+  return [{ kind: "voice", voice: { key: nodeKey, node, path, play } }];
+}
 
-  if (node.kind === "switch" && pending === null) {
-    return switchItems(play, node, nodeKey, path, wrappers);
+/**
+ * Returns the header of `node`, keyed `key`, for the switch state `state` or outside a switch.
+ *
+ * A switch container lists one header per switch state, and every other container its children.
+ */
+function containerItem(
+  play: EventAction,
+  node: ContainerNode,
+  nodeKey: string,
+  path: readonly VoiceStep[],
+  key: string,
+  state: GroupState | null,
+): TreeItem {
+  if (node.kind === "switch") {
+    const items = switchStates(play, node, nodeKey, path);
+    return groupItem({ key, container: node, state, play, path, items });
   }
 
   const step: VoiceStep = { container: node, branch: null };
-  const children = childrenOf(node);
-  const only = children.length === 1 ? children[0] : undefined;
-  if (foldable(only) && pending === null) {
-    return nodeItems(play, only, `${nodeKey}.0`, [...path, step], [...wrappers, node], null);
-  }
-
   const items = shownChildOrder(node).flatMap((at) => {
-    const child = children[at];
+    const child = node.children[at];
     if (child === undefined) return [];
 
-    return nodeItems(play, child, `${nodeKey}.${at}`, [...path, step], [], null);
+    return nodeItems(play, child, `${nodeKey}.${at}`, [...path, step]);
   });
 
-  return [
-    groupItem({
-      key: pending?.key ?? nodeKey,
-      container: node,
-      wrappers,
-      state: pending?.state ?? null,
-      play,
-      path,
-      items,
-    }),
-  ];
+  return groupItem({ key, container: node, state, play, path, items });
 }
 
-/** Returns one header per switch state of `node`: the default state first, then each other child. */
-function switchItems(
+/**
+ * Returns one header per switch state of `node`: the default state first, then each other child.
+ *
+ * A state of one container is the header of that container.
+ */
+function switchStates(
   play: EventAction,
   node: SwitchNode,
   nodeKey: string,
   path: readonly VoiceStep[],
-  wrappers: readonly ContainerNode[],
-): GroupItem[] {
+): TreeItem[] {
   const children = node.children;
   const defaults = defaultBranch(node);
   const listed = children.map((_, at) => at);
@@ -214,82 +214,52 @@ function switchItems(
     if (members.length === 0) return [];
 
     const id = state.kind === "default" ? "default" : String(state.child);
-    const pending: PendingState = { key: `${nodeKey}~${id}`, state: { switch: node, state } };
-    const step: VoiceStep = { container: node, branch: state.kind };
+    const key = `${nodeKey}~${id}`;
+    const owner: GroupState = { switch: node, state };
+    const below = [...path, { container: node, branch: state.kind }];
     const [first] = members;
     const lone = members.length === 1 && first !== undefined ? children[first] : undefined;
-    if (foldable(lone)) {
-      return nodeItems(play, lone, `${nodeKey}.${first}`, [...path, step], wrappers, pending);
+    if (lone !== undefined && isContainer(lone)) {
+      return [containerItem(play, lone, `${nodeKey}.${first}`, below, key, owner)];
     }
 
     const items = members.flatMap((at) => {
       const child = children[at];
       if (child === undefined) return [];
 
-      return nodeItems(play, child, `${nodeKey}.${at}`, [...path, step], [], null);
+      return nodeItems(play, child, `${nodeKey}.${at}`, below);
     });
-    return [
-      groupItem({
-        key: pending.key,
-        container: node,
-        wrappers,
-        state: pending.state,
-        play,
-        path,
-        items,
-      }),
-    ];
+    return [groupItem({ key, container: null, state: owner, play, path: below, items })];
   });
 }
 
 /**
- * Returns the header items of the Play actions of `tree`, keyed under the event row `eventKey`.
+ * Returns the rows under the event row `eventKey` of `tree`, in the order of its actions.
  *
- * A random or sequence container lists its children in playlist order, and every other container
- * in file order. An event of one Play action lists the headers of its node. An event of several
- * gives one header per action, which is the header of its node when the node gives one. Per
- * "Group headers" in docs/ux/AUDIO.md.
+ * The node of the one Play action of an event is listed under the event, and an event of several
+ * Play actions gives each one a header. An action that plays no tree is an action row. A random
+ * or sequence container lists its children in playlist order, and every other container in file
+ * order. Per "Group headers" in docs/ux/AUDIO.md.
  */
-export function voiceGroups(tree: EventTree, eventKey: string): GroupItem[] {
-  const plays = tree.actions.flatMap((action, index) =>
-    action.node === null ? [] : [{ action, node: action.node, key: `${eventKey}/${index}` }],
-  );
-  const many = plays.length > 1;
+export function treeItems(tree: EventTree, eventKey: string): TreeItem[] {
+  const plays = tree.actions.filter((action) => action.node !== null).length;
 
-  return plays.flatMap(({ action, node, key }) => {
-    const items = nodeItems(action, node, `${key}.0`, [], [], null);
-    if (!many) return items;
+  return tree.actions.flatMap((action, index): TreeItem[] => {
+    const key = `${eventKey}/${index}`;
+    if (action.node === null) return [{ kind: "action", key, action }];
 
-    const [only, ...rest] = items;
-    if (only?.kind === "group" && rest.length === 0) {
-      return [{ kind: "group", group: { ...only.group, actionHeader: true } }];
-    }
+    const items = nodeItems(action, action.node, `${key}.0`, []);
+    if (plays === 1) return items;
 
-    const container = isContainer(node) ? node : null;
-    return [groupItem({ key, container, play: action, actionHeader: true, path: [], items })];
+    return [groupItem({ key, container: null, play: action, actionHeader: true, path: [], items })];
   });
 }
 
-/**
- * Returns the voice of an event whose items are one sound without a header.
- *
- * Returns null for any other event.
- */
-export function inlineVoice(items: readonly GroupItem[]): Voice | null {
-  const [only, ...rest] = items;
-  return only?.kind === "voice" && rest.length === 0 ? only.voice : null;
-}
-
-/**
- * Returns the delay in milliseconds of the one Play action of `tree`, which the event row shows.
- *
- * Returns null if the delay is 0, and for an event with no or several Play actions.
- */
-export function playDelay(tree: EventTree): number | null {
+/** Returns the one Play action of `tree` that plays a tree, or null for none or several. */
+export function onlyPlay(tree: EventTree): EventAction | null {
   const [only, ...rest] = tree.actions.filter((action) => action.node !== null);
-  if (only === undefined || rest.length > 0 || only.delay === 0) return null;
 
-  return only.delay;
+  return only !== undefined && rest.length === 0 ? only : null;
 }
 
 /** A cell of a voice row or a header row. The name cell is `media`. */
@@ -312,14 +282,16 @@ const CELL_ORDER: readonly VoiceCell[] = [
 /** The cells that a row draws only when their value is not 0. */
 const ZERO_HIDDEN: ReadonlySet<string> = new Set(["delay", "lpf", "hpf"]);
 
-/** The fields of a voice or a header that its row draws. */
+/** The fields of a voice, a header or an action that its row draws. */
 export interface VoiceFields {
   /** The source of a sound, and null for a container or an object that does not play. */
   readonly source: NodeField | null;
+  /** The target of an action, which its name cell edits, and null for a node. */
+  readonly target: NodeField | null;
   readonly cells: Partial<Record<FieldCell, NodeField>>;
 }
 
-const NO_FIELDS: VoiceFields = { source: null, cells: {} };
+const NO_FIELDS: VoiceFields = { source: null, target: null, cells: {} };
 
 /** Returns the parent container of `voice`, or null for a sound under its action. */
 export function voiceParent(voice: { readonly path: readonly VoiceStep[] }): ContainerNode | null {
@@ -350,7 +322,17 @@ function rowFields(
     cells[name] = field;
   }
 
-  return { source: fields.find((field) => field.name === "source") ?? null, cells };
+  return { source: fields.find((field) => field.name === "source") ?? null, target: null, cells };
+}
+
+/** Returns the fields that the row of `action` draws: its target, which the name cell edits. */
+function actionFields(
+  action: EventAction,
+  properties: ReadonlyMap<number, ObjectProperties>,
+): VoiceFields {
+  const fields = nodeFields({ kind: "action", action }, properties, null);
+
+  return { ...NO_FIELDS, target: fields.find((field) => field.name === "target") ?? null };
 }
 
 /** Returns the fields that the row of `voice` draws, as `rowFields` lists them. */
@@ -361,11 +343,15 @@ export function voiceFields(
   return rowFields(voice.node, voiceParent(voice), properties);
 }
 
-/** Returns the fields that the header row of `group` draws: those of its container. */
+/**
+ * Returns the fields that the header row of `group` draws: those of its container, or the target
+ * of the Play action of an action header.
+ */
 export function groupFields(
   group: VoiceGroup,
   properties: ReadonlyMap<number, ObjectProperties>,
 ): VoiceFields {
+  if (group.actionHeader) return actionFields(group.play, properties);
   if (group.container === null) return NO_FIELDS;
 
   return rowFields(group.container, voiceParent(group), properties);
@@ -422,17 +408,15 @@ export interface VoiceLine extends RowCells {
 }
 
 /**
- * One row of the Voices view: an event, a group header, a voice, the add row, or the state of a
- * fetch.
+ * One row of the event tree: an event, a header, a voice, an action, the add row, or the state
+ * of a fetch.
  */
 export type VoiceRow =
   | (RowBase & {
       readonly kind: "event";
       readonly event: AudioEvent;
-      /** The voice of an event that plays one sound alone, which the event row draws. */
-      readonly inline: VoiceLine | null;
-      /** The delay of the event's one Play action in milliseconds, or null, per `playDelay`. */
-      readonly delay: number | null;
+      /** The one Play action that the event row draws, per `onlyPlay`, or null. */
+      readonly play: EventAction | null;
       /** The Play actions of the event's tree, or none while the tree is not read. */
       readonly plays: readonly EventAction[];
     })
@@ -444,6 +428,7 @@ export type VoiceRow =
       readonly weighted: boolean;
     })
   | (RowBase & { readonly kind: "voice"; readonly line: VoiceLine })
+  | (RowBase & { readonly kind: "action"; readonly action: EventAction; readonly cells: RowCells })
   /** The add row of a container, or of an event. `exclude` is what a moved node may not be. */
   | (RowBase & {
       readonly kind: "add";
@@ -456,17 +441,22 @@ export type VoiceRow =
 
 /** Returns the voice that `row` draws, or null for a row without one. */
 export function voiceLine(row: VoiceRow | undefined): VoiceLine | null {
-  if (row?.kind === "voice") return row.line;
-  if (row?.kind === "event") return row.inline;
-
-  return null;
+  return row?.kind === "voice" ? row.line : null;
 }
 
 /** Returns the fields and the cells that `row` draws, or null for a row without cells. */
 export function rowCells(row: VoiceRow | undefined): RowCells | null {
-  if (row?.kind === "group") return row.cells;
+  if (row?.kind === "group" || row?.kind === "action") return row.cells;
 
   return voiceLine(row);
+}
+
+/** Returns the Play action of the header row `row` or the action of an action row, or null. */
+export function rowAction(row: VoiceRow | undefined): EventAction | null {
+  if (row?.kind === "action") return row.action;
+  if (row?.kind === "group" && row.group.actionHeader) return row.group.play;
+
+  return null;
 }
 
 /**
@@ -506,13 +496,25 @@ export interface VoiceRowOptions {
 }
 
 /**
- * Flattens `events` into the rows of the Voices view, with the folds of `expanded` flipped.
+ * Returns the container that the add row under `group` adds to, or null if the header has none.
  *
- * An expanded event draws its group headers, per `voiceGroups`. An open header draws its voices
- * and headers, then the add row of a container that takes a child. An expanded event of an
- * editable bank ends in its own add row. An event that plays one sound alone draws it on its own
- * row and does not expand. The cells of the rows of one event line up. Per "Voices" in
- * docs/ux/AUDIO.md.
+ * A switch lists its states rather than an add row. A state of a switch that is not one container
+ * adds to the switch if it is the default state, which a child added to a switch joins.
+ */
+function addTarget(group: VoiceGroup): ContainerNode | null {
+  const { container, state } = group;
+  if (container === null) return state?.state.kind === "default" ? state.switch : null;
+  if (container.kind === "switch" || !takesChild(container)) return null;
+
+  return container;
+}
+
+/**
+ * Flattens `events` into the rows of the event tree, with the folds of `expanded` flipped.
+ *
+ * An expanded event draws the rows of `treeItems`. An open header draws its rows, then the add row
+ * of the container that it adds to. An expanded event of an editable bank ends in its own add row.
+ * The cells of the rows of one event line up. Per "Event tree" in docs/ux/AUDIO.md.
  */
 export function voiceRows(
   events: readonly AudioEvent[],
@@ -526,24 +528,21 @@ export function voiceRows(
     const key = eventKey(event.id);
     const eventId = event.id;
     const state = trees.get(event.id);
-    const items = state?.kind === "ready" ? voiceGroups(state.tree, key) : null;
-    const single = items === null ? null : inlineVoice(items);
-    const inline = single === null ? null : lineOf(single, [single]);
-    const open = inline === null && expanded.has(key);
+    const ready = state?.kind === "ready" ? state.tree : null;
+    const items = ready === null ? null : treeItems(ready, key);
+    const open = expanded.has(key);
     rows.push({
       kind: "event",
       key,
       depth: 0,
       parent: null,
-      expandable: inline === null,
+      expandable: true,
       open,
       defaultOpen: false,
       eventId,
       event,
-      inline,
-      delay: state?.kind === "ready" ? playDelay(state.tree) : null,
-      plays:
-        state?.kind === "ready" ? state.tree.actions.filter((action) => action.node !== null) : [],
+      play: ready === null ? null : onlyPlay(ready),
+      plays: ready?.actions.filter((action) => action.node !== null) ?? [],
     });
     if (!open) continue;
 
@@ -581,14 +580,9 @@ export function voiceRows(
     }
   }
 
-  function lineOf(voice: Voice, list: readonly Voice[]): VoiceLine {
-    const columns = voiceColumns(list.map((each) => voiceFields(each, properties)));
-    return { voice, fields: voiceFields(voice, properties), columns };
-  }
-
   /* `columns` is filled once every row of the event is listed, so it lines up all of them. */
   function pushItems(
-    items: readonly GroupItem[],
+    items: readonly TreeItem[],
     parent: string,
     depth: number,
     eventId: number,
@@ -596,6 +590,19 @@ export function voiceRows(
     listed: VoiceFields[],
   ) {
     for (const item of items) {
+      if (item.kind === "action") {
+        const fields = actionFields(item.action, properties);
+        listed.push(fields);
+        rows.push({
+          kind: "action",
+          key: item.key,
+          ...leaf(parent, depth, eventId),
+          action: item.action,
+          cells: { fields, columns },
+        });
+        continue;
+      }
+
       if (item.kind === "voice") {
         const fields = voiceFields(item.voice, properties);
         listed.push(fields);
@@ -632,12 +639,9 @@ export function voiceRows(
 
       pushItems(group.items, group.key, depth + 1, eventId, columns, listed);
 
-      const { container } = group;
+      const container = addTarget(group);
       const addable =
-        editable &&
-        container !== null &&
-        takesChild(container) &&
-        properties.get(container.id)?.editable === true;
+        editable && container !== null && properties.get(container.id)?.editable === true;
       if (addable) {
         rows.push({
           kind: "add",
@@ -685,16 +689,16 @@ export type Replay =
 /**
  * Returns what plays once after an edit on `row` lands.
  *
- * A voice row and an event row that draws its voice replay that voice, with the containers above
- * it. A header row and an event row of another event replay the event. Returns null for a voice
- * without media and for any other row.
+ * A voice row replays its voice, with the containers above it. An event, a header and an action
+ * row replay the event. Returns null for a voice without media and for any other row.
  */
 export function replayOf(row: VoiceRow): Replay | null {
   const event = { kind: "event", key: eventKey(row.eventId), event: row.eventId } as const;
   if (row.kind === "group") {
     return { ...event, object: row.group.container?.id ?? row.group.play.id };
   }
-  if (row.kind === "event" && row.inline === null) return { ...event, object: row.eventId };
+  if (row.kind === "action") return { ...event, object: row.action.id };
+  if (row.kind === "event") return { ...event, object: row.eventId };
 
   const voice = voiceLine(row)?.voice;
   const node = voice?.node;

@@ -1,4 +1,3 @@
-import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 
@@ -7,16 +6,12 @@ import { m } from "@/i18n";
 import type { BankNode, EventNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import {
-  NAME_COLUMN_CLASSES,
-  RowAction,
-  UnitSuffix,
-} from "../../shared/components/PropertyRowParts";
+import { NAME_COLUMN_CLASSES, UnitSuffix } from "../../shared/components/PropertyRowParts";
 import { audioQueries, type BankRevision } from "../api/queries";
 import { useMixDraftStore } from "../state/mixDrafts";
 import { useNodeNames } from "../state/nodeNames";
 import { matchingNodes } from "../utils/bankEdits";
-import { type EventRow, objectLabel } from "../utils/eventTree";
+import { objectLabel } from "../utils/eventTree";
 import { type FieldTopic, fieldTopic } from "../utils/fieldTopics";
 import {
   type FieldDisplay,
@@ -268,15 +263,15 @@ function ObjectText({ id, node }: { id: number; node: EventNode | null }) {
 }
 
 interface FieldNameCellProps {
-  /** The field or the fact that the cell names and documents, or null for the children row. */
-  readonly topic: FieldTopic | null;
+  /** The field or the fact that the cell names and documents. */
+  readonly topic: FieldTopic;
   /** The guides and the caret before the name. */
   readonly lead: ReactNode;
   /** The classes of the name. */
   readonly className?: string;
 }
 
-/** The name cell of a field row or a children row: the guides, the caret and the name. */
+/** The name cell of a field row: the guides, the caret and the name with its field card. */
 export function FieldNameCell({ topic, lead, className }: FieldNameCellProps) {
   return (
     <span
@@ -286,58 +281,11 @@ export function FieldNameCell({ topic, lead, className }: FieldNameCellProps) {
       )}
     >
       {lead}
-      {topic !== null && (
-        <FieldDocName topic={topic} className={twMerge("text-surface-200", className)} />
-      )}
-      {topic === null && (
-        <span className={twMerge("truncate text-surface-200", className)}>
-          {m.audio_field_children_label()}
-        </span>
-      )}
+      <FieldDocName topic={topic} className={twMerge("text-surface-200", className)} />
     </span>
   );
 }
 
-/** Returns the name of a field row or a children row, or null for any other row. */
-export function fieldName(row: EventRow): string | null {
-  if (row.kind === "field") return topicLabel(fieldTopic(row.field));
-  if (row.kind === "children") return m.audio_field_children_label();
-
-  return null;
-}
-
-interface ChildrenValueProps {
-  readonly count: number;
-  /** Opens the child picker. Absent if the container takes no added child. */
-  readonly onAdd?: () => void;
-}
-
-/**
- * The value cell of a children row: the count, and the add action of an editable container.
- *
- * A double click on the count opens the child picker.
- */
-export function ChildrenValue({ count, onAdd }: ChildrenValueProps) {
-  return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="w-5 shrink-0" />
-      <span
-        className="text-surface-200"
-        onDoubleClick={(event) => {
-          if (onAdd === undefined) return;
-
-          event.stopPropagation();
-          onAdd();
-        }}
-      >
-        {m.audio_edit_children_label({ count })}
-      </span>
-      {onAdd !== undefined && (
-        <RowAction label={m.audio_edit_add_child_action()} icon={PlusIcon} onAct={onAdd} />
-      )}
-    </span>
-  );
-}
 interface NodePickerProps {
   readonly revision: BankRevision;
   /** The IDs that the list leaves out: the container and its children. */

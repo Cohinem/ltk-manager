@@ -35,7 +35,6 @@ export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
   menu: m.audio_key_menu_label,
   viewMedia: m.audio_key_view_media_label,
   viewEvents: m.audio_key_view_events_label,
-  toggleVoices: m.audio_key_toggle_voices_label,
   toggleInspector: m.audio_key_toggle_inspector_label,
   help: m.audio_key_help_label,
   enter: m.audio_key_enter_label,
@@ -72,13 +71,7 @@ const GROUP_TITLES: Readonly<Record<AudioCommandGroup, () => string>> = {
 };
 
 /** The surfaces whose keys the sheet of the audio file document lists. */
-export const DOCUMENT_SCOPE: readonly AudioSurface[] = [
-  "media",
-  "voices",
-  "structure",
-  "document",
-  "knob",
-];
+export const DOCUMENT_SCOPE: readonly AudioSurface[] = ["media", "voices", "document", "knob"];
 
 /** The surfaces whose keys the sheet of the Voice lines view lists. */
 export const LINES_SCOPE: readonly AudioSurface[] = ["lines", "knob"];

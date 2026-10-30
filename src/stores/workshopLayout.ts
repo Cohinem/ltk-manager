@@ -233,7 +233,7 @@ interface WorkshopLayoutStore extends PreviewDisplay {
    * the switch above the list takes them off it.
    */
   forwardLookingMeta: boolean;
-  /** The inspector pane beside the Voices view of an event bank is shown. */
+  /** The inspector pane beside the event tree of an event bank is shown. */
   audioInspector: boolean;
   /** The shared geometry and artwork preferences of the explorers. */
   explorerView: ExplorerView;

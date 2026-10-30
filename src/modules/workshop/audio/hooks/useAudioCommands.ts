@@ -19,7 +19,6 @@ const PALETTE_COMMANDS: readonly AudioCommandId[] = [
   "volumeUp",
   "viewMedia",
   "viewEvents",
-  "toggleVoices",
   "toggleInspector",
   "find",
   "add",

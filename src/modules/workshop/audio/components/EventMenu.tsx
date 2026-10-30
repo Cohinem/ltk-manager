@@ -26,8 +26,8 @@ import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { useOpenDocumentAs } from "../../state";
 import { useOpenSiteRow, useOpenVoiceLine } from "../hooks/useOpenSiteRow";
 import { useFocusMedia } from "../state/mediaFocus";
-import type { EventRow } from "../utils/eventTree";
 import { menuShortcut } from "../utils/keymap";
+import type { MenuSubject } from "../utils/viewRows";
 
 /** What the menu of a row does to the picked rows, each null where it does not apply. */
 export interface NodeActions {
@@ -60,30 +60,33 @@ const WRAPS: readonly {
 ];
 
 interface EventMenuProps {
-  readonly row: EventRow;
+  /** The object of the row that the menu opened on. */
+  readonly subject: MenuSubject;
   /** The actions on the picked rows, or null in a bank that takes no edit. */
   readonly actions: NodeActions | null;
   /** The count of the picked rows that the actions take. */
   readonly count: number;
   /** Copies the row's name or ID when the bank takes no edit. */
-  readonly onCopy: (row: EventRow) => void;
+  readonly onCopy: (subject: MenuSubject) => void;
 }
 
 /**
- * The context menu of one row of either view: the edits of the picked rows, the copies, Show
+ * The context menu of one row of the event tree: the edits of the picked rows, the copies, Show
  * media on a sound whose media is found, and the rows of an event's sites. The experimental
  * actions share one group under one Experimental chip.
  *
  * Every item carries its icon, and the key that does the same in the tree. Per "Row actions" and
  * "Selection" in docs/ux/AUDIO.md.
  */
-export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
+export function EventMenu({ subject, actions, count, onCopy }: EventMenuProps) {
   const project = useOptionalProjectContext();
-  const media = row.kind === "node" && row.node.kind === "sound" ? row.node.media : null;
-  const event = row.kind === "event";
-  const named = row.kind === "event" && row.event.name !== null ? row.event : null;
-  const source = row.kind === "node" && row.node.kind === "sound" ? row.node.source : null;
-  const rename = row.kind === "event" ? actions?.rename : null;
+  const media =
+    subject.kind === "node" && subject.node.kind === "sound" ? subject.node.media : null;
+  const event = subject.kind === "event";
+  const named = subject.kind === "event" && subject.event.name !== null ? subject.event : null;
+  const source =
+    subject.kind === "node" && subject.node.kind === "sound" ? subject.node.source : null;
+  const rename = subject.kind === "event" ? actions?.rename : null;
   const assignTo = named === null ? null : actions?.assignTo;
   const replace = source === null ? null : actions?.replace;
   const creates =
@@ -145,8 +148,8 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
             </ContextMenu.Item>
           )}
           {actions.wrap !== null && <WrapItems wrap={actions.wrap} />}
-          {rename != null && row.kind === "event" && (
-            <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => rename(row.event)}>
+          {rename != null && subject.kind === "event" && (
+            <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => rename(subject.event)}>
               {m.audio_event_rename_action()}
             </ContextMenu.Item>
           )}
@@ -173,17 +176,17 @@ export function EventMenu({ row, actions, count, onCopy }: EventMenuProps) {
         </ContextMenu.Item>
       )}
       {actions !== null && <ContextMenu.Separator />}
-      {(event || row.kind === "action" || row.kind === "node") && (
+      {(event || subject.kind === "action" || subject.kind === "node") && (
         <ContextMenu.Item
           icon={event && count <= 1 ? <CopyIcon /> : <HashIcon />}
           shortcut={menuShortcut("copy")}
-          onClick={() => (actions === null ? onCopy(row) : actions.copy())}
+          onClick={() => (actions === null ? onCopy(subject) : actions.copy())}
         >
           {copyLabel}
         </ContextMenu.Item>
       )}
       {media !== null && project !== null && <ShowMediaItem media={media} />}
-      {row.kind === "event" && project !== null && <EventSiteItems event={row.event} />}
+      {subject.kind === "event" && project !== null && <EventSiteItems event={subject.event} />}
     </>
   );
 }

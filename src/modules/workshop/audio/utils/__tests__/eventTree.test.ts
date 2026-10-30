@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { AudioEvent, EventNode, EventSwitchPick, EventTree, MediaLocation } from "@/lib/tauri";
 
 import {
-  eventRows,
   eventSounds,
   eventVoices,
   filterEvents,
@@ -86,91 +85,6 @@ describe("shownChildOrder", () => {
 
   it("draws the children of a switch container in file order", () => {
     expect(shownChildOrder(switchOf({ kind: "firstChild" }))).toEqual([0, 1]);
-  });
-});
-
-describe("eventRows", () => {
-  it("draws a loading row under an expanded event whose tree has not answered", () => {
-    const rows = eventRows([event(100, null)], new Set(["e100"]), new Map());
-
-    expect(rows.map((row) => row.kind)).toEqual(["event", "loading"]);
-  });
-
-  it("draws the fields of an expanded action before the node that it plays", () => {
-    const rows = eventRows(
-      [event(100, TREE.name), event(200, null)],
-      new Set(["e100", "e100/0"]),
-      new Map([[100, { kind: "ready", tree: TREE }]]),
-    );
-
-    expect(rows.map((row) => [row.key, row.kind, row.depth, row.parent])).toEqual([
-      ["e100", "event", 0, null],
-      ["e100/0", "action", 1, "e100"],
-      ["e100/0:target", "field", 2, "e100/0"],
-      ["e100/0:delay", "field", 2, "e100/0"],
-      ["e100/0.0", "node", 2, "e100/0"],
-      ["e100/1", "action", 1, "e100"],
-      ["e200", "event", 0, null],
-    ]);
-  });
-
-  it("draws a container's properties, then a children row that expands into its children", () => {
-    const properties = new Map([
-      [
-        7,
-        {
-          id: 7,
-          editable: true,
-          values: [{ property: "volume" as const, value: -3 }],
-          weights: null,
-        },
-      ],
-    ]);
-    const rows = eventRows(
-      [event(100, TREE.name)],
-      new Set(["e100", "e100/0", "e100/0.0", "e100/0.0:children"]),
-      new Map([[100, { kind: "ready", tree: TREE }]]),
-      { properties },
-    );
-
-    expect(rows.slice(4).map((row) => [row.key, row.kind, row.depth, row.parent])).toEqual([
-      ["e100/0.0", "node", 2, "e100/0"],
-      ["e100/0.0:volume", "field", 3, "e100/0.0"],
-      ["e100/0.0:children", "children", 3, "e100/0.0"],
-      ["e100/0.0.0", "node", 4, "e100/0.0:children"],
-      ["e100/0.0.1", "node", 4, "e100/0.0:children"],
-      ["e100/1", "action", 1, "e100"],
-    ]);
-  });
-
-  it("ends an event and a container that take a node in an add row", () => {
-    const rows = eventRows(
-      [event(100, TREE.name)],
-      new Set(["e100", "e100/0", "e100/0.0", "e100/0.0:children"]),
-      new Map([[100, { kind: "ready", tree: TREE }]]),
-      { addable: () => true },
-    );
-
-    expect(rows.slice(4).map((row) => [row.key, row.kind, row.depth, row.parent])).toEqual([
-      ["e100/0.0", "node", 2, "e100/0"],
-      ["e100/0.0:children", "children", 3, "e100/0.0"],
-      ["e100/0.0.0", "node", 4, "e100/0.0:children"],
-      ["e100/0.0.1", "node", 4, "e100/0.0:children"],
-      ["e100/0.0:children:add", "add", 4, "e100/0.0:children"],
-      ["e100/1", "action", 1, "e100"],
-      ["e100:add", "add", 1, "e100"],
-    ]);
-  });
-
-  it("draws nothing under a collapsed children row", () => {
-    const rows = eventRows(
-      [event(100, TREE.name)],
-      new Set(["e100", "e100/0", "e100/0.0"]),
-      new Map([[100, { kind: "ready", tree: TREE }]]),
-    );
-
-    expect(rows.at(-2)).toMatchObject({ kind: "children", count: 2, expandable: true });
-    expect(rows.at(-1)?.kind).toBe("action");
   });
 });
 

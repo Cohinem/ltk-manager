@@ -67,10 +67,9 @@ function actionSection(
 /**
  * Returns the objects that the inspector lists for `row`, the row's own object first.
  *
- * A voice lists its sound. A header lists its container, then the containers that it names as
- * muted text and the switch of its state, from the nearest up, and then its Play action if it is
- * the header of one action. An event lists each Play action, then the sound that it draws
- * inline. Every other row lists nothing. Per "Inspector" in docs/ux/AUDIO.md.
+ * A voice lists its sound, and an action row its action. A header lists its container, the header
+ * of a Play action that action, and a switch state that is not one container its switch. An event
+ * lists each Play action. Every other row lists nothing. Per "Inspector" in docs/ux/AUDIO.md.
  */
 export function inspectorSections(
   row: VoiceRow,
@@ -81,31 +80,20 @@ export function inspectorSections(
       const { voice } = row.line;
       return [nodeSection(voice.node, voiceParent(voice), properties)];
     }
+    case "action":
+      return [actionSection(row.action, properties)];
     case "group": {
       const { group } = row;
-      const above = [...group.path].reverse();
-      const sections = above.flatMap((step, at) => {
-        const named =
-          group.wrappers.includes(step.container) || group.state?.switch === step.container;
-        if (!named || step.container === group.container) return [];
+      if (group.actionHeader) return [actionSection(group.play, properties)];
+      if (group.container !== null) {
+        return [nodeSection(group.container, voiceParent(group), properties)];
+      }
 
-        return [nodeSection(step.container, above[at + 1]?.container ?? null, properties)];
-      });
-      const own =
-        group.container === null
-          ? []
-          : [nodeSection(group.container, voiceParent(group), properties)];
-      const action = group.actionHeader ? [actionSection(group.play, properties)] : [];
-      return [...own, ...sections, ...action];
+      const above = group.path.at(-2)?.container ?? null;
+      return group.state === null ? [] : [nodeSection(group.state.switch, above, properties)];
     }
-    case "event": {
-      const actions = row.plays.map((action) => actionSection(action, properties));
-      const inline =
-        row.inline === null
-          ? []
-          : [nodeSection(row.inline.voice.node, voiceParent(row.inline.voice), properties)];
-      return [...actions, ...inline];
-    }
+    case "event":
+      return row.plays.map((action) => actionSection(action, properties));
     default:
       return [];
   }

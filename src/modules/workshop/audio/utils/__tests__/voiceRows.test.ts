@@ -11,15 +11,14 @@ import type {
 
 import {
   foldKey,
-  type GroupItem,
-  inlineVoice,
   movedCell,
-  playDelay,
+  onlyPlay,
   replayOf,
+  type TreeItem,
+  treeItems,
   type Voice,
   voiceColumns,
   voiceFields,
-  voiceGroups,
   type VoiceRow,
   voiceRows,
 } from "../voices";
@@ -101,10 +100,12 @@ function shape(rows: readonly VoiceRow[]) {
 }
 
 /** Returns the voices of `items` at every depth, in the order that the rows draw them. */
-function voicesOf(items: readonly GroupItem[]): Voice[] {
-  return items.flatMap((item) =>
-    item.kind === "voice" ? [item.voice] : voicesOf(item.group.items),
-  );
+function voicesOf(items: readonly TreeItem[]): Voice[] {
+  return items.flatMap((item) => {
+    if (item.kind === "voice") return [item.voice];
+
+    return item.kind === "group" ? voicesOf(item.group.items) : [];
+  });
 }
 
 const SWITCH: EventNode = {
@@ -116,35 +117,19 @@ const SWITCH: EventNode = {
   pick: { kind: "firstChild" },
 };
 
-describe("inlineVoice", () => {
-  it("returns the voice of an event that plays one sound without a container", () => {
-    const inline = inlineVoice(voiceGroups(tree(play(sound(1)), STOP), "e100"));
-
-    expect(inline?.node.id).toBe(1);
+describe("onlyPlay", () => {
+  it("returns the one Play action beside the other classes", () => {
+    expect(onlyPlay(tree(STOP, play(sound(1), 250)))?.delay).toBe(250);
   });
 
-  it("returns null for one sound in a container", () => {
-    expect(inlineVoice(voiceGroups(tree(play(random(7, [sound(1)]))), "e100"))).toBeNull();
-  });
-
-  it("returns null for two Play actions of one sound each", () => {
-    expect(inlineVoice(voiceGroups(tree(play(sound(1)), play(sound(2))), "e100"))).toBeNull();
-  });
-});
-
-describe("playDelay", () => {
-  it("returns the delay of the one Play action", () => {
-    expect(playDelay(tree(STOP, play(sound(1), 250)))).toBe(250);
-  });
-
-  it("returns null for a delay of 0 and for two Play actions", () => {
-    expect(playDelay(tree(play(sound(1))))).toBeNull();
-    expect(playDelay(tree(play(sound(1), 250), play(sound(2), 250)))).toBeNull();
+  it("returns null for two Play actions and for none", () => {
+    expect(onlyPlay(tree(play(sound(1)), play(sound(2))))).toBeNull();
+    expect(onlyPlay(tree(STOP))).toBeNull();
   });
 });
 
 describe("voiceFields", () => {
-  const [voice] = voicesOf(voiceGroups(tree(play(random(7, [sound(1), sound(2)]))), "e100"));
+  const [voice] = voicesOf(treeItems(tree(play(random(7, [sound(1), sound(2)]))), "e100"));
 
   it("shows the volume and the pitch, and the weight when the pick reads weights", () => {
     const properties = new Map([
@@ -185,13 +170,13 @@ describe("voiceFields", () => {
       play: play(null),
     };
 
-    expect(voiceFields(missing, new Map())).toEqual({ source: null, cells: {} });
+    expect(voiceFields(missing, new Map())).toEqual({ source: null, target: null, cells: {} });
   });
 });
 
 describe("voiceColumns", () => {
   it("takes every cell that a voice of the list shows, in the row's order", () => {
-    const voices = voicesOf(voiceGroups(tree(play(random(7, [sound(1), sound(2)]))), "e100"));
+    const voices = voicesOf(treeItems(tree(play(random(7, [sound(1), sound(2)]))), "e100"));
     const properties = new Map([
       props(1, [{ property: "hpf", value: 20 }]),
       props(2, [
@@ -287,39 +272,75 @@ describe("voiceRows", () => {
 
     expect(shape(shut)).toEqual([
       ["e100", "event", 0, null],
-      ["e100/0.0~default", "group", 1, "e100"],
-      ["e100/0.0~1", "group", 1, "e100"],
+      ["e100/0.0", "group", 1, "e100"],
+      ["e100/0.0~default", "group", 2, "e100/0.0"],
+      ["e100/0.0~1", "group", 2, "e100/0.0"],
     ]);
     expect(shape(other).slice(1)).toEqual([
-      ["e100/0.0~default", "group", 1, "e100"],
-      ["e100/0.0.0", "voice", 2, "e100/0.0~default"],
-      ["e100/0.0~1", "group", 1, "e100"],
-      ["e100/0.0.1", "voice", 2, "e100/0.0~1"],
+      ["e100/0.0", "group", 1, "e100"],
+      ["e100/0.0~default", "group", 2, "e100/0.0"],
+      ["e100/0.0.0", "voice", 3, "e100/0.0~default"],
+      ["e100/0.0~1", "group", 2, "e100/0.0"],
+      ["e100/0.0.1", "voice", 3, "e100/0.0~1"],
     ]);
   });
 
-  it("draws an event of one sound as one row that does not expand", () => {
+  it("adds to a switch from its default state, and not from the switch header", () => {
+    const rows = voiceRows(
+      [audioEvent(100)],
+      new Set(["e100", "e100/0.0~1"]),
+      ready(play(SWITCH)),
+      {
+        properties: new Map([props(3, [])]),
+        editable: true,
+      },
+    );
+    const adds = rows.flatMap((row) => (row.kind === "add" ? [[row.key, row.into]] : []));
+
+    expect(adds).toEqual([
+      ["e100/0.0~default:add", { kind: "container", container: 3 }],
+      ["e100:add", { kind: "event", event: 100 }],
+    ]);
+  });
+
+  it("draws the sound of an event's one Play action under the event, which names the Play", () => {
     const rows = voiceRows([audioEvent(100, 1)], new Set(["e100"]), ready(play(sound(1), 250)), {
       properties: new Map(),
       editable: true,
     });
     const [row] = rows;
 
-    expect(shape(rows)).toEqual([["e100", "event", 0, null]]);
-    expect(row?.expandable).toBe(false);
-    expect(row?.kind === "event" && [row.inline?.voice.node.id, row.delay]).toEqual([1, 250]);
+    expect(shape(rows)).toEqual([
+      ["e100", "event", 0, null],
+      ["e100/0.0", "voice", 1, "e100"],
+      ["e100:add", "add", 1, "e100"],
+    ]);
+    expect(row?.kind === "event" && row.play?.delay).toBe(250);
   });
 
-  it("draws one row with no voices under an event without a Play action", () => {
+  it("draws an action row for each action that plays no tree", () => {
     const rows = voiceRows([audioEvent(100, 0)], new Set(["e100"]), ready(STOP), {
       properties: new Map(),
-      editable: true,
+      editable: false,
+    });
+    const action = rows.find((row) => row.kind === "action");
+
+    expect(shape(rows)).toEqual([
+      ["e100", "event", 0, null],
+      ["e100/0", "action", 1, "e100"],
+    ]);
+    expect(action?.kind === "action" && action.cells.fields.target?.value).toBe(9);
+  });
+
+  it("draws one empty row under an event without actions", () => {
+    const rows = voiceRows([audioEvent(100, 0)], new Set(["e100"]), ready(), {
+      properties: new Map(),
+      editable: false,
     });
 
     expect(shape(rows)).toEqual([
       ["e100", "event", 0, null],
       ["e100:empty", "empty", 1, "e100"],
-      ["e100:add", "add", 1, "e100"],
     ]);
   });
 });
@@ -345,15 +366,15 @@ describe("replayOf", () => {
     });
   });
 
-  it("replays the voice of an event drawn as one row", () => {
-    const [row] = voiceRows([audioEvent(100, 1)], new Set(), ready(play(sound(1))), options);
+  it("replays the event of an action row", () => {
+    const rows = voiceRows([audioEvent(100)], new Set(["e100"]), ready(STOP), options);
+    const action = rows.find((row) => row.kind === "action");
 
-    expect(row === undefined ? null : replayOf(row)).toEqual({
-      kind: "voice",
+    expect(action === undefined ? null : replayOf(action)).toEqual({
+      kind: "event",
       key: "e100",
-      object: 1,
-      media: media(10),
-      path: { nodes: [1], action: null },
+      object: 6,
+      event: 100,
     });
   });
 

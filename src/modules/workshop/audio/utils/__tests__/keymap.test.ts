@@ -57,7 +57,7 @@ function press(
 describe("resolveCommand", () => {
   it("resolves a chord to the command that the surface binds to it", () => {
     expect(resolveCommand(press("d", { ctrl: true }), "voices")).toBe("duplicate");
-    expect(resolveCommand(press("Delete"), "structure")).toBe("remove");
+    expect(resolveCommand(press("Delete"), "voices")).toBe("remove");
     expect(resolveCommand(press("ArrowUp", { alt: true }), "lines")).toBe("moveUp");
   });
 
@@ -67,8 +67,8 @@ describe("resolveCommand", () => {
   });
 
   it("tells the space bar from Shift and the space bar", () => {
-    expect(resolveCommand(press(" "), "structure")).toBe("play");
-    expect(resolveCommand(press(" ", { shift: true }), "structure")).toBe("playAll");
+    expect(resolveCommand(press(" "), "voices")).toBe("play");
+    expect(resolveCommand(press(" ", { shift: true }), "voices")).toBe("playAll");
   });
 
   it("resolves a symbol that the layout types with Shift", () => {

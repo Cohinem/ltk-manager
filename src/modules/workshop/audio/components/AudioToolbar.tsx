@@ -73,8 +73,6 @@ function Divider() {
 }
 
 interface AudioPanelToolsProps {
-  /** The Voices and Structure switch of the Events view. */
-  readonly mode?: ReactNode;
   readonly filter: ReactNode;
   /** The count of the rows of the panel, hidden on a narrow toolbar. */
   readonly count?: string;
@@ -91,21 +89,13 @@ interface AudioPanelToolsProps {
  *
  * Draws nothing while the document is not on screen, because the toolbar has no slot then.
  */
-export function AudioPanelTools({
-  mode,
-  filter,
-  count,
-  selection,
-  create,
-  panes,
-}: AudioPanelToolsProps) {
+export function AudioPanelTools({ filter, count, selection, create, panes }: AudioPanelToolsProps) {
   const slot = use(AudioToolsSlotContext);
   const narrow = useNarrowToolbar();
   if (slot === null) return null;
 
   return createPortal(
     <>
-      {mode}
       {filter}
       {count !== undefined && !narrow && <Count>{count}</Count>}
       {selection}

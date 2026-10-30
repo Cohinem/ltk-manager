@@ -4,7 +4,7 @@ import { type ReactNode, useState } from "react";
 import { Combobox, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { assetVersion, useAssetVersions } from "@/lib/assetVersions";
-import type { SetFile, SoundStream } from "@/lib/tauri";
+import type { EventAction, SetFile, SoundStream } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { NAME_COLUMN_CLASSES } from "../../shared/components/PropertyRowParts";
@@ -14,7 +14,7 @@ import { useNodeNames } from "../state/nodeNames";
 import { fileName } from "../utils/bankUnits";
 import { objectLabel } from "../utils/eventTree";
 import { type MediaCandidate, matchingMedia, mediaCandidates } from "../utils/mediaPicker";
-import { eventStem, nodeName, type NodeNames } from "../utils/nodeNames";
+import { eventStem, nodeName, type NodeNames, nodeText } from "../utils/nodeNames";
 import type { TreeEditing } from "../utils/treeEditing";
 import type {
   ContainerNode,
@@ -54,8 +54,7 @@ export function containerLabel(container: ContainerNode, weighted: boolean): str
       if (container.mode === "sequence") return m.audio_voices_sequence_label();
       return weighted ? m.audio_voices_random_weighted_label() : m.audio_voices_random_label();
     case "switch":
-      if (container.pick.kind === "firstChild") return m.audio_voices_switch_first_label();
-      return m.audio_voices_switch_label({ id: String(container.defaultSwitch) });
+      return m.audio_voices_switch_label();
     case "layer":
       return m.audio_voices_layer_label();
     case "mixer":
@@ -65,50 +64,59 @@ export function containerLabel(container: ContainerNode, weighted: boolean): str
 
 /** Returns the name of the switch state of `group`, or null for a header outside a switch. */
 function stateLabel(group: VoiceGroup): string | null {
-  const state = group.state?.state;
-  if (state === undefined) return null;
-  if (state.kind === "default") return m.audio_voices_switch_default_label();
+  if (group.state === null) return null;
 
-  return m.audio_voices_switch_state_label({ index: String(state.child + 1) });
+  const { state } = group.state;
+  if (state.kind === "other") {
+    return m.audio_voices_switch_state_label({ index: String(state.child + 1) });
+  }
+  if (group.state.switch.pick.kind === "firstChild") return m.audio_voices_switch_first_label();
+
+  return m.audio_voices_switch_default_label();
 }
 
-/** The text of a header's name cell: the muted wrapper names and the header's own name. */
+/** The text of a header's name cell. */
 export interface GroupText {
-  /** The names of the containers that the header folds, joined, or null if it folds none. */
-  readonly wrappers: string | null;
   readonly name: string;
+  /** The muted fact after the name, such as the switch group of a switch, or null. */
+  readonly detail: string | null;
 }
 
 /**
  * Returns the text of the header of `group`.
  *
- * A header of a Play action that plays a sound is named after the sound. A header of a switch state
- * names the state, then the kind of its container unless the container is the switch. `stem` is
- * the stem that the header draws before its kind, or null. Per "Group headers" in docs/ux/AUDIO.md.
+ * The header of a Play action is named Play. A header of a switch state names the state, then its
+ * container if the state is one container. A switch names its switch group after its name.
+ * `stem` is the stem that the header draws before its kind, or null. Per "Group headers" in
+ * docs/ux/AUDIO.md.
  */
-export function groupText(
-  group: VoiceGroup,
-  names: NodeNames,
-  stem: string | null,
-  weighted: boolean,
-): GroupText {
-  const wrappers =
-    group.wrappers.length === 0
-      ? null
-      : group.wrappers.map((wrapper) => containerLabel(wrapper, false)).join(" / ");
+export function groupText(group: VoiceGroup, stem: string | null, weighted: boolean): GroupText {
+  if (group.actionHeader) return { name: m.audio_node_play_label(), detail: null };
+
   const { container } = group;
-  if (container === null) {
-    const target = group.play.node;
-    return { wrappers, name: target === null ? "" : nodeName(names, target) };
-  }
+  const state = stateLabel(group);
+  if (container === null) return { name: state ?? "", detail: null };
 
   const kind = containerLabel(container, weighted);
   const own = stem === null ? kind : m.audio_node_derived_label({ stem, role: kind });
-  const state = stateLabel(group);
-  if (state === null) return { wrappers, name: own };
-  if (container === group.state?.switch) return { wrappers, name: state };
+  const detail =
+    container.kind === "switch"
+      ? m.audio_voices_switch_group_label({ id: String(container.group) })
+      : null;
+  if (state === null) return { name: own, detail };
 
-  return { wrappers, name: m.audio_voices_state_header_label({ state, name: own }) };
+  return { name: m.audio_voices_state_header_label({ state, name: own }), detail };
+}
+
+/** Returns the derived name and the ID of the object that `action` targets, or "" for none. */
+export function targetText(names: NodeNames, action: EventAction): string {
+  if (action.target === null) return "";
+  if (action.node !== null) return nodeText(names, action.node);
+
+  const name = names.nodes.get(action.target);
+  return name === undefined
+    ? objectLabel(action.target)
+    : m.audio_node_named_label({ name, id: String(action.target) });
 }
 
 /**
@@ -145,14 +153,23 @@ const PLAY_COLS = 3;
 /** The characters that the voice count of a header takes, such as `12 voices`. */
 const COUNT_COLS = 10;
 
-/** Returns the width of the name column over the header and voice rows of `rows`. */
+/** The characters that a target that an action names takes beside its name, such as `#4047148852`. */
+const ID_COLS = 12;
+
+/** Returns the width of the name column over the header, voice and action rows of `rows`. */
 export function voiceNameColumns(rows: readonly VoiceRow[], names: NodeNames): number {
   const stems = headerStems(rows, names);
   const widths: number[] = [];
   for (const row of rows) {
     if (row.kind === "group") {
-      const text = groupText(row.group, names, stems.get(row.key) ?? null, row.weighted);
-      widths.push(rowNameCols(row.depth, text.name, [text.wrappers ?? ""]) + COUNT_COLS);
+      const text = groupText(row.group, stems.get(row.key) ?? null, row.weighted);
+      const target = row.group.actionHeader ? targetText(names, row.group.play) : "";
+      const parts = [text.detail ?? "", target];
+      widths.push(rowNameCols(row.depth, text.name, parts) + COUNT_COLS + PLAY_COLS);
+    }
+    if (row.kind === "action") {
+      const parts = [row.action.label ?? "", targetText(names, row.action)];
+      widths.push(rowNameCols(row.depth, "", parts) + ID_COLS);
     }
     if (row.kind !== "voice") continue;
 
@@ -165,25 +182,38 @@ export function voiceNameColumns(rows: readonly VoiceRow[], names: NodeNames): n
   return nameColumnCols(widths);
 }
 
+/** The text of the delay of `action` after its name, or null for none. */
+function DelayText({ action }: { action: EventAction }) {
+  if (action.delay === 0) return null;
+
+  return (
+    <span className="shrink-0 text-meta text-surface-400">
+      {m.audio_voices_delay_label({ ms: String(action.delay) })}
+    </span>
+  );
+}
+
 interface GroupNameProps {
   readonly group: VoiceGroup;
   readonly text: GroupText;
-  /** The guides and the caret before the name. */
+  /** The guides, the caret and the play button before the name. */
   readonly lead: ReactNode;
   /** `true` if the arrows reached the name cell. */
   readonly active: boolean;
+  /** The target of the Play action of an action header, which its entry edits, or null. */
+  readonly target: ReactNode;
 }
 
 /**
- * The name cell of a header row: the muted names of the containers it folds, its own name, the
- * voice count, and the delay of the header of a Play action.
+ * The name cell of a header row: its name, the target and the delay of a Play action, the voice
+ * count, and the switch group of a switch.
  *
+ * The header of a container whose only child is a container draws its name muted and no count.
  * The tooltip gives the name and the ID of the header's container.
  */
-export function GroupName({ group, text, lead, active }: GroupNameProps) {
+export function GroupName({ group, text, lead, active, target }: GroupNameProps) {
   const names = useNodeNames();
-  const owner = group.container ?? group.play.node;
-  const delay = group.actionHeader && group.play.delay > 0 ? group.play.delay : null;
+  const owner = group.container ?? group.state?.switch ?? null;
   const title =
     owner === null
       ? null
@@ -191,7 +221,16 @@ export function GroupName({ group, text, lead, active }: GroupNameProps) {
           name: nodeName(names, owner),
           id: String(owner.id),
         });
-  const name = <span className="truncate font-medium text-surface-200">{text.name}</span>;
+  const name = (
+    <span
+      className={twMerge(
+        "truncate",
+        group.compact ? "text-surface-400" : "font-medium text-surface-200",
+      )}
+    >
+      {text.name}
+    </span>
+  );
 
   return (
     <span
@@ -203,23 +242,68 @@ export function GroupName({ group, text, lead, active }: GroupNameProps) {
       {lead}
       <span
         className={twMerge(
-          "flex min-w-0 items-baseline gap-1.5 px-0.5",
+          "flex min-w-0 items-center gap-1.5 px-0.5",
           active && ACTIVE_CELL_CLASSES,
         )}
       >
-        {text.wrappers !== null && (
-          <span className="shrink-0 text-meta text-surface-400">{`${text.wrappers} /`}</span>
-        )}
         {title === null && name}
         {title !== null && <Tooltip content={title}>{name}</Tooltip>}
-        <span className="shrink-0 text-meta text-surface-400">
-          {m.audio_voices_count_label({ count: group.count })}
-        </span>
-        {delay !== null && (
+        {target}
+        {group.actionHeader && <DelayText action={group.play} />}
+        {!group.compact && (
           <span className="shrink-0 text-meta text-surface-400">
-            {m.audio_voices_delay_label({ ms: String(delay) })}
+            {m.audio_voices_count_label({ count: group.count })}
           </span>
         )}
+        {text.detail !== null && (
+          <span className="shrink-0 text-meta text-surface-400">{text.detail}</span>
+        )}
+      </span>
+    </span>
+  );
+}
+
+interface ActionNameProps {
+  readonly action: EventAction;
+  /** The guides and the caret slot before the name. */
+  readonly lead: ReactNode;
+  /** `true` if the arrows reached the name cell. */
+  readonly active: boolean;
+  /** The target of the action, which its entry edits, or null for an action without one. */
+  readonly target: ReactNode;
+}
+
+/**
+ * The name cell of an action row: the class of the action, its target and its delay.
+ *
+ * An action that no bank contains shows the warning in place of its class.
+ */
+export function ActionName({ action, lead, active, target }: ActionNameProps) {
+  return (
+    <span
+      className={twMerge(
+        "flex min-w-0 shrink-0 items-center gap-1.5 self-stretch",
+        NAME_COLUMN_CLASSES,
+      )}
+    >
+      {lead}
+      <span className="w-5 shrink-0" />
+      <span
+        className={twMerge(
+          "flex min-w-0 items-center gap-1.5 px-0.5",
+          active && ACTIVE_CELL_CLASSES,
+        )}
+      >
+        {action.label === null && (
+          <Status tone="warning">
+            {m.audio_event_missing_action_label({ id: String(action.id) })}
+          </Status>
+        )}
+        {action.label !== null && (
+          <span className="shrink-0 font-medium text-surface-200">{action.label}</span>
+        )}
+        {target}
+        <DelayText action={action} />
       </span>
     </span>
   );
@@ -235,8 +319,6 @@ interface VoiceNameProps {
   readonly picker: ReactNode;
   /** Opens the media picker on a double click. Absent if the source takes no edit. */
   readonly onSwap?: () => void;
-  /** Takes the width of the name column of the list unless `false`. */
-  readonly column?: boolean;
 }
 
 /**
@@ -244,14 +326,14 @@ interface VoiceNameProps {
  *
  * A voice whose media is missing, or that does not play, is greyed and shows the reason.
  */
-export function VoiceName({ line, lead, active, picker, onSwap, column = true }: VoiceNameProps) {
+export function VoiceName({ line, lead, active, picker, onSwap }: VoiceNameProps) {
   const { node } = line.voice;
 
   return (
     <span
       className={twMerge(
         "flex min-w-0 shrink-0 items-center gap-1.5 self-stretch",
-        column && NAME_COLUMN_CLASSES,
+        NAME_COLUMN_CLASSES,
       )}
     >
       {lead}

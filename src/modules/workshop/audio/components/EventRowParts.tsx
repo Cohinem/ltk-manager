@@ -10,26 +10,12 @@ import {
   RowCaret,
   RowGuides,
 } from "../../shared/components/PropertyRowParts";
-import { nameColumnCols, rowNameCols } from "../../shared/utils/propertyRows";
 import { SLOT_ATTRIBUTE } from "../state/rowDrag";
-import { childrenOf, type EventRow } from "../utils/eventTree";
 import { audioRowClasses, MIDDLE_BUTTON } from "./audioRow";
-import { fieldName } from "./FieldRows";
 
 /** Returns the DOM id of the row `key`, which the tree names as its active row. */
 export function rowId(key: string): string {
   return `event-row-${key}`;
-}
-
-/** Returns the width of the name column over the field and children rows of `rows`. */
-export function nameColumns(rows: readonly EventRow[]): number {
-  const widths: number[] = [];
-  for (const row of rows) {
-    const name = fieldName(row);
-    if (name !== null) widths.push(rowNameCols(row.depth, name, []));
-  }
-
-  return nameColumnCols(widths);
 }
 
 /** The parts of a tree row that the frame, the guides and the caret read. */
@@ -39,26 +25,6 @@ export interface TreeRowShape {
   readonly depth: number;
   readonly parent: string | null;
   readonly expandable: boolean;
-}
-
-/** Returns the key of the row that holds each guide level of `row`, outermost first. */
-export function guideBlocks(row: TreeRowShape, byKey: ReadonlyMap<string, TreeRowShape>): string[] {
-  const blocks: string[] = [];
-  let parent = row.parent;
-  while (parent !== null) {
-    blocks.unshift(parent);
-    parent = byKey.get(parent)?.parent ?? null;
-  }
-  return blocks;
-}
-
-/** Returns `true` if a press on `row` plays something. */
-export function isPlayable(row: EventRow): boolean {
-  if (row.kind === "event") return row.event.mediaCount > 0;
-  if (row.kind === "action") return row.action.node !== null;
-  if (row.kind !== "node") return false;
-
-  return row.node.kind === "sound" ? row.node.media !== null : childrenOf(row.node).length > 0;
 }
 
 export interface RowFrameProps {
@@ -114,7 +80,7 @@ export function RowFrame({
       aria-level={row.depth + 1}
       aria-expanded={row.expandable ? open : undefined}
       aria-selected={selected}
-      data-ui="EventTree:row"
+      data-ui="RowFrame"
       {...{ [SLOT_ATTRIBUTE]: drops === undefined ? undefined : row.key }}
       data-asset-drop={drops === "file" ? "" : undefined}
       className={twMerge(PROPERTY_ROW_CLASSES, audioRowClasses({ selected, playing, cut }), "pl-1")}

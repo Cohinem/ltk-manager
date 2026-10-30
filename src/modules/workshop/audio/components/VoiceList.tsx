@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 
-import { Button, ContextMenu } from "@/components";
+import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { EventNode, MediaLocation, SetFile } from "@/lib/tauri";
@@ -47,6 +47,7 @@ import {
   foldKey,
   movedCell,
   type RowCells,
+  rowAction,
   rowCells,
   takesMediaPick,
   type VoiceCell,
@@ -60,10 +61,12 @@ import { AddNodeLine } from "./AddNodeLine";
 import { AUDIO_LIST_GROUP } from "./audioRow";
 import type { NodeActions } from "./EventMenu";
 import { EditedMark, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
+import { FieldValue } from "./FieldRows";
 import { PlayedByCell } from "./PlayedBy";
 import { EventContent, Status } from "./RowContent";
 import { RowDragGhost } from "./RowDragGhost";
 import {
+  ActionName,
   GroupName,
   groupText,
   headerStems,
@@ -104,8 +107,6 @@ interface VoiceListProps {
   readonly editing: TreeEditing | null;
   /** The files of the bank set, which the media picker lists the media of. */
   readonly files: readonly SetFile[];
-  /** Shows the Structure view. */
-  readonly onStructure: () => void;
   /** The row that a request from another view asks the list to scroll to, once per token. */
   readonly reveal?: { readonly key: string; readonly token: number } | null;
   /** The keys of the rows whose nodes are cut and wait for a paste. */
@@ -118,6 +119,7 @@ interface VoiceListProps {
 function rowLabel(row: VoiceRow, names: NodeNames): string {
   if (row.kind === "event") return eventLabel(row.event);
   if (row.kind === "voice") return nodeText(names, row.line.voice.node);
+  if (row.kind === "action") return row.action.label ?? "";
   if (row.kind === "group" && row.group.container !== null) {
     return nodeText(names, row.group.container);
   }
@@ -127,6 +129,9 @@ function rowLabel(row: VoiceRow, names: NodeNames): string {
 
 /** The height of a row in px at 100% zoom: `min-h-6` is six spacing units of 4.5px. */
 const ROW_HEIGHT = 27;
+
+/** The entry name of the target of an action, which the name cell of its row opens. */
+const TARGET_CELL = "target";
 
 /** Returns `true` if the source of the voice of `line` takes a pick of another media. */
 function swappable(line: VoiceLine | null, editing: TreeEditing | null): line is VoiceLine {
@@ -145,13 +150,14 @@ function placedNode(row: VoiceRow): { node: EventNode; parent: ContainerNode | n
 }
 
 /**
- * The events of an event bank, each expanding into group headers and the voices they hold,
- * windowed.
+ * The event tree of an event bank: each event expands into its actions, a header per container
+ * and switch state, and the voices at the leaves, windowed.
  *
  * A header row draws its container's name and knobs in the columns of the voice rows, and folds
- * the rows under it. One tab stop with `aria-activedescendant`. Up and Down move between rows,
- * Left and Right between the cells of a row and fold a header, and Enter or F2 opens the entry of
- * the cell. Per "Voices", "Group headers" and "Selection" in docs/ux/AUDIO.md.
+ * the rows under it. An action row draws its class, target and delay. One tab stop with
+ * `aria-activedescendant`. Up and Down move between rows, Left and Right between the cells of a
+ * row and fold a header, and Enter or F2 opens the entry of the cell. Per "Event tree", "Group
+ * headers" and "Selection" in docs/ux/AUDIO.md.
  */
 export function VoiceList({
   rows,
@@ -170,7 +176,6 @@ export function VoiceList({
   thumbnail,
   editing,
   files,
-  onStructure,
   reveal = null,
   cut,
   onDropAction,
@@ -248,6 +253,13 @@ export function VoiceList({
 
   function enterCell(row: VoiceRow, cell: VoiceCell): boolean {
     if (cell === "media") {
+      const target = rowCells(row)?.fields.target;
+      if (target != null) {
+        if (editing === null || !target.editable) return false;
+
+        setEntering(`${row.key}:${TARGET_CELL}`);
+        return true;
+      }
       if (!swappable(voiceLine(row), editing)) return false;
 
       setPicking(row.key);
@@ -354,10 +366,6 @@ export function VoiceList({
     if (cell !== null && enterCell(row, cell)) return;
     if (row.kind === "add") {
       onAdding(row.key);
-      return;
-    }
-    if (row.kind === "empty") {
-      onStructure();
       return;
     }
     if (key === "Enter") onPlay(row);
@@ -511,9 +519,21 @@ export function VoiceList({
     const enteringCell = entering?.startsWith(`${row.key}:`)
       ? (entering.slice(row.key.length + 1) as FieldCell)
       : null;
+    const target = cells.fields.target;
+    const targetKey = `${row.key}:${TARGET_CELL}`;
 
     return {
       active,
+      target: target !== null && (
+        <FieldValue
+          field={target}
+          editing={editing}
+          entering={entering === targetKey}
+          onEntering={(open) => enterChange(targetKey, open)}
+          onLeave={returnFocus}
+          onCommitted={() => onReplay(row)}
+        />
+      ),
       cells: (
         <VoiceCells
           cells={cells}
@@ -604,43 +624,29 @@ export function VoiceList({
     );
 
     switch (row.kind) {
-      case "event": {
-        const inline = row.inline;
-        const parts = inline === null ? null : voiceParts(row, inline);
+      case "event":
         return (
           <RowFrame {...frame}>
             {lead}
             {play(row.event.mediaCount > 0)}
             <EventContent event={row.event} />
-            {row.delay !== null && (
+            {row.play !== null && (
               <span className="shrink-0 text-meta text-surface-400">
-                {m.audio_voices_delay_label({ ms: String(row.delay) })}
+                {m.audio_event_play_label({ ms: String(row.play.delay) })}
               </span>
             )}
-            {inline !== null && parts !== null && (
-              <>
-                <VoiceName
-                  line={inline}
-                  lead={null}
-                  column={false}
-                  active={parts.active === "media"}
-                  picker={parts.picker}
-                  onSwap={parts.onSwap}
-                />
-                {parts.cells}
-                {editing !== null && editing.edited.has(inline.voice.node.id) && <EditedMark />}
-              </>
+            {editing !== null && row.play !== null && editing.edited.has(row.play.id) && (
+              <EditedMark />
             )}
             {failed}
             <PlayedByCell event={row.event} />
             <span className="w-24 shrink-0 pl-3">{thumbnail(row)}</span>
           </RowFrame>
         );
-      }
       case "group": {
         const parts = cellParts(row, row.cells);
-        const { container } = row.group;
-        const text = groupText(row.group, names, stems.get(row.key) ?? null, row.weighted);
+        const object = row.group.container?.id ?? rowAction(row)?.id ?? null;
+        const text = groupText(row.group, stems.get(row.key) ?? null, row.weighted);
         return (
           <RowFrame {...frame}>
             <GroupName
@@ -653,12 +659,26 @@ export function VoiceList({
                 </>
               }
               active={parts.active === "media"}
+              target={parts.target}
             />
             {parts.cells}
-            {editing !== null && container !== null && editing.edited.has(container.id) && (
-              <EditedMark />
-            )}
+            {editing !== null && object !== null && editing.edited.has(object) && <EditedMark />}
             {failed}
+          </RowFrame>
+        );
+      }
+      case "action": {
+        const parts = cellParts(row, row.cells);
+        return (
+          <RowFrame {...frame}>
+            <ActionName
+              action={row.action}
+              lead={lead}
+              active={parts.active === "media"}
+              target={parts.target}
+            />
+            {parts.cells}
+            {editing !== null && editing.edited.has(row.action.id) && <EditedMark />}
           </RowFrame>
         );
       }
@@ -716,19 +736,7 @@ export function VoiceList({
         return (
           <RowFrame {...frame}>
             {lead}
-            <span className="text-meta text-surface-400">{m.audio_voices_empty()}</span>
-            <Button
-              variant="ghost"
-              size="xs"
-              tabIndex={-1}
-              className="h-5 px-1 text-row font-normal text-surface-300"
-              onClick={(event) => {
-                event.stopPropagation();
-                onStructure();
-              }}
-            >
-              {m.audio_voices_show_structure_action()}
-            </Button>
+            <span className="text-meta text-surface-400">{m.audio_event_actions_empty()}</span>
           </RowFrame>
         );
       case "loading":

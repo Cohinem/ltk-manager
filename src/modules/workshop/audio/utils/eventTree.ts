@@ -1,15 +1,11 @@
 import type {
   AudioEvent,
-  EventAction,
   EventNode,
   EventPlaylistItem,
   EventTree,
   MediaLocation,
-  NodeParent,
-  ObjectProperties,
 } from "@/lib/tauri";
 
-import { type NodeField, nodeFields } from "./nodeFields";
 import { NO_NAMES, nodeMatches, type NodeNames } from "./nodeNames";
 import type { MixPath } from "./voiceMix";
 
@@ -18,31 +14,6 @@ export type TreeState =
   | { readonly kind: "loading" }
   | { readonly kind: "failed"; readonly message: string }
   | { readonly kind: "ready"; readonly tree: EventTree };
-
-interface RowBase {
-  /** Unique within the tree: the path of indexes from the event down. */
-  readonly key: string;
-  readonly depth: number;
-  /** The key of the row above in the tree, or `null` for an event. */
-  readonly parent: string | null;
-  /** `true` if the row has children, fetched or not. */
-  readonly expandable: boolean;
-}
-
-/**
- * One row of the event tree: an event, an action, a node, a field of an action or a node, the
- * children of a container, or the state of a fetch.
- */
-export type EventRow =
-  | (RowBase & { readonly kind: "event"; readonly event: AudioEvent })
-  | (RowBase & { readonly kind: "action"; readonly action: EventAction })
-  | (RowBase & { readonly kind: "node"; readonly node: EventNode })
-  | (RowBase & { readonly kind: "field"; readonly field: NodeField })
-  | (RowBase & { readonly kind: "children"; readonly node: EventNode; readonly count: number })
-  /** The add row at the end of an event's actions or a container's children. */
-  | (RowBase & { readonly kind: "add"; readonly into: NodeParent })
-  | (RowBase & { readonly kind: "loading" })
-  | (RowBase & { readonly kind: "failed"; readonly message: string });
 
 /** Returns the key of the row of the event `id`. */
 export function eventKey(id: number): string {
@@ -78,154 +49,9 @@ export function shownChildOrder(node: EventNode): number[] {
   return [...listed, ...natural.filter((index) => !shown.has(index))];
 }
 
-/** Returns the key of the field row `name` under the row `owner`. */
-export function fieldKey(owner: string, name: string): string {
-  return `${owner}:${name}`;
-}
-
-/** The name of the row that holds the children of a container. */
-const CHILDREN = "children";
-
 /** Returns the key of the add row under the row `owner`. */
 export function addKey(owner: string): string {
   return `${owner}:add`;
-}
-
-/** What `eventRows` reads beside the trees. */
-export interface EventRowOptions {
-  /** The properties of the objects of the trees, by object ID. */
-  readonly properties?: ReadonlyMap<number, ObjectProperties>;
-  /** Returns `true` if `into` takes a new node, which draws its add row. */
-  readonly addable?: (into: NodeParent) => boolean;
-}
-
-/**
- * Flattens `events` into the rows the tree draws, with the children of every key in `expanded`.
- *
- * An expanded event draws the rows of its tree from `trees`, or one loading or failed row while
- * the fetch has not answered. An expanded action or node draws its fields from `properties`
- * first. A container then draws a children row, which expands into its children. An event and a
- * container that `addable` takes end in an add row. Per "Rows" and "New objects" in
- * docs/ux/AUDIO.md.
- */
-export function eventRows(
-  events: readonly AudioEvent[],
-  expanded: ReadonlySet<string>,
-  trees: ReadonlyMap<number, TreeState>,
-  { properties = new Map(), addable = () => false }: EventRowOptions = {},
-): EventRow[] {
-  const rows: EventRow[] = [];
-
-  function pushAdd(owner: string, depth: number, into: NodeParent) {
-    rows.push({ kind: "add", key: addKey(owner), depth, parent: owner, expandable: false, into });
-  }
-
-  function pushFields(fields: readonly NodeField[], owner: string, depth: number) {
-    for (const field of fields) {
-      rows.push({
-        kind: "field",
-        key: fieldKey(owner, field.name),
-        depth,
-        parent: owner,
-        expandable: false,
-        field,
-      });
-    }
-  }
-
-  function pushNode(
-    node: EventNode,
-    key: string,
-    parent: string,
-    depth: number,
-    container: EventNode | null,
-  ) {
-    const fields = nodeFields({ kind: "node", node }, properties, container);
-    const children = childrenOf(node);
-    const adds = takesNewChild(node) && addable({ kind: "container", container: node.id });
-    const expandable = fields.length > 0 || children.length > 0 || adds;
-    rows.push({ kind: "node", key, depth, parent, expandable, node });
-    if (!expanded.has(key)) return;
-
-    pushFields(fields, key, depth + 1);
-    if (children.length === 0 && !adds) return;
-
-    const listKey = fieldKey(key, CHILDREN);
-    rows.push({
-      kind: "children",
-      key: listKey,
-      depth: depth + 1,
-      parent: key,
-      expandable: true,
-      node,
-      count: children.length,
-    });
-    if (!expanded.has(listKey)) return;
-
-    for (const index of shownChildOrder(node)) {
-      const child = children[index];
-      if (child !== undefined) pushNode(child, `${key}.${index}`, listKey, depth + 2, node);
-    }
-    if (adds) pushAdd(listKey, depth + 2, { kind: "container", container: node.id });
-  }
-
-  for (const event of events) {
-    const key = eventKey(event.id);
-    rows.push({ kind: "event", key, depth: 0, parent: null, expandable: true, event });
-    if (!expanded.has(key)) continue;
-
-    const state = trees.get(event.id) ?? { kind: "loading" };
-    if (state.kind === "loading") {
-      rows.push({
-        kind: "loading",
-        key: `${key}:loading`,
-        depth: 1,
-        parent: key,
-        expandable: false,
-      });
-      continue;
-    }
-    if (state.kind === "failed") {
-      rows.push({
-        kind: "failed",
-        key: `${key}:failed`,
-        depth: 1,
-        parent: key,
-        expandable: false,
-        message: state.message,
-      });
-      continue;
-    }
-
-    state.tree.actions.forEach((action, index) => {
-      const actionKey = `${key}/${index}`;
-      const fields = nodeFields({ kind: "action", action }, properties, null);
-      rows.push({
-        kind: "action",
-        key: actionKey,
-        depth: 1,
-        parent: key,
-        expandable: fields.length > 0 || action.node !== null,
-        action,
-      });
-      if (!expanded.has(actionKey)) return;
-
-      pushFields(fields, actionKey, 2);
-      if (action.node !== null) pushNode(action.node, `${actionKey}.0`, actionKey, 2, null);
-    });
-
-    const into: NodeParent = { kind: "event", event: event.id };
-    if (addable(into)) pushAdd(key, 1, into);
-  }
-  return rows;
-}
-
-/**
- * Returns `true` for a node that takes a new child: a random, sequence or switch container, or an
- * actor-mixer. A layer container names its children in its layers.
- */
-function takesNewChild(node: EventNode): boolean {
-  return node.kind === "random" || node.kind === "switch" || node.kind === "mixer";
 }
 
 /** Returns the text an object without a name shows: `#` and its decimal ID. */

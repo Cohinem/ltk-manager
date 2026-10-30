@@ -6,8 +6,6 @@ import { twMerge } from "@/utils";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { eventThumbnailQuery, thumbnailQuery } from "../api/waveform";
 import { mediaUrl } from "../player/useSoundChannel";
-import type { EventRow } from "../utils/eventTree";
-import { thumbnailSource } from "../utils/thumbnailSource";
 import { voiceLine, type VoiceRow } from "../utils/voices";
 
 /** The bar height that a silent bin draws, so a quiet stretch still reads as a line. */
@@ -29,24 +27,6 @@ export function MediaThumbnail({ url, playing }: MediaThumbnailProps) {
   return <ThumbnailBars bars={bars.data ?? null} playing={playing} />;
 }
 
-interface EventRowThumbnailProps {
-  readonly asset: AssetRef;
-  readonly version: number;
-  readonly row: EventRow;
-  readonly playing: boolean;
-}
-
-/** The waveform column of one event tree row: the first media that a press on it plays. */
-export function EventRowThumbnail({ asset, version, row, playing }: EventRowThumbnailProps) {
-  const source = thumbnailSource(row);
-
-  if (source === null) return <ThumbnailBars bars={null} playing={false} />;
-  if (source.kind === "media") {
-    return <MediaThumbnail url={mediaUrl(source.media)} playing={playing} />;
-  }
-  return <EventThumbnail asset={asset} version={version} event={source.id} playing={playing} />;
-}
-
 interface VoiceRowThumbnailProps {
   readonly asset: AssetRef;
   readonly version: number;
@@ -54,7 +34,7 @@ interface VoiceRowThumbnailProps {
   readonly playing: boolean;
 }
 
-/** The waveform column of one row of the Voices view: its voice, or the first media of its event. */
+/** The waveform column of one row of the event tree: its voice, or the first media of its event. */
 export function VoiceRowThumbnail({ asset, version, row, playing }: VoiceRowThumbnailProps) {
   const line = voiceLine(row);
   const node = line?.voice.node;

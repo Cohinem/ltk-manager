@@ -12,7 +12,7 @@
  * `lines` is the Voice lines view, which has no audio document around it and so also answers the
  * document keys that apply to it.
  */
-export type AudioSurface = "media" | "voices" | "structure" | "lines" | "document" | "knob";
+export type AudioSurface = "media" | "voices" | "lines" | "document" | "knob";
 
 /** The section of the shortcut sheet and the palette that a command is listed under. */
 export type AudioCommandGroup = "transport" | "navigation" | "editing" | "view" | "pointer";
@@ -39,7 +39,6 @@ export type AudioCommandId =
   | "menu"
   | "viewMedia"
   | "viewEvents"
-  | "toggleVoices"
   | "toggleInspector"
   | "help"
   | "enter"
@@ -85,9 +84,9 @@ export interface AudioBinding {
   readonly owner: BindingOwner;
 }
 
-const LISTS: readonly AudioSurface[] = ["media", "voices", "structure", "lines"];
-const TREES: readonly AudioSurface[] = ["voices", "structure", "lines"];
-const BANK: readonly AudioSurface[] = ["voices", "structure"];
+const LISTS: readonly AudioSurface[] = ["media", "voices", "lines"];
+const TREES: readonly AudioSurface[] = ["voices", "lines"];
+const BANK: readonly AudioSurface[] = ["voices"];
 const DOCUMENT_KEYS: readonly AudioSurface[] = ["document", "lines"];
 
 /** Every command of the keymap, in the order that the sheet lists each group. */
@@ -171,13 +170,6 @@ export const AUDIO_KEYMAP: readonly AudioBinding[] = [
   {
     id: "viewEvents",
     keys: ["Ctrl+Shift+E"],
-    surfaces: ["document"],
-    group: "view",
-    owner: "audio",
-  },
-  {
-    id: "toggleVoices",
-    keys: ["Ctrl+Shift+V"],
     surfaces: ["document"],
     group: "view",
     owner: "audio",

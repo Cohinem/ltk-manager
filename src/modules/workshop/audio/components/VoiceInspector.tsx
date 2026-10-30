@@ -41,7 +41,7 @@ interface VoiceInspectorProps {
 const NAME_COLS = 16;
 
 /**
- * The inspector pane of the Voices view: every field of the selected row's objects as field rows.
+ * The inspector pane of the event tree: every field of the selected row's objects as field rows.
  *
  * It lists the subject's path as muted text, then one band per object of `inspectorSections`,
  * with the fields that the rows hide and the container facts under the section headers of
@@ -90,7 +90,11 @@ export function VoiceInspector({
   );
 }
 
-/** Returns the names on the path from the Play action down to `row`, the row's own name last. */
+/**
+ * Returns the names on the path from the action down to `row`, the row's own name last.
+ *
+ * Under an event of one Play action, the path starts with Play, which the event row draws.
+ */
 function subjectPath(
   row: VoiceRow,
   byKey: ReadonlyMap<string, VoiceRow>,
@@ -98,14 +102,18 @@ function subjectPath(
 ): string[] {
   const path: string[] = [];
   let at: VoiceRow | undefined = row;
-  while (at !== undefined && at.kind !== "event") {
-    if (at.kind === "group") path.unshift(groupText(at.group, names, null, at.weighted).name);
+  while (at !== undefined) {
+    if (at.kind === "group") path.unshift(groupText(at.group, null, at.weighted).name);
     if (at.kind === "voice") path.unshift(nodeName(names, at.line.voice.node));
+    if (at.kind === "action") path.unshift(at.action.label ?? objectLabel(at.action.id));
+    if (at.kind === "event") {
+      if (at.play !== null && path.length > 0) path.unshift(m.audio_node_play_label());
+      break;
+    }
     at = at.parent === null ? undefined : byKey.get(at.parent);
   }
-  if (path.length === 0) return path;
 
-  return [m.audio_node_play_label(), ...path];
+  return path;
 }
 
 interface SubjectViewProps {

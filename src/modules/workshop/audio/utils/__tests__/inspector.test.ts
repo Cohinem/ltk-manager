@@ -74,7 +74,7 @@ describe("sharedFields", () => {
 });
 
 describe("inspectorSections", () => {
-  it("lists a header's container, then the wrappers above it and the facts of each", () => {
+  it("lists the container of each header with its facts, a wrapper on its own header", () => {
     const random: EventNode = {
       kind: "random",
       id: 7,
@@ -101,25 +101,50 @@ describe("inspectorSections", () => {
       new Map([[100, { kind: "ready", tree: { event: 100, name: null, actions: [play] } }]]),
       { properties, editable: true },
     );
-    const header = rows.find((row) => row.kind === "group");
-    const sections = header === undefined ? [] : inspectorSections(header, properties);
+    const sections = rows
+      .filter((row) => row.kind === "group")
+      .map((header) =>
+        inspectorSections(header, properties).map((section) => [
+          section.owner.kind === "node" ? section.owner.node.id : section.owner.action.id,
+          section.fields.map((field) => field.name),
+          section.facts,
+        ]),
+      );
 
-    expect(
-      sections.map((section) => [
-        section.owner.kind === "node" ? section.owner.node.id : section.owner.action.id,
-        section.fields.map((field) => field.name),
-        section.facts,
-      ]),
-    ).toEqual([
+    expect(sections).toEqual([
+      [[2, ["pitch"], []]],
       [
-        7,
-        ["volume"],
         [
-          { kind: "playlist", mode: "sequence" },
-          { kind: "pick", weighted: true },
+          7,
+          ["volume"],
+          [
+            { kind: "playlist", mode: "sequence" },
+            { kind: "pick", weighted: true },
+          ],
         ],
       ],
-      [2, ["pitch"], []],
     ]);
+  });
+
+  it("lists the action of an action row", () => {
+    const stop: EventAction = {
+      id: 6,
+      class: 0x0100,
+      label: "Stop",
+      target: 9,
+      node: null,
+      delay: 0,
+    };
+    const rows = voiceRows(
+      [EVENT],
+      new Set(["e100"]),
+      new Map([[100, { kind: "ready", tree: { event: 100, name: null, actions: [stop] } }]]),
+      { properties: new Map(), editable: false },
+    );
+    const row = rows.find((each) => each.kind === "action");
+    const sections = row === undefined ? [] : inspectorSections(row, new Map());
+
+    expect(sections.map((section) => section.owner.kind)).toEqual(["action"]);
+    expect(sections[0]?.fields.map((field) => field.name)).toEqual(["target", "delay"]);
   });
 });

@@ -1,35 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import type { AudioEvent } from "@/lib/tauri";
+import { eventKey } from "../eventTree";
+import { headIndex, movedIndex, PAGE_ROWS, treeStep, type TreeStepRow } from "../rowKeys";
 
-import { eventKey, type EventRow } from "../eventTree";
-import { headIndex, movedIndex, PAGE_ROWS, treeStep } from "../rowKeys";
-
-const EVENT: AudioEvent = {
-  id: 100,
-  name: "Play_sfx_Ahri_AhriQ_OnCast",
-  actionCount: 1,
-  mediaCount: 1,
-  status: { kind: "resolved" },
-  contexts: [],
-  listed: null,
-  nodes: [],
-};
-
-const EVENT_ROW: EventRow = {
+const EVENT_ROW: TreeStepRow & { kind: string } = {
   kind: "event",
-  key: eventKey(EVENT.id),
-  depth: 0,
+  key: eventKey(100),
   parent: null,
   expandable: true,
-  event: EVENT,
 };
 
-const CHILD_ROW: EventRow = {
+const CHILD_ROW: TreeStepRow & { kind: string } = {
   kind: "loading",
-  key: `${eventKey(EVENT.id)}/0`,
-  depth: 1,
-  parent: eventKey(EVENT.id),
+  key: `${eventKey(100)}/0`,
+  parent: eventKey(100),
   expandable: false,
 };
 

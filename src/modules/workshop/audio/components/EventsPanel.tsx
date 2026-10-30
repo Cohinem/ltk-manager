@@ -12,7 +12,6 @@ import {
   Inline,
   LoadingState,
   SearchField,
-  SegmentedControl,
   Stack,
   useConfirm,
   useToast,
@@ -29,7 +28,6 @@ import {
   type BankEdit,
   type ContainerKind,
   type MediaReplacement,
-  type NodeParent,
   type ObjectProperties,
 } from "@/lib/tauri";
 import { useAudioInspector, useSetAudioInspector } from "@/stores";
@@ -46,13 +44,10 @@ import { useBankEventRequest, useBankEventStore } from "../state/voiceLines";
 import type { DropAction } from "../utils/dropTargets";
 import {
   addKey,
-  type EventRow,
   eventKey,
   eventLabel,
-  eventRows,
   eventVoices,
   type EventVoice,
-  fieldKey,
   filterEvents,
   nodeVoices,
   type RandomSource,
@@ -77,27 +72,19 @@ import {
 } from "../utils/nodeBatch";
 import type { FieldTarget } from "../utils/nodeFields";
 import { nodeNames, withActions } from "../utils/nodeNames";
-import {
-  isEditable,
-  rowTarget,
-  takesChild,
-  type TreeEditing,
-  voiceTarget,
-} from "../utils/treeEditing";
-import { structureRow, treeAncestors, treeSelection, voiceSelection } from "../utils/viewRows";
+import { isEditable, type TreeEditing, voiceTarget } from "../utils/treeEditing";
+import { menuSubject, voiceSelection } from "../utils/viewRows";
 import { PLAIN_PATH } from "../utils/voiceMix";
-import { replayOf, stepAncestors, type VoiceRow, voiceRows } from "../utils/voices";
+import { replayOf, stepAncestors, type TreeItem, type VoiceRow, voiceRows } from "../utils/voices";
 import { AudioPanelTools } from "./AudioToolbar";
 import { EventMenu, type NodeActions } from "./EventMenu";
-import { isPlayable } from "./EventRowParts";
-import { EventTree } from "./EventTree";
 import { NewEventEntry, type Naming } from "./NewEventEntry";
 import { NoticeBand } from "./NoticeBand";
 import { SoundTargetPicker } from "./SoundTargetPicker";
 import { VoiceInspector } from "./VoiceInspector";
 import { VoiceList } from "./VoiceList";
 import { EventWaveform } from "./Waveform";
-import { EventRowThumbnail, VoiceRowThumbnail } from "./WaveformThumbnail";
+import { VoiceRowThumbnail } from "./WaveformThumbnail";
 
 interface EventsPanelProps {
   readonly asset: AssetRef;
@@ -106,9 +93,6 @@ interface EventsPanelProps {
   /** The source that a random container picks a child with. */
   readonly random?: RandomSource;
 }
-
-/** The view of the events: the voices each one plays, or the full Wwise tree. */
-type EventsView = "voices" | "structure";
 
 /** The sounds and containers that a cut holds for a paste, and the keys of their rows. */
 interface CutNodes {
@@ -122,8 +106,8 @@ const NO_KEYS: ReadonlySet<string> = new Set();
  * The Events view of an event bank: its tools in the document toolbar, the notices about its
  * bank set, and the event tree with one player.
  *
- * An event's tree is fetched when the event expands or plays. The picked rows of a view take the
- * node actions and the knob edits together. Per "Event tree", "Editing", "New objects" and
+ * An event's tree is fetched when the event expands or plays. The picked rows take the node
+ * actions and the knob edits together. Per "Event tree", "Editing", "New objects" and
  * "Selection" in docs/ux/AUDIO.md.
  */
 export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelProps) {
@@ -144,8 +128,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const toast = useToast();
   const [cut, setCut] = useState<CutNodes | null>(null);
   const filterBox = useRef<HTMLInputElement>(null);
-  const [view, setView] = useState<EventsView>("voices");
-  const voices = view === "voices";
   const inspecting = useAudioInspector();
   const setInspecting = useSetAudioInspector();
 
@@ -165,25 +147,14 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
     ),
   });
 
-  /* The tree of an event of one sound decides if its row draws the sound inline. A drawn row
-     reads it through `TreeProbe`, and these observers only pass the answer to the rows. */
-  const probed = voices ? listed.filter((event) => isProbed(event, expanded)) : [];
-  const probes = useQueries({
-    queries: probed.map((event) => ({
-      ...audioQueries.event(sandbox, asset, version, event.id, revision),
-      enabled: false,
-    })),
-  });
-  const read = trees.concat(probes);
-
   /* The knob edits of a selection read the picks through a ref, because the picks are read off
      the rows, which the editing builds. */
   const pickedTargets = useRef<readonly NodeTarget[]>([]);
-  const editing = useTreeEditing(bank, read, pickedTargets);
+  const editing = useTreeEditing(bank, trees, pickedTargets);
 
   const treeStates = new Map<number, TreeState>();
-  [...openEvents, ...probed].forEach((event, index) => {
-    const query = read[index];
+  openEvents.forEach((event, index) => {
+    const query = trees[index];
     if (query?.data) {
       treeStates.set(event.id, { kind: "ready", tree: query.data.tree });
     } else if (query?.error) {
@@ -192,31 +163,20 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   });
   const shownNames = withActions(
     names,
-    read.flatMap((query) => (query.data ? [query.data.tree] : [])),
+    trees.flatMap((query) => (query.data ? [query.data.tree] : [])),
   );
 
-  const shownProperties = editing?.properties ?? properties(read);
+  const shownProperties = editing?.properties ?? properties(trees);
   usePlayerMix(player, shownProperties);
-  const addable = (into: NodeParent) =>
-    editing !== null && (into.kind === "event" || isEditable(editing, into.container));
-  const rows = voices
-    ? []
-    : eventRows(listed, expanded, treeStates, { properties: shownProperties, addable });
-  const voiceList = voices
-    ? voiceRows(listed, expanded, treeStates, {
-        properties: shownProperties,
-        editable: editing !== null,
-      })
-    : [];
-
+  const rows = voiceRows(listed, expanded, treeStates, {
+    properties: shownProperties,
+    editable: editing !== null,
+  });
   const byKey = new Map(rows.map((row) => [row.key, row]));
+
   const targetByKey = new Map<string, NodeTarget>();
-  for (const row of voiceList) {
-    const target = voiceTarget(row);
-    if (target !== null) targetByKey.set(row.key, target);
-  }
   for (const row of rows) {
-    const target = rowTarget(row, byKey);
+    const target = voiceTarget(row);
     if (target !== null) targetByKey.set(row.key, target);
   }
   const picks = useTreePicks(targetByKey, selected, setSelected);
@@ -242,7 +202,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
 
     settleBankRequest(serial);
     const key = eventKey(intent.event);
-    setView("voices");
     setFilter("");
     setSelected(key);
     setReveal({ key, token: serial });
@@ -263,105 +222,62 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   }
 
   /** Opens the add row that Add on `key` reaches, expanding the rows above it. */
+  /** Opens the add row that Add on `key` reaches: the nearest one above it, else the event's. */
   function openAdd(key: string) {
-    const added = voices ? voiceAddKey(key) : treeAddKey(key);
-    if (added === null) return;
+    const row = byKey.get(key);
+    if (row === undefined) return;
 
+    const added = row.kind === "add" ? row.key : nearestAdd(row);
+    expand(eventKey(row.eventId), true);
     setSelected(added);
     setAdding(added);
   }
 
-  function treeAddKey(key: string): string | null {
-    const row = byKey.get(key);
-    if (row === undefined) return null;
-
-    switch (row.kind) {
-      case "add":
-        return row.key;
-      case "event":
-        expand(row.key, true);
-        return addKey(row.key);
-      case "children":
-        expand(row.key, true);
-        return addKey(row.key);
-      case "action":
-        return row.parent === null ? null : addKey(row.parent);
-      case "node": {
-        if (takesChild(row.node)) {
-          const list = fieldKey(row.key, "children");
-          expand(row.key, true);
-          expand(list, true);
-          return addKey(list);
-        }
-        const above = row.parent === null ? undefined : byKey.get(row.parent);
-        if (above?.kind === "children") return addKey(above.key);
-        return above?.kind === "action" && above.parent !== null ? addKey(above.parent) : null;
-      }
-      default:
-        return null;
-    }
-  }
-
-  function voiceAddKey(key: string): string | null {
-    const row = voiceList.find((each) => each.key === key);
-    if (row === undefined) return null;
-    if (row.kind === "add") return row.key;
-
-    const owner = eventKey(row.eventId);
-    expand(owner, true);
-
-    const drawn = new Map(voiceList.map((each) => [each.key, each]));
+  function nearestAdd(row: VoiceRow): string {
     let holder: VoiceRow | undefined = row;
     while (holder !== undefined && holder.kind !== "event") {
-      const add = drawn.get(addKey(holder.key));
+      const add = byKey.get(addKey(holder.key));
       if (add !== undefined) return add.key;
 
-      holder = holder.parent === null ? undefined : drawn.get(holder.parent);
+      holder = holder.parent === null ? undefined : byKey.get(holder.parent);
     }
-    return addKey(owner);
+    return addKey(eventKey(row.eventId));
   }
 
-  async function voicesOf(row: EventRow): Promise<EventVoice[]> {
-    if (!isPlayable(row)) return [];
-
+  /** Returns the voices of one press on `row`, under the containers above it. */
+  async function rowVoices(row: VoiceRow): Promise<EventVoice[]> {
     if (row.kind === "event") {
+      if (row.event.mediaCount === 0) return [];
+
       const { tree } = await queryClient.fetchQuery(
         audioQueries.event(sandbox, asset, version, row.event.id, revision),
       );
       return eventVoices(tree, random);
     }
-    if (row.kind === "action" && row.action.node !== null)
-      return nodeVoices(row.action.node, random);
-    if (row.kind === "node") return nodeVoices(row.node, random, treeAncestors(row, byKey));
+    if (row.kind === "voice") return itemVoices({ kind: "voice", voice: row.line.voice });
+    if (row.kind === "group") return itemVoices({ kind: "group", group: row.group });
+
     return [];
   }
 
-  /** Returns the voices of one press on `row` of the Voices view, under the containers above it. */
-  async function voiceRowVoices(row: VoiceRow): Promise<EventVoice[]> {
-    if (row.kind === "voice") {
-      const { voice } = row.line;
-      return nodeVoices(voice.node, random, stepAncestors(voice.path));
+  /** Returns the voices of one press on `item`, under the containers above it. */
+  function itemVoices(item: TreeItem): EventVoice[] {
+    if (item.kind === "voice") {
+      return nodeVoices(item.voice.node, random, stepAncestors(item.voice.path));
     }
-    if (row.kind === "group" && row.group.container !== null) {
-      return nodeVoices(row.group.container, random, stepAncestors(row.group.path));
-    }
+    if (item.kind === "action") return [];
 
-    const found = structureRow(row);
-    return found === null ? [] : voicesOf(found.row);
+    const { group } = item;
+    if (group.container !== null) {
+      return nodeVoices(group.container, random, stepAncestors(group.path));
+    }
+    return group.items.flatMap(itemVoices);
   }
 
-  /** Plays `row`, or every picked row together if `row` is one of several picks. */
-  async function play(row: EventRow) {
+  function playRow(row: VoiceRow) {
     const together = picks.picked.size > 1 && picks.picked.has(row.key);
     const shown = together ? rows.filter((each) => picks.picked.has(each.key)) : [row];
-    const voicesPlayed = (await Promise.all(shown.map(voicesOf))).flat();
-    if (voicesPlayed.length > 0) player.play(row.key, voicesPlayed);
-  }
-
-  function playVoiceRow(row: VoiceRow) {
-    const together = picks.picked.size > 1 && picks.picked.has(row.key);
-    const shown = together ? voiceList.filter((each) => picks.picked.has(each.key)) : [row];
-    void Promise.all(shown.map(voiceRowVoices)).then((each) => {
+    void Promise.all(shown.map(rowVoices)).then((each) => {
       const voicesPlayed = each.flat();
       if (voicesPlayed.length > 0) player.play(row.key, voicesPlayed);
     });
@@ -519,8 +435,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const wrap = actions?.wrap ?? null;
 
   usePanelCommands("events", {
-    toggleVoices: () => setView(voices ? "structure" : "voices"),
-    toggleInspector: voices ? () => setInspecting(!inspecting) : undefined,
+    toggleInspector: () => setInspecting(!inspecting),
     find: () => filterBox.current?.select(),
     stop: player.playing === null ? undefined : player.stop,
     copy: picks.targets.length > 0 ? copyPicks : undefined,
@@ -537,19 +452,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
 
   const tools = (
     <AudioPanelTools
-      mode={
-        <SegmentedControl
-          size="sm"
-          aria-label={m.audio_events_view_label()}
-          value={view}
-          onChange={setView}
-          options={[
-            { value: "voices", label: m.audio_events_view_voices_label() },
-            { value: "structure", label: m.audio_events_view_structure_label() },
-          ]}
-          className="shrink-0"
-        />
-      }
       filter={
         <SearchField
           value={filter}
@@ -593,21 +495,19 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
         )
       }
       panes={
-        voices && (
-          <IconButton
-            icon={<SidebarSimpleIcon weight="bold" mirrored />}
-            label={m.audio_inspector_toggle_action()}
-            aria-keyshortcuts={shortcutOf("toggleInspector") ?? undefined}
-            tooltip={
-              <KeyHint
-                label={m.audio_inspector_toggle_action()}
-                shortcut={shortcutOf("toggleInspector") ?? ""}
-              />
-            }
-            pressed={inspecting}
-            onClick={() => setInspecting(!inspecting)}
-          />
-        )
+        <IconButton
+          icon={<SidebarSimpleIcon weight="bold" mirrored />}
+          label={m.audio_inspector_toggle_action()}
+          aria-keyshortcuts={shortcutOf("toggleInspector") ?? undefined}
+          tooltip={
+            <KeyHint
+              label={m.audio_inspector_toggle_action()}
+              shortcut={shortcutOf("toggleInspector") ?? ""}
+            />
+          }
+          pressed={inspecting}
+          onClick={() => setInspecting(!inspecting)}
+        />
       }
     />
   );
@@ -648,15 +548,15 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
         {events.data.list.events.length > 0 && listed.length === 0 && (
           <EmptyState size="sm" title={m.audio_events_filtered_empty()} />
         )}
-        {listed.length > 0 && voices && (
+        {listed.length > 0 && (
           <Inline fill align="stretch">
             <VoiceList
-              rows={voiceList}
+              rows={rows}
               onExpand={expand}
               selected={selected}
               picks={picks}
               player={player}
-              onPlay={playVoiceRow}
+              onPlay={playRow}
               onReplay={(row) => void replay(row)}
               onPreview={(key, media) => player.play(key, [{ media, path: PLAIN_PATH }])}
               onCopy={copyPicks}
@@ -665,18 +565,17 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
               onAdding={setAdding}
               editing={editing}
               files={files}
-              onStructure={() => setView("structure")}
               reveal={reveal}
               cut={cut?.keys ?? NO_KEYS}
               onDropAction={dropFile}
               menu={(row) => {
-                const shown = structureRow(row);
-                if (shown === null) return null;
+                const subject = menuSubject(row);
+                if (subject === null) return null;
 
                 return (
                   <>
                     <EventMenu
-                      row={shown.row}
+                      subject={subject}
                       actions={actions}
                       count={picks.targets.length}
                       onCopy={copyPicks}
@@ -693,25 +592,18 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
                 );
               }}
               thumbnail={(row) => (
-                <>
-                  <VoiceRowThumbnail
-                    asset={asset}
-                    version={version}
-                    row={row}
-                    playing={player.playing === row.key}
-                  />
-                  {row.kind === "event" && isProbed(row.event, expanded) && (
-                    <TreeProbe
-                      query={audioQueries.event(sandbox, asset, version, row.event.id, revision)}
-                    />
-                  )}
-                </>
+                <VoiceRowThumbnail
+                  asset={asset}
+                  version={version}
+                  row={row}
+                  playing={player.playing === row.key}
+                />
               )}
             />
             {inspecting && (
               <VoiceInspector
-                subjects={inspected(voiceList, selected, picks.picked)}
-                byKey={new Map(voiceList.map((row) => [row.key, row]))}
+                subjects={inspected(rows, selected, picks.picked)}
+                byKey={byKey}
                 properties={shownProperties}
                 editing={editing}
                 onReplay={(row) => void replay(row)}
@@ -719,47 +611,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
             )}
           </Inline>
         )}
-        {listed.length > 0 && !voices && (
-          <EventTree
-            rows={rows}
-            expanded={expanded}
-            onExpand={expand}
-            selected={selected}
-            picks={picks}
-            player={player}
-            onPlay={(row) => void play(row)}
-            onCopy={copyPicks}
-            actions={actions}
-            editing={editing}
-            files={files}
-            adding={adding}
-            onAdding={setAdding}
-            cut={cut?.keys ?? NO_KEYS}
-            onDropAction={dropFile}
-            onPreview={(key, media) => player.play(key, [{ media, path: PLAIN_PATH }])}
-            menu={(row) => (
-              <EventMenu
-                row={row}
-                actions={actions}
-                count={picks.targets.length}
-                onCopy={copyPicks}
-              />
-            )}
-            thumbnail={(row) => (
-              <EventRowThumbnail
-                asset={asset}
-                version={version}
-                row={row}
-                playing={player.playing === row.key}
-              />
-            )}
-          />
-        )}
         {listed.length > 0 && (
-          <EventWaveform
-            player={player}
-            selection={voices ? voiceSelection(voiceList, selected) : treeSelection(rows, selected)}
-          />
+          <EventWaveform player={player} selection={voiceSelection(rows, selected)} />
         )}
         <span aria-live="polite" className="sr-only">
           {announcement}
@@ -786,17 +639,6 @@ function inspected(
 
   const row = rows.find((each) => each.key === selected);
   return row === undefined ? [] : [row];
-}
-
-/** Returns `true` if the row of `event` may draw its one sound inline, once its tree is read. */
-function isProbed(event: AudioEvent, expanded: ReadonlySet<string>): boolean {
-  return event.mediaCount === 1 && !expanded.has(eventKey(event.id));
-}
-
-/** Reads the tree of one event while it is mounted, and draws nothing. */
-function TreeProbe({ query }: { query: ReturnType<typeof audioQueries.event> }) {
-  useQuery(query);
-  return null;
 }
 
 /**
