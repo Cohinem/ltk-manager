@@ -168,11 +168,11 @@ services! {
         audio_bank_import,
         audio_bank_replace_preview,
         audio_bank_replace,
-        audio_bank_use_event,
         audio_bank_step,
         audio_bank_save,
         audio_bank_nodes,
-        audio_sound_targets,
+        audio_scoped_events,
+        audio_search_events,
         audio_voice_lines,
         audio_voice_rule_template,
     }

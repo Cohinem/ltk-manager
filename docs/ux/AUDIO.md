@@ -40,7 +40,7 @@ File  Edit  Insert  View  Playback  Bank  EXPERIMENTAL   [Media|Events] [Filter 
   without media. A file without a hierarchy shows the media table alone.
 - The tools of the open view: the filter and the count of events or media. In the Events view the
   count reads the picked rows when more than one is picked, per "Selection". The count is hidden
-  in a narrow group. The name entry of New event and the picker of Use in... open after the count
+  in a narrow group. The name entry of New event opens after the count
   while they are in use.
 
 Bank details opens a popover under the row with the `BKHD` facts of a bank: its version, bank
@@ -75,7 +75,7 @@ hierarchy lists no Insert or Bank items of the event tree, and no Save, Undo or 
 | Insert   | New event, Add child... New sound, Container (random, sequence or switch), Import .wem...                             |
 | View     | Media and Events as a choice, Inspector as a switch. Expand all, Collapse all. Focus filter, Keys and gestures        |
 | Playback | Play or stop, Play event, Stop all. Loop as a switch. Volume up, Volume down, and the preview volume                  |
-| Bank     | The bank units, per "Bank units", and Find references. Replace media from file..., Use in...                          |
+| Bank     | The bank units, per "Bank units", and Find references. Replace media from file...                                     |
 | Voice    | Only in the Voice lines view, per docs/ux/CONTEXTUAL_VOICE.md                                                         |
 
 Edit lists Move up and Move down only in the Voice lines view, because the event tree moves a
@@ -651,7 +651,6 @@ A context menu holds the actions on the picked rows. Each item shows its icon an
 | Delete               | Delete     | Deletes each picked row from its parent                                    |
 | Copy                 | Ctrl+C     | Copies the event names and object IDs of the picked rows, one on each line |
 | Rename               | none       | Opens the name entry of the picked event with its name                     |
-| Use in...            | none       | Opens the sound field picker of "Using an event" for the picked event      |
 | Replace media...     | none       | Replaces the media of the picked sound from a file, per "Replacing media"  |
 
 Duplicate on an event opens the name entry with the name and `_copy`, and the new event copies
@@ -726,13 +725,8 @@ than the reader expects.
 
 ### Using an event
 
-Use in... on a named event opens a picker after the filter. It lists every sound field of
-the project's bins that an event can be set in: `SoundEventData.mSoundName` of a clip event,
-`soundOnCreateDefault` and `soundPersistentDefault` of a `VfxSystemDefinitionData`, and
-`SoundOnCreate` and `SoundPersistent` of a `VfxEmitterAudio`. A field shows its object and its
-path, and the event it plays now, and the empty fields come first. The text filters by bin,
-object or path. Enter sets the field to the event's name, as one undo step of the bank, with the
-bin held as for "Bank unit events". Escape closes the picker. A field of a game bin is not listed.
+An event is set in a clip or a VFX system from the bin's side: the sound field suggests the
+events of the bin's character skin, per "A sound field" in docs/ux/BIN_EDITOR.md.
 
 Create event from a sound field of a bin is not built yet.
 

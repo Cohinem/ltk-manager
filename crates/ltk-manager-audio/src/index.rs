@@ -77,6 +77,12 @@ impl AudioIndex {
             .map(|&at| &self.units[at])
     }
 
+    /// Returns the event names of the index.
+    #[must_use]
+    pub fn event_names(&self) -> &EventNames {
+        &self.names
+    }
+
     /// Returns the bank lists that list `path`, compared without ASCII case.
     pub fn lists_naming<'a>(&'a self, path: &'a str) -> impl Iterator<Item = &'a IndexedList> {
         self.lists.iter().filter(move |indexed| {

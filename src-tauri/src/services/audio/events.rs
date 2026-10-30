@@ -168,7 +168,7 @@ pub(super) fn with_edit_context<T>(
         let opened = match (source, contents) {
             (BankSource::Opened(opened), _) => opened,
             (BankSource::Asset(asset), contents) => OpenedBank {
-                path: bank_path(&asset, rows),
+                path: game_path(&asset, rows),
                 file: AudioFile {
                     asset,
                     contents: contents.unwrap_or_default(),
@@ -187,11 +187,11 @@ pub(super) fn with_edit_context<T>(
     })??
 }
 
-/// Returns the game path of the bank `asset`.
+/// Returns the game path of `asset`, a bank or a bin.
 ///
 /// A game chunk and a layer file that an unpack named by its hash take the path that `names`
 /// gives the hash. A file outside the game is named by its file name.
-pub(crate) fn bank_path(asset: &AssetRef, names: &dyn RowNames) -> String {
+pub(crate) fn game_path(asset: &AssetRef, names: &dyn RowNames) -> String {
     match asset {
         AssetRef::GameChunk { path_hash, .. } | AssetRef::LcuChunk { path_hash, .. } => asset
             .chunk_hash()

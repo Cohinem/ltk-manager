@@ -885,6 +885,7 @@
       }
     }
   ],
+  "workshop_bin_event_game_label": "Other game events",
   "workshop_bin_field_declared_on_label": "Declared on",
   "workshop_bin_field_default_label": "Default",
   "workshop_bin_field_mismatch_description": "The file writes *{file}*, the schema declares *{declared}*.",

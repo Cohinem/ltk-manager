@@ -21,7 +21,6 @@ import { useAssetVersion } from "@/lib/assetVersions";
 import {
   api,
   type AssetRef,
-  type AudioEvent,
   type AudioEventResponse,
   type AudioEventsResponse,
   type BankEdit,
@@ -79,7 +78,6 @@ import { AudioPanelTools } from "./AudioToolbar";
 import { EventMenu, type NodeActions } from "./EventMenu";
 import { NewEventEntry, type Naming } from "./NewEventEntry";
 import { NoticeBand } from "./NoticeBand";
-import { SoundTargetPicker } from "./SoundTargetPicker";
 import { VoiceInspector } from "./VoiceInspector";
 import { VoiceList } from "./VoiceList";
 import { EventWaveform } from "./Waveform";
@@ -125,7 +123,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [naming, setNaming] = useState<Naming | null>(null);
-  const [using, setUsing] = useState<AudioEvent | null>(null);
   const confirm = useConfirm();
   const toast = useToast();
   const [cut, setCut] = useState<CutNodes | null>(null);
@@ -367,7 +364,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
         copiedEvent === undefined
           ? null
           : (event) => setNaming({ copyOf: null, renames: event.id, initial: eventLabel(event) }),
-      assignTo: copiedEvent === undefined ? null : setUsing,
       replace: only?.kind === "sound" ? (source) => void replaceMedia(source) : null,
       cut: cutOf(targets),
       paste: pasteInto(),
@@ -494,10 +490,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
       actions?.rename == null || pickedEvent === null
         ? undefined
         : () => actions.rename?.(pickedEvent),
-    useIn:
-      actions?.assignTo == null || pickedEvent?.name == null
-        ? undefined
-        : () => actions.assignTo?.(pickedEvent),
     replaceMedia:
       actions?.replace == null || pickedSource === null
         ? undefined
@@ -561,27 +553,11 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
       count={count}
       entry={
         editing !== null && (
-          <>
-            {using !== null && using.name !== null && (
-              <SoundTargetPicker
-                revision={editing.revision}
-                name={using.name}
-                onPick={(target) => {
-                  const name = using.name;
-                  setUsing(null);
-                  if (name !== null) void bank.assignEvent(target, name);
-                }}
-                onClose={() => setUsing(null)}
-              />
-            )}
-            {using === null && (
-              <NewEventEntry
-                naming={naming}
-                onNaming={setNaming}
-                onCommit={(name, entry) => editing.edit(namingEdit(name, entry))}
-              />
-            )}
-          </>
+          <NewEventEntry
+            naming={naming}
+            onNaming={setNaming}
+            onCommit={(name, entry) => editing.edit(namingEdit(name, entry))}
+          />
         )
       }
     />

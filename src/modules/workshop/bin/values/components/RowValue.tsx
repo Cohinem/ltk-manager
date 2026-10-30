@@ -33,6 +33,8 @@ import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkCh
 import { ObjectNameContext } from "../../links/hooks/useLinkTargets";
 import { PathInput } from "../../paths/components/PathInput";
 import { type PathField, pathFieldOf } from "../../paths/utils/pathField";
+import { EventInput } from "../../sounds/components/EventInput";
+import { isSoundField } from "../../sounds/utils/eventSuggestions";
 import { useRowEdit } from "../../tree/hooks/useBinEdit";
 import { type LeafEdit, LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { fieldHash, recordField, rowKey } from "../../tree/utils/binRows";
@@ -278,6 +280,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
         <TextEdit
           text={value.value}
           path={pathFieldOf(row)}
+          sound={isSoundField(row)}
           invalid={invalid}
           autoFocus={autoFocus}
           onEnter={onEnter}
@@ -330,6 +333,8 @@ interface TextEditProps {
   label?: string;
   /** The path field settings, for a field that suggests files. Null for a plain text field. */
   path?: PathField | null;
+  /** The field holds an event name, and suggests the events of the bin's character skin. */
+  sound?: boolean;
   invalid: boolean;
   /** Open the field as the row draws, for a property just added. */
   autoFocus: boolean;
@@ -351,6 +356,7 @@ export function TextEdit({
   text,
   label = m.workshop_bin_edit_value_action(),
   path = null,
+  sound = false,
   invalid,
   autoFocus,
   onEnter,
@@ -388,6 +394,24 @@ export function TextEdit({
     [discard],
   );
 
+  if ((editing || implicit) && sound) {
+    return (
+      <FieldDiscardContext value={dropped}>
+        <span data-text-field className="flex min-w-0 flex-1">
+          <EventInput
+            value={text}
+            placeholder={text || m.workshop_bin_empty_label()}
+            aria-label={label}
+            invalid={invalid}
+            autoFocus={editing}
+            onEnter={onEnter}
+            onCommit={commit}
+            onLeave={leave}
+          />
+        </span>
+      </FieldDiscardContext>
+    );
+  }
   if ((editing || implicit) && path !== null) {
     return (
       <FieldDiscardContext value={dropped}>

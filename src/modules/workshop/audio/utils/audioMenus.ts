@@ -114,12 +114,7 @@ export const AUDIO_MENU_SPEC: readonly {
   },
   {
     id: "bank",
-    entries: [
-      { kind: "slot", slot: "units" },
-      SEPARATOR,
-      command("replaceMedia"),
-      command("useIn"),
-    ],
+    entries: [{ kind: "slot", slot: "units" }, SEPARATOR, command("replaceMedia")],
   },
   {
     id: "voice",

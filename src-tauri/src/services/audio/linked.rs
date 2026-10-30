@@ -1,7 +1,7 @@
 //! The bin documents that an event bank document edits beside its bank: the `events` lists of the
-//! bank units that name the bank, and the sound fields that "Use in" sets.
+//! bank units that name the bank.
 //!
-//! "Bank unit events" and "Using an event" in `docs/ux/AUDIO.md`. Each bin edit goes through
+//! "Bank unit events" in `docs/ux/AUDIO.md`. Each bin edit goes through
 //! `BinDocuments::apply` (ADR-0051) as one step of that bin's history, and the event bank
 //! document keeps the steps beside its own, so one undo reverts both.
 
@@ -223,47 +223,6 @@ pub(super) fn follow_events(
         stepped.push(id);
     }
     Ok(stepped)
-}
-
-/// Sets the sound field `field` of the struct at `holder` under `entry` of the layer bin `asset`
-/// to `name`, and returns the bin document that took the step.
-///
-/// # Errors
-///
-/// Fails if `asset` is not a project layer file, or if the bin cannot be read or edited.
-pub(super) fn set_sound_field(
-    app: &AppHandle,
-    linked: &mut LinkedBins,
-    sandbox: &SandboxRef,
-    asset: &AssetRef,
-    target: (&str, &str, &str),
-    name: &str,
-) -> AppResult<BinDocumentId> {
-    let (entry, holder, field) = target;
-    if !matches!(asset, AssetRef::Layer { .. }) {
-        return Err(AppError::ValidationFailed(
-            "Only a sound field of a project bin takes an event".to_owned(),
-        ));
-    }
-
-    let id = linked.hold(app, sandbox, asset)?;
-    let (schema, build) = installed_schema(app);
-    app.state::<BinDocuments>().apply(
-        id,
-        BinEdit::EditProperty {
-            entry: entry.to_owned(),
-            holder: holder.to_owned(),
-            field: field.to_owned(),
-            edits: vec![ValueEdit::SetLeaf {
-                path: String::new(),
-                value: LeafValue::String {
-                    value: name.to_owned(),
-                },
-            }],
-        },
-        schema.at(build),
-    )?;
-    Ok(id)
 }
 
 /// Returns `asset`, or for a game chunk its copy in the project layer of `sandbox`, written

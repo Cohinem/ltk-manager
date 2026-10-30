@@ -10,7 +10,7 @@ use ltk_manager_bin::sandbox::SandboxRef;
 use serde::Serialize;
 use tauri::AppHandle;
 
-use super::events::bank_path;
+use super::events::game_path;
 use super::index::{game_audio_index, project_audio_index, AudioIndexStatus};
 use crate::error::{AppResult, IpcResult};
 use crate::services::shared::document_assets::{with_assets_in, with_names_in};
@@ -48,7 +48,7 @@ pub async fn read_bank_references(
         let indexes: Vec<&AudioIndex> = project.iter().chain(game.as_deref()).collect();
 
         let (path, references) = with_site_names(&app_handle, &sandbox, |names, rows| {
-            let path = bank_path(&asset, rows);
+            let path = game_path(&asset, rows);
             let references = BankReferences::of(&path, &indexes, names);
             (path, references)
         })?;

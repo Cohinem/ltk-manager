@@ -8,7 +8,6 @@ import {
   HashIcon,
   ListNumbersIcon,
   PencilSimpleIcon,
-  PlugsConnectedIcon,
   PlusIcon,
   ScissorsIcon,
   SwapIcon,
@@ -39,8 +38,6 @@ export interface NodeActions {
   readonly copy: () => void;
   /** Opens the name entry of the picked event, to rename it. */
   readonly rename: ((event: AudioEvent) => void) | null;
-  /** Opens the picker of the sound field that the picked event is set in. */
-  readonly assignTo: ((event: AudioEvent) => void) | null;
   /** Replaces the media that the picked sound plays with a file. */
   readonly replace: ((source: number) => void) | null;
   /** Holds the picked sounds and containers for a paste that moves them. */
@@ -83,11 +80,9 @@ export function EventMenu({ subject, actions, count, onCopy }: EventMenuProps) {
   const media =
     subject.kind === "node" && subject.node.kind === "sound" ? subject.node.media : null;
   const event = subject.kind === "event";
-  const named = subject.kind === "event" && subject.event.name !== null ? subject.event : null;
   const source =
     subject.kind === "node" && subject.node.kind === "sound" ? subject.node.source : null;
   const rename = subject.kind === "event" ? actions?.rename : null;
-  const assignTo = named === null ? null : actions?.assignTo;
   const replace = source === null ? null : actions?.replace;
   const creates =
     actions !== null &&
@@ -95,8 +90,7 @@ export function EventMenu({ subject, actions, count, onCopy }: EventMenuProps) {
       actions.duplicate !== null ||
       actions.cut !== null ||
       actions.paste !== null ||
-      rename != null ||
-      assignTo != null);
+      rename != null);
   const copyLabel =
     count > 1
       ? m.audio_node_copy_many_action({ count })
@@ -151,11 +145,6 @@ export function EventMenu({ subject, actions, count, onCopy }: EventMenuProps) {
           {rename != null && subject.kind === "event" && (
             <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => rename(subject.event)}>
               {m.audio_event_rename_action()}
-            </ContextMenu.Item>
-          )}
-          {assignTo != null && named !== null && (
-            <ContextMenu.Item icon={<PlugsConnectedIcon />} onClick={() => assignTo(named)}>
-              {m.audio_event_use_action()}
             </ContextMenu.Item>
           )}
           {replace != null && source !== null && (

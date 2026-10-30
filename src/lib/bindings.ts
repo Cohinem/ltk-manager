@@ -2478,6 +2478,14 @@ export type EventPlaylistItem = {
 	weight: number,
 };
 
+/**  The event names of the game that a search matches. */
+export type EventSearch = {
+	/**  The first matches, shortest name first. */
+	names: string[],
+	/**  How many names matched, including those past `names`. */
+	total: number,
+};
+
 /**  One pair of a particle event: the joint the system rides, and the joint it aims at. */
 export type EventSpawn = {
 	/**  `mBoneName`, and none for a pair riding the skeleton's own origin. */
@@ -8091,6 +8099,16 @@ export type Scope =
 /**  A scope that this build does not know. */
 "unknown";
 
+/**  One bank unit whose events a sound field suggests. */
+export type ScopedEvents = {
+	/**  The `name` of the unit, such as `Lux_Skin07_SFX`. */
+	unit: string,
+	/**  The game path of the bin that declares the unit. */
+	bin: string,
+	/**  The `events` list of the unit. */
+	events: string[],
+};
+
 /**
  *  Who a search of the game index ranks for. Each keeps its own ticket counter, so a path
  *  field search and a palette search do not overtake each other.
@@ -8795,18 +8813,6 @@ export type SoundStream =
 "streaming" | 
 /**  A stream type that `ltk_wwise` does not name. */
 "other";
-
-/**  A sound field of a bin that an event name can be set in, as a row that a bin edit addresses. */
-export type SoundTarget = {
-	/**  The row of the field. */
-	row: SiteRow,
-	/**  The hash path of the struct that holds the field (ADR-0027). */
-	holder: string,
-	/**  The field hash, as `0x` and eight hex digits. */
-	field: string,
-	/**  The event name of the field. Empty if the field is missing or empty. */
-	value: string,
-};
 
 /**  The install's named spells for one character, without a search result cap. */
 export type SpellCatalog = {

@@ -21,6 +21,7 @@ mod media;
 mod names;
 mod references;
 mod sound;
+mod sound_scope;
 mod sounds;
 mod unit_events;
 mod voice_lines;
@@ -64,11 +65,9 @@ pub use lookup::{
 };
 pub use media::{MediaError, MediaFormat, MediaRow, Playback, media_rows};
 pub use names::EventNames;
-pub use references::{
-    BankDeclaration, BankReferences, BankUnitGroup, RowPath, SiteNames, SiteRow, SoundTarget,
-    sound_targets,
-};
+pub use references::{BankDeclaration, BankReferences, BankUnitGroup, RowPath, SiteNames, SiteRow};
 pub use sound::{SoundError, media, sound};
+pub use sound_scope::{EventMatches, scope_bins, scoped_units};
 pub use sounds::{ResolvedSound, SoundResolution, resolve_sounds};
 pub use unit_events::{ListEdit, events_list_edits};
 pub use voice_lines::{

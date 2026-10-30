@@ -158,32 +158,32 @@ fn layer_file(path: &str) -> AssetRef {
 }
 
 #[test]
-fn bank_path_drops_archive_directory_of_layer_file() {
+fn game_path_drops_archive_directory_of_layer_file() {
     let asset = layer_file("Ahri.wad.client/assets/sounds/ahri_sfx_events.bnk");
 
     assert_eq!(
-        bank_path(&asset, &OneChunkName),
+        game_path(&asset, &OneChunkName),
         "assets/sounds/ahri_sfx_events.bnk"
     );
 }
 
 #[test]
-fn bank_path_names_hash_named_layer_file_from_tables() {
+fn game_path_names_hash_named_layer_file_from_tables() {
     let asset = layer_file("Ahri.wad.client/0123456789abcdef.bnk");
 
     assert_eq!(
-        bank_path(&asset, &OneChunkName),
+        game_path(&asset, &OneChunkName),
         "assets/sounds/ahri_sfx_events.bnk"
     );
 }
 
 #[test]
-fn bank_path_of_loose_file_is_its_file_name() {
+fn game_path_of_loose_file_is_its_file_name() {
     let asset = AssetRef::File {
         path: "C:\\Downloads\\ahri_sfx_events.bnk".to_owned(),
     };
 
-    assert_eq!(bank_path(&asset, &OneChunkName), "ahri_sfx_events.bnk");
+    assert_eq!(game_path(&asset, &OneChunkName), "ahri_sfx_events.bnk");
 }
 
 /// Names one spell path in `binentries` and one situation in `binhashes`.
@@ -278,7 +278,7 @@ fn bank_references_of_loose_fixture_name_no_unit() {
         assets: &lookup,
     };
 
-    let path = bank_path(&asset, &OneChunkName);
+    let path = game_path(&asset, &OneChunkName);
     let references = ltk_manager_audio::BankReferences::of(&path, &[&index], &names);
 
     assert_eq!(path, "map22_sfx_audio.wpk");

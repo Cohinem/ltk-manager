@@ -228,7 +228,6 @@ function pickReasons(): Partial<Record<AudioCommandId, string>> {
 
   return {
     rename: event,
-    useIn: event,
     replaceMedia: m.audio_menu_one_sound_reason(),
     paste: m.audio_menu_paste_reason(),
     add: row,

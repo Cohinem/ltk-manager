@@ -10,8 +10,8 @@ use fs_err as fs;
 use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    sound_targets, AudioFile, AudioIndex, BankEdit, BankNode, EditContext, EventBankDocument,
-    MediaReplacement, NodeParent, ObjectId, OpenedBank, OpenedFile, SoundCache, SoundTarget,
+    AudioFile, AudioIndex, BankEdit, BankNode, EditContext, EventBankDocument, MediaReplacement,
+    NodeParent, ObjectId, OpenedBank, OpenedFile, SoundCache,
 };
 use ltk_manager_base::utils::fs::atomic_write;
 use ltk_manager_bin::bin_document::{BinDocuments, HistoryStep, BASE_LAYER};
@@ -21,9 +21,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::convert::wem_of;
-use super::events::{bank_path, with_edit_context, with_event_bank, BankSource};
-use super::index::{game_audio_index, project_audio_index, project_sound_fields};
-use super::linked::{follow_events, save_bins, set_sound_field, step_bins, LinkedBins, Step};
+use super::events::{game_path, with_edit_context, with_event_bank, BankSource};
+use super::index::{game_audio_index, project_audio_index};
+use super::linked::{follow_events, save_bins, step_bins, LinkedBins, Step};
 use super::references::with_site_names;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::shared::{archive_of, off_thread};
@@ -182,7 +182,7 @@ pub async fn audio_bank_open(
         let config = app_handle.state::<SettingsState>().config();
         let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
         let document = EventBankDocument::parse(bytes)?;
-        let path = with_site_names(&app_handle, &sandbox, |_, rows| bank_path(&asset, rows))?;
+        let path = with_site_names(&app_handle, &sandbox, |_, rows| game_path(&asset, rows))?;
 
         let documents = app_handle.state::<AudioBankDocuments>();
         let id = documents.next.fetch_add(1, Ordering::Relaxed);
@@ -345,80 +345,6 @@ pub async fn audio_bank_replace(
         change(&app_handle, id, |document, context| {
             document.replace(source, wem, context)?;
             Ok(())
-        })
-    })
-    .await
-}
-
-/// Sets the sound field `field` of the struct at `holder` under the object `entry` of the project
-/// bin `asset` to the event `name`, as one undo step of the event bank open under `id`.
-///
-/// The bin is held open with the bank, so the bank's save writes it and the bank's undo reverts
-/// the edit. "Using an event" in `docs/ux/AUDIO.md`.
-///
-/// # Errors
-///
-/// Fails if `asset` is not a project bin, or if the bin cannot be read or edited.
-#[tauri::command]
-#[specta::specta]
-pub async fn audio_bank_use_event(
-    id: AudioBankId,
-    asset: AssetRef,
-    entry: String,
-    holder: String,
-    field: String,
-    name: String,
-    app_handle: AppHandle,
-) -> IpcResult<AudioBankState> {
-    off_thread(move || {
-        let open = app_handle.state::<AudioBankDocuments>().get(id)?;
-        let mut open = open.lock();
-        let sandbox = open.sandbox.clone();
-        let bin = set_sound_field(
-            &app_handle,
-            &mut open.linked,
-            &sandbox,
-            &asset,
-            (&entry, &holder, &field),
-            &name,
-        )?;
-        open.linked.push(Step {
-            bank: false,
-            bins: vec![bin],
-        });
-        Ok(state_of(id, &open))
-    })
-    .await
-}
-
-/// Lists the sound fields of the bins of the project of the event bank open under `id`: the clip
-/// events, the VFX systems and the emitter audio that an event can be set in.
-///
-/// # Errors
-///
-/// Fails if no event bank is open under `id`, or if the names cannot be read.
-#[tauri::command]
-#[specta::specta]
-pub async fn audio_sound_targets(
-    id: AudioBankId,
-    app_handle: AppHandle,
-) -> IpcResult<Vec<SoundTarget>> {
-    off_thread(move || {
-        let sandbox = app_handle
-            .state::<AudioBankDocuments>()
-            .get(id)?
-            .lock()
-            .sandbox
-            .clone();
-        let Some(project) = sandbox.project() else {
-            return Ok(Vec::new());
-        };
-
-        let bins = project_sound_fields(project);
-        with_site_names(&app_handle, &sandbox, |names, _| {
-            bins.iter()
-                .flat_map(|(bin, fields)| sound_targets(bin, fields, names))
-                .collect()
         })
     })
     .await

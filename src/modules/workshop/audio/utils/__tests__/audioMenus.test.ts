@@ -98,7 +98,7 @@ describe("audioMenus", () => {
   it("keeps a slot only if the document fills it", () => {
     const bank = audioMenus({ ...BANK, slots: ["units"] }).find((menu) => menu.id === "bank");
 
-    expect(bank?.entries.map(entryName)).toEqual(["[units]", "-", "replaceMedia", "useIn"]);
+    expect(bank?.entries.map(entryName)).toEqual(["[units]", "-", "replaceMedia"]);
   });
 
   it("lists the rule edits and the Voice menu on the Voice lines view, without File or Bank", () => {

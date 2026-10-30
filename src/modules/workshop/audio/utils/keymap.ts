@@ -66,7 +66,6 @@ export type AudioCommandId =
   | "pickClick"
   | "details"
   | "rename"
-  | "useIn"
   | "replaceMedia"
   | "newEvent"
   | "addSound"
@@ -264,7 +263,6 @@ export const AUDIO_KEYMAP: readonly AudioBinding[] = [
   { id: "showInTree", keys: [], surfaces: LINES, group: "view", owner: "menu" },
   { id: "copyForSkin", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
   { id: "rename", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
-  { id: "useIn", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "replaceMedia", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "newEvent", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "addSound", keys: [], surfaces: BANK, group: "editing", owner: "menu" },

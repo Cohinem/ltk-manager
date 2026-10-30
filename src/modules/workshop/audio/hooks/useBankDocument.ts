@@ -10,7 +10,6 @@ import {
   type BankEdit,
   type MediaReplacement,
   type NodeParent,
-  type SoundTarget,
 } from "@/lib/tauri";
 import { type HistoryStep, useDocumentHistory, useDocumentSave } from "@/modules/editor";
 
@@ -45,11 +44,6 @@ export interface BankDocument {
    * a toast, if it was refused.
    */
   readonly replaceMedia: (source: number, file: string) => Promise<boolean>;
-  /**
-   * Sets the sound field `target` of a project bin to the event `name`, as one undo step.
-   * Resolves false, after a toast, if it was refused.
-   */
-  readonly assignEvent: (target: SoundTarget, name: string) => Promise<boolean>;
   /** Steps the history back or forward. Resolves false if it took no step. */
   readonly step: (step: HistoryStep) => Promise<boolean>;
   /** Writes the unsaved edits. Rejects, after a toast, if the save fails. */
@@ -180,31 +174,6 @@ export function useBankDocument(
     [toast],
   );
 
-  const assignEvent = useCallback(
-    async (target: SoundTarget, name: string) => {
-      const current = latest.current;
-      if (current === null || target.row.asset === null) return false;
-
-      const result = await api.audioBankUseEvent(
-        current.id,
-        target.row.asset,
-        target.row.objectHash,
-        target.holder,
-        target.field,
-        name,
-      );
-      if (!result.ok) {
-        toast.error(m.audio_use_failed_title(), errorSummary(result.error));
-        return false;
-      }
-      setState(result.value);
-      setHistory(afterEdit);
-      void invalidateBinReads(queryClient);
-      return true;
-    },
-    [queryClient, toast],
-  );
-
   const step = useCallback(
     async (direction: HistoryStep) => {
       const current = latest.current;
@@ -277,7 +246,6 @@ export function useBankDocument(
     importWem,
     previewReplace,
     replaceMedia,
-    assignEvent,
     step,
     save,
     history,

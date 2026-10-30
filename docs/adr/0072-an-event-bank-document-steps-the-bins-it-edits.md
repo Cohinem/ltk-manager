@@ -4,14 +4,13 @@
 - **Date:** 2026-10-30
 - **Crates:** `src-tauri`, where `services::audio::linked` holds the bin documents and the steps
 - **Related:** [ADR-0051](0051-a-bin-document-takes-every-edit-through-one-command.md),
-  [ADR-0071](0071-an-event-bank-document-holds-its-media-files.md), "Bank unit events" and
-  "Using an event" in `docs/ux/AUDIO.md`, #958
+  [ADR-0071](0071-an-event-bank-document-holds-its-media-files.md), "Bank unit events" in
+  `docs/ux/AUDIO.md`, #958
 
 ## Context and problem statement
 
 A created, renamed or deleted event changes the `events` list of the bank units that name its
-bank, and Use in sets a sound field of a clip or a VFX system. Both are bin edits that one action
-of the event bank makes. The bin may have no tab open, and a bin document whose last id closes
+bank. That is a bin edit that one action of the event bank makes. The bin may have no tab open, and a bin document whose last id closes
 drops its unsaved edits.
 
 ## Considered options

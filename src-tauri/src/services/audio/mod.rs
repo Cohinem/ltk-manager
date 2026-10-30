@@ -10,6 +10,7 @@ mod index;
 mod linked;
 mod media;
 mod references;
+mod sound_events;
 mod sounds;
 mod voice_lines;
 
@@ -19,6 +20,7 @@ pub use events::*;
 pub use index::AudioIndexState;
 pub use media::*;
 pub use references::*;
+pub use sound_events::*;
 pub use sounds::*;
 pub use voice_lines::*;
 

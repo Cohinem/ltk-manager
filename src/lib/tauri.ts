@@ -285,11 +285,11 @@ export const api = {
   audioBankImport: audio.audioBankImport,
   audioBankReplacePreview: audio.audioBankReplacePreview,
   audioBankReplace: audio.audioBankReplace,
-  audioBankUseEvent: audio.audioBankUseEvent,
   audioBankStep: audio.audioBankStep,
   audioBankSave: audio.audioBankSave,
   audioBankNodes: audio.audioBankNodes,
-  audioSoundTargets: audio.audioSoundTargets,
+  audioScopedEvents: audio.audioScopedEvents,
+  audioSearchEvents: audio.audioSearchEvents,
 
   // Voice lines
   audioVoiceLines: audio.audioVoiceLines,
