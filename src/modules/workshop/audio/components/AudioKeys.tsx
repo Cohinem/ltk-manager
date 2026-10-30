@@ -1,4 +1,39 @@
-import { KeyboardIcon } from "@phosphor-icons/react";
+import {
+  ArrowCounterClockwiseIcon,
+  ArrowsInLineVerticalIcon,
+  ArrowsOutLineVerticalIcon,
+  ArrowUUpLeftIcon,
+  ArrowUUpRightIcon,
+  BracketsSquareIcon,
+  ClipboardTextIcon,
+  CopySimpleIcon,
+  FileArrowUpIcon,
+  FloppyDiskIcon,
+  GitForkIcon,
+  HashIcon,
+  type Icon,
+  InfoIcon,
+  KeyboardIcon,
+  ListNumbersIcon,
+  MagnifyingGlassIcon,
+  PencilSimpleIcon,
+  PlayCircleIcon,
+  PlayIcon,
+  PlugsConnectedIcon,
+  PlusCircleIcon,
+  PlusIcon,
+  RepeatIcon,
+  ScissorsIcon,
+  SelectionAllIcon,
+  ShuffleIcon,
+  SidebarSimpleIcon,
+  SpeakerHighIcon,
+  SpeakerLowIcon,
+  StopIcon,
+  SwapIcon,
+  TrashIcon,
+  WaveformIcon,
+} from "@phosphor-icons/react";
 
 import { Dialog, Grid, IconButton, Kbd, Stack } from "@/components";
 import { m } from "@/i18n";
@@ -13,7 +48,7 @@ import {
   shortcutOf,
 } from "../utils/keymap";
 
-/** The words of each command, which the sheet, the palette and the menus show. */
+/** The words of each command, which the sheet and the palette show. */
 export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
   play: m.audio_key_play_label,
   playAll: m.audio_key_play_all_label,
@@ -60,6 +95,99 @@ export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
   dragEvent: m.audio_key_drag_event_label,
   middleClick: m.audio_key_middle_click_label,
   pickClick: m.audio_key_pick_click_label,
+  details: m.audio_key_details_label,
+  rename: m.audio_key_rename_label,
+  useIn: m.audio_key_use_in_label,
+  replaceMedia: m.audio_key_replace_media_label,
+  newEvent: m.audio_key_new_event_label,
+  addSound: m.audio_key_add_sound_label,
+  addRandom: m.audio_key_add_random_label,
+  addSequence: m.audio_key_add_sequence_label,
+  addSwitch: m.audio_key_add_switch_label,
+  importWem: m.audio_key_import_wem_label,
+  expandAll: m.audio_key_expand_all_label,
+  collapseAll: m.audio_key_collapse_all_label,
+};
+
+/** The short words of a command in a menu. A command without them shows its sheet words. */
+const COMMAND_TITLES: Partial<Readonly<Record<AudioCommandId, () => string>>> = {
+  save: m.audio_menu_save_action,
+  undo: m.audio_menu_undo_action,
+  redo: m.audio_menu_redo_action,
+  duplicate: m.audio_node_duplicate_action,
+  wrap: m.audio_node_wrap_action,
+  cut: m.audio_node_cut_action,
+  paste: m.audio_node_paste_action,
+  remove: m.audio_node_delete_action,
+  copy: m.audio_menu_copy_action,
+  rename: m.audio_event_rename_action,
+  reset: m.audio_menu_reset_action,
+  selectAll: m.audio_menu_select_all_action,
+  newEvent: m.audio_events_new_action,
+  add: m.audio_menu_add_action,
+  addSound: m.audio_add_sound_action,
+  addRandom: m.audio_add_random_action,
+  addSequence: m.audio_add_sequence_action,
+  addSwitch: m.audio_add_switch_action,
+  importWem: m.audio_menu_import_wem_action,
+  viewMedia: m.audio_tab_media_label,
+  viewEvents: m.audio_tab_events_label,
+  toggleInspector: m.audio_inspector_toggle_action,
+  expandAll: m.audio_menu_expand_all_action,
+  collapseAll: m.audio_menu_collapse_all_action,
+  find: m.audio_menu_find_action,
+  help: m.audio_keys_title,
+  play: m.audio_menu_play_action,
+  playAll: m.audio_menu_play_event_action,
+  stop: m.audio_menu_stop_action,
+  loop: m.audio_transport_loop_action,
+  volumeUp: m.audio_menu_volume_up_action,
+  volumeDown: m.audio_menu_volume_down_action,
+  replaceMedia: m.audio_replace_action,
+  useIn: m.audio_event_use_action,
+  details: m.audio_details_file_action,
+};
+
+/** Returns the words of `id` in a menu. */
+export function commandTitle(id: AudioCommandId): string {
+  return COMMAND_TITLES[id]?.() ?? COMMAND_LABELS[id]();
+}
+
+/** The glyph of each command that a menu lists. */
+export const COMMAND_ICONS: Partial<Readonly<Record<AudioCommandId, Icon>>> = {
+  save: FloppyDiskIcon,
+  undo: ArrowUUpLeftIcon,
+  redo: ArrowUUpRightIcon,
+  duplicate: CopySimpleIcon,
+  wrap: BracketsSquareIcon,
+  cut: ScissorsIcon,
+  paste: ClipboardTextIcon,
+  remove: TrashIcon,
+  copy: HashIcon,
+  rename: PencilSimpleIcon,
+  reset: ArrowCounterClockwiseIcon,
+  selectAll: SelectionAllIcon,
+  details: InfoIcon,
+  newEvent: PlusCircleIcon,
+  add: PlusIcon,
+  addSound: WaveformIcon,
+  addRandom: ShuffleIcon,
+  addSequence: ListNumbersIcon,
+  addSwitch: GitForkIcon,
+  importWem: FileArrowUpIcon,
+  toggleInspector: SidebarSimpleIcon,
+  expandAll: ArrowsOutLineVerticalIcon,
+  collapseAll: ArrowsInLineVerticalIcon,
+  find: MagnifyingGlassIcon,
+  help: KeyboardIcon,
+  play: PlayIcon,
+  playAll: PlayCircleIcon,
+  stop: StopIcon,
+  loop: RepeatIcon,
+  volumeUp: SpeakerHighIcon,
+  volumeDown: SpeakerLowIcon,
+  replaceMedia: SwapIcon,
+  useIn: PlugsConnectedIcon,
 };
 
 const GROUP_TITLES: Readonly<Record<AudioCommandGroup, () => string>> = {

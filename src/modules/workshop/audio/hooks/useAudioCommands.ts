@@ -5,7 +5,12 @@ import { type DocumentCommand, useDocumentCommands, useDocumentFind } from "@/mo
 import { isOverlayOpen } from "@/utils";
 
 import { COMMAND_LABELS } from "../components/AudioKeys";
-import type { AudioPanel, PanelCommandHub, PanelCommands } from "../state/panelCommands";
+import {
+  type AudioPanel,
+  commandsOfPanel,
+  type PanelCommandHub,
+  type PanelCommands,
+} from "../state/panelCommands";
 import { type AudioCommandId, resolveCommand, shortcutOf, typesText } from "../utils/keymap";
 
 /** The find key of a document that the editor does not name, which no `Ctrl+F` reaches. */
@@ -20,7 +25,10 @@ const PALETTE_COMMANDS: readonly AudioCommandId[] = [
   "viewMedia",
   "viewEvents",
   "toggleInspector",
+  "expandAll",
+  "collapseAll",
   "find",
+  "newEvent",
   "add",
   "duplicate",
   "remove",
@@ -31,6 +39,7 @@ const PALETTE_COMMANDS: readonly AudioCommandId[] = [
   "save",
   "undo",
   "redo",
+  "details",
   "help",
 ];
 
@@ -39,18 +48,26 @@ const PALETTE_COMMANDS: readonly AudioCommandId[] = [
  * that each panel offers now.
  */
 export function usePanelHub() {
-  const [panels, setPanels] = useState<Partial<Record<AudioPanel, PanelCommands>>>({});
+  const [published, setPublished] = useState<Readonly<Record<string, PanelCommands>>>({});
   const hub = useMemo<PanelCommandHub>(
     () => ({
-      publish: (panel, commands) => setPanels((current) => ({ ...current, [panel]: commands })),
-      withdraw: (panel) =>
-        setPanels((current) => {
+      publish: (source, commands) =>
+        setPublished((current) => ({ ...current, [source]: commands })),
+      withdraw: (source) =>
+        setPublished((current) => {
           const next = { ...current };
-          delete next[panel];
+          delete next[source];
           return next;
         }),
     }),
     [],
+  );
+  const panels = useMemo<Readonly<Record<AudioPanel, PanelCommands>>>(
+    () => ({
+      media: commandsOfPanel(published, "media"),
+      events: commandsOfPanel(published, "events"),
+    }),
+    [published],
   );
 
   return { hub, panels };

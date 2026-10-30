@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Menu } from "@/components";
 import type {
   AssetRef,
   BankReferencesResponse,
@@ -18,7 +19,7 @@ import { renderWithProviders } from "@/test/utils";
 
 import { objectDocumentId, previewDocumentId } from "../../../documents";
 import { ProjectProvider } from "../../../projects/state/ProjectContext";
-import { BankUnitMenu } from "../BankUnits";
+import { BankUnitItems } from "../BankUnits";
 
 const PROJECT: WorkshopProject = {
   path: "X:/mods/ahri-vo",
@@ -87,7 +88,7 @@ const REFERENCES: BankReferencesResponse = {
   index: { status: "ready" },
 };
 
-/** Renders the menu and opens it once the unit name is on its button. */
+/** Renders the items in a menu, opens it, and waits for the units to read. */
 async function openUnits() {
   mockInvoke.mockImplementation((command: string) =>
     Promise.resolve({
@@ -97,11 +98,17 @@ async function openUnits() {
   );
   renderWithProviders(
     <ProjectProvider project={PROJECT}>
-      <BankUnitMenu asset={ASSET} />
+      <Menu.Root>
+        <Menu.Trigger>Bank</Menu.Trigger>
+        <Menu.Content>
+          <BankUnitItems asset={ASSET} />
+        </Menu.Content>
+      </Menu.Root>
     </ProjectProvider>,
   );
 
-  await userEvent.click(await screen.findByRole("button", { name: "Ahri_Skin07_VO" }));
+  await userEvent.click(screen.getByRole("button", { name: "Bank" }));
+  await screen.findByRole("menuitem", { name: /this file/ });
 }
 
 /** Opens the submenu of the declarations and waits out Base UI's open delay. */
@@ -116,7 +123,7 @@ function openTabs(): string[] {
   return Object.keys(useWorkshopEditorStore.getState().byProject[PROJECT.path]?.documents ?? {});
 }
 
-describe("BankUnitMenu", () => {
+describe("BankUnitItems", () => {
   beforeEach(() => {
     mockInvoke.mockReset();
     useWorkshopEditorStore.setState({ byProject: {} });

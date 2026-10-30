@@ -1,8 +1,8 @@
-import { ArrowElbowDownRightIcon, CaretDownIcon, StackIcon } from "@phosphor-icons/react";
+import { ArrowElbowDownRightIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-import { Button, Menu, Tooltip } from "@/components";
+import { Menu } from "@/components";
 import { m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
 import type {
@@ -15,14 +15,11 @@ import type {
 } from "@/lib/tauri";
 
 import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
+import { fileReferences, useFindReferences } from "../../references/api/useFindReferences";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { audioQueries } from "../api/queries";
 import { useOpenSetFile, useOpenSiteRow } from "../hooks/useOpenSiteRow";
-import { fileName, type UnitFileKind, unitFileKind, unitsTrigger } from "../utils/bankUnits";
-
-interface BankUnitMenuProps {
-  readonly asset: AssetRef;
-}
+import { fileName, type UnitFileKind, unitFileKind } from "../utils/bankUnits";
 
 const KIND_LABELS: Record<UnitFileKind, () => string> = {
   eventBank: m.audio_units_event_bank_label,
@@ -31,61 +28,52 @@ const KIND_LABELS: Record<UnitFileKind, () => string> = {
 };
 
 /**
- * The toolbar button that names the bank units of an audio file, over a menu of their files and
- * declarations.
+ * The items of the bank units of an audio file, which the Bank menu lists, then Find references.
  *
  * Each unit is a group: its files, which open their audio documents, and a submenu of the bins
  * that declare it, which open the object at the `BankUnit` row. The links need a project, which
- * owns the editor tabs. The menu reads before the game's audio index is ready and polls until it
- * is. Per "Bank units" in docs/ux/AUDIO.md.
+ * owns the editor tabs, and Find references is listed only inside one. The items read before the
+ * game's audio index is ready and poll until it is. Per "Bank units" in docs/ux/AUDIO.md.
  */
-export function BankUnitMenu({ asset }: BankUnitMenuProps) {
+export function BankUnitItems({ asset }: { asset: AssetRef }) {
   const sandbox = useSandbox();
   const version = useAssetVersion(asset);
   const references = useQuery(audioQueries.references(sandbox, asset, version));
   const linked = useOptionalProjectContext() !== null;
   const data = references.data;
-  const label = triggerLabel(data);
 
   return (
-    <Menu.Root>
-      <Tooltip content={m.audio_units_title()}>
-        <Menu.Trigger
-          data-ui="BankUnitMenu"
-          render={
-            <Button
-              variant="ghost"
-              size="xs"
-              className="min-w-0 shrink"
-              loading={data === undefined && references.error === null}
-              left={<StackIcon weight="bold" />}
-              right={<CaretDownIcon weight="bold" className="size-3" />}
-            />
-          }
-        >
-          <span className="max-w-48 truncate">{label}</span>
-        </Menu.Trigger>
-      </Tooltip>
-      <Menu.Content align="end" sideOffset={4} className="max-h-[60vh] w-80 overflow-y-auto">
-        {data === undefined && (
-          <UnitsNote>
-            {references.error ? m.audio_units_failed_empty() : m.audio_units_loading_label()}
-          </UnitsNote>
-        )}
-        {data !== undefined && <UnitsMenuBody data={data} linked={linked} />}
-      </Menu.Content>
-    </Menu.Root>
+    <>
+      {data === undefined && (
+        <UnitsNote>
+          {references.error ? m.audio_units_failed_empty() : m.audio_units_loading_label()}
+        </UnitsNote>
+      )}
+      {data !== undefined && <UnitsMenuBody data={data} linked={linked} />}
+      {linked && (
+        <>
+          <Menu.Separator />
+          <FindReferencesItem path={data?.path ?? null} />
+        </>
+      )}
+    </>
   );
 }
 
-/** Returns the trigger's text: the first unit name, the count of the others, or the title. */
-function triggerLabel(data: BankReferencesResponse | undefined): string {
-  const trigger = data === undefined ? null : unitsTrigger(data.units);
-  if (trigger === null) return m.audio_units_title();
-  if (trigger.more === 0) return trigger.name;
-  return m.audio_units_trigger_more_label({ name: trigger.name, more: String(trigger.more) });
-}
+/** Find references on the game path that the bank units name the file by. */
+function FindReferencesItem({ path }: { path: string | null }) {
+  const findReferences = useFindReferences();
 
+  return (
+    <Menu.Item
+      icon={<MagnifyingGlassIcon className="size-4" />}
+      disabled={path === null}
+      onClick={() => path !== null && findReferences(fileReferences(path))}
+    >
+      {m.audio_file_find_references_action()}
+    </Menu.Item>
+  );
+}
 /** The groups of the units, then the bank lists, or the line that stands in for them. */
 function UnitsMenuBody({ data, linked }: { data: BankReferencesResponse; linked: boolean }) {
   const building = data.index.status === "building";

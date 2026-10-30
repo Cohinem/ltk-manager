@@ -25,6 +25,7 @@ import type { EventPlayer } from "../hooks/useEventPlayer";
 import type { TreePicks } from "../hooks/useTreePicks";
 import { useTypeAhead } from "../hooks/useTypeAhead";
 import { useNodeNames } from "../state/nodeNames";
+import { usePanelCommands } from "../state/panelCommands";
 import { beginRowDrag, useRowDrops } from "../state/rowDrag";
 import {
   dropAction,
@@ -99,6 +100,10 @@ interface VoiceListProps {
   readonly adding: string | null;
   /** Opens the menu of an add row, or closes it with null. */
   readonly onAdding: (key: string | null) => void;
+  /** The key of the add row that a menu command asks to open its media picker. */
+  readonly mediaRequest?: string | null;
+  /** The add row opened its media picker for `mediaRequest`. */
+  readonly onMediaRequestTaken?: () => void;
   /** The context menu items of `row`. */
   readonly menu: (row: VoiceRow) => ReactNode;
   /** The waveform column of `row`. */
@@ -172,6 +177,8 @@ export function VoiceList({
   actions,
   adding,
   onAdding,
+  mediaRequest = null,
+  onMediaRequestTaken,
   menu,
   thumbnail,
   editing,
@@ -371,11 +378,16 @@ export function VoiceList({
     if (key === "Enter") onPlay(row);
   }
 
-  /** Sets the field of the active cell of `row` to its default. */
-  function resetCell(row: VoiceRow): boolean {
+  /** Returns the edit that sets the field of the active cell of `row` to its default, or null. */
+  function cellReset(row: VoiceRow) {
     const cell = activeCell(row);
     const field = cell === null || cell === "media" ? undefined : rowCells(row)?.fields.cells[cell];
-    const edit = field === undefined ? null : resetEdit(field);
+    return field === undefined ? null : resetEdit(field);
+  }
+
+  /** Sets the field of the active cell of `row` to its default. */
+  function resetCell(row: VoiceRow): boolean {
+    const edit = cellReset(row);
     if (editing === null || edit === null) return false;
 
     void editing.edit(edit).then((applied) => {
@@ -493,6 +505,16 @@ export function VoiceList({
         return false;
     }
   }
+
+  const resetRow =
+    selectedRow !== undefined && editing !== null && cellReset(selectedRow) !== null
+      ? selectedRow
+      : null;
+  usePanelCommands(
+    "events",
+    { reset: resetRow === null ? undefined : () => resetCell(resetRow) },
+    "list",
+  );
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
@@ -728,6 +750,8 @@ export function VoiceList({
                 onOpening={(next) => (next ? onAdding(row.key) : closeAdding())}
                 onPreview={(media) => onPreview(row.key, media)}
                 onLeave={returnFocus}
+                mediaRequested={mediaRequest === row.key}
+                onMediaRequestTaken={onMediaRequestTaken}
               />
             )}
           </RowFrame>

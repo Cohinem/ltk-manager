@@ -1,8 +1,8 @@
 /**
  * The one keymap of the audio file document and the Voice lines view.
  *
- * The key handlers resolve a press through `resolveCommand`, and the menus, the palette, the
- * toolbar tooltips and the shortcut sheet read their keys from the same table. Per "Keys and
+ * The key handlers resolve a press through `resolveCommand`, and the menu bar, the context menus,
+ * the palette and the shortcut sheet read their keys from the same table. Per "Keys and
  * gestures" in docs/ux/AUDIO.md.
  */
 
@@ -63,16 +63,29 @@ export type AudioCommandId =
   | "dropMedia"
   | "dragEvent"
   | "middleClick"
-  | "pickClick";
+  | "pickClick"
+  | "details"
+  | "rename"
+  | "useIn"
+  | "replaceMedia"
+  | "newEvent"
+  | "addSound"
+  | "addRandom"
+  | "addSequence"
+  | "addSwitch"
+  | "importWem"
+  | "expandAll"
+  | "collapseAll";
 
 /**
  * Who answers the keys of a binding.
  *
  * `audio` is a handler of this module. `app` is a handler outside it, such as the editor's
  * `Ctrl+S`, which the table lists so that the sheet and the tooltips show it. `knob` is the
- * shared `Knob`, whose keys `knobValue.ts` defines. `pointer` is a gesture without a key.
+ * shared `Knob`, whose keys `knobValue.ts` defines. `pointer` is a gesture without a key. `menu`
+ * is a command without a key that the menu bar and the palette run, which the sheet leaves out.
  */
-export type BindingOwner = "audio" | "app" | "knob" | "pointer";
+export type BindingOwner = "audio" | "app" | "knob" | "pointer" | "menu";
 
 /** One command and the chords that run it. */
 export interface AudioBinding {
@@ -237,6 +250,19 @@ export const AUDIO_KEYMAP: readonly AudioBinding[] = [
   { id: "dragEvent", keys: [], surfaces: TREES, group: "pointer", owner: "pointer" },
   { id: "middleClick", keys: [], surfaces: LISTS, group: "pointer", owner: "pointer" },
   { id: "pickClick", keys: [], surfaces: TREES, group: "pointer", owner: "pointer" },
+
+  { id: "details", keys: [], surfaces: ["document"], group: "view", owner: "menu" },
+  { id: "expandAll", keys: [], surfaces: BANK, group: "view", owner: "menu" },
+  { id: "collapseAll", keys: [], surfaces: BANK, group: "view", owner: "menu" },
+  { id: "rename", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "useIn", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "replaceMedia", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "newEvent", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "addSound", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "addRandom", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "addSequence", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "addSwitch", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
+  { id: "importWem", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
 ];
 
 /** The modifier and key state of a press that `chordText` reads. */
@@ -302,11 +328,12 @@ export interface SheetGroup {
 /**
  * Returns the bindings that a surface of `scope` answers, by group in the order of the sheet.
  *
- * A group without a binding is left out.
+ * A group without a binding is left out, and so is a command that only a menu runs.
  */
 export function sheetGroups(scope: readonly AudioSurface[]): SheetGroup[] {
-  const shown = AUDIO_KEYMAP.filter((binding) =>
-    binding.surfaces.some((surface) => scope.includes(surface)),
+  const shown = AUDIO_KEYMAP.filter(
+    (binding) =>
+      binding.owner !== "menu" && binding.surfaces.some((surface) => scope.includes(surface)),
   );
 
   return GROUP_ORDER.map((group) => ({

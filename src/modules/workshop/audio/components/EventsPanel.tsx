@@ -8,7 +8,6 @@ import {
   Code,
   ContextMenu,
   EmptyState,
-  IconButton,
   Inline,
   LoadingState,
   SearchField,
@@ -28,11 +27,11 @@ import {
   type BankEdit,
   type ContainerKind,
   type MediaReplacement,
+  type NodeParent,
   type ObjectProperties,
 } from "@/lib/tauri";
 import { useAudioInspector, useSetAudioInspector } from "@/stores";
 
-import { KeyHint } from "../../bin/atlas/components/KeyHint";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { audioQueries } from "../api/queries";
 import type { BankDocument } from "../hooks/useBankDocument";
@@ -102,6 +101,9 @@ interface CutNodes {
 
 const NO_KEYS: ReadonlySet<string> = new Set();
 
+/** The most events that Expand all opens, since each open event reads its tree. */
+export const EXPAND_ALL_LIMIT = 200;
+
 /**
  * The Events view of an event bank: its tools in the document toolbar, the notices about its
  * bank set, and the event tree with one player.
@@ -127,6 +129,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const confirm = useConfirm();
   const toast = useToast();
   const [cut, setCut] = useState<CutNodes | null>(null);
+  const [mediaRequest, setMediaRequest] = useState<string | null>(null);
   const filterBox = useRef<HTMLInputElement>(null);
   const inspecting = useAudioInspector();
   const setInspecting = useSetAudioInspector();
@@ -221,16 +224,29 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
     });
   }
 
-  /** Opens the add row that Add on `key` reaches, expanding the rows above it. */
   /** Opens the add row that Add on `key` reaches: the nearest one above it, else the event's. */
   function openAdd(key: string) {
     const row = byKey.get(key);
     if (row === undefined) return;
 
-    const added = row.kind === "add" ? row.key : nearestAdd(row);
+    const added = addOf(row);
     expand(eventKey(row.eventId), true);
     setSelected(added);
     setAdding(added);
+  }
+
+  /** Returns the key of the add row that Add on `row` reaches. */
+  function addOf(row: VoiceRow): string {
+    return row.kind === "add" ? row.key : nearestAdd(row);
+  }
+
+  /** Returns what the add row that Add on `key` reaches adds into, or null for no row. */
+  function addParent(key: string | null): NodeParent | null {
+    const row = key === null ? undefined : byKey.get(key);
+    if (row === undefined) return null;
+
+    const add = byKey.get(addOf(row));
+    return add?.kind === "add" ? add.into : { kind: "event", event: row.eventId };
   }
 
   function nearestAdd(row: VoiceRow): string {
@@ -433,11 +449,40 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
 
   const actions = nodeActions();
   const wrap = actions?.wrap ?? null;
+  const selectedRow = selected === null ? undefined : byKey.get(selected);
+  const subject = selectedRow === undefined ? null : menuSubject(selectedRow);
+  const pickedEvent =
+    picks.targets.length === 1 && subject?.kind === "event" ? subject.event : null;
+  const pickedSource =
+    picks.targets.length === 1 && subject?.kind === "node" && subject.node.kind === "sound"
+      ? subject.node.source
+      : null;
+  const into = editing === null ? null : addParent(selected);
+  const head =
+    selectedRow === undefined
+      ? undefined
+      : rows.find((row) => row.kind === "event" && row.eventId === selectedRow.eventId);
+
+  /** Adds an empty container of `kind` where the add row of the selected row adds. */
+  const addContainer = (kind: ContainerKind) =>
+    editing === null || into === null
+      ? undefined
+      : () =>
+          void editing.edit({
+            kind: "addNode",
+            parent: into,
+            node: { kind: "container", container: kind },
+          });
 
   usePanelCommands("events", {
     toggleInspector: () => setInspecting(!inspecting),
     find: () => filterBox.current?.select(),
     stop: player.playing === null ? undefined : player.stop,
+    play: selectedRow === undefined ? undefined : () => togglePlay(selectedRow),
+    playAll: head === undefined ? undefined : () => playRow(head),
+    selectAll: listed.length === 0 ? undefined : picks.pickAll,
+    expandAll: listed.length === 0 || listed.length > EXPAND_ALL_LIMIT ? undefined : expandEvents,
+    collapseAll: expanded.size === 0 ? undefined : () => setExpanded(new Set()),
     copy: picks.targets.length > 0 ? copyPicks : undefined,
     add: actions?.add ?? undefined,
     duplicate: actions?.duplicate ?? undefined,
@@ -445,10 +490,62 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
     wrap: wrap === null ? undefined : () => wrap("random"),
     cut: actions?.cut ?? undefined,
     paste: actions?.paste ?? undefined,
+    rename:
+      actions?.rename == null || pickedEvent === null
+        ? undefined
+        : () => actions.rename?.(pickedEvent),
+    useIn:
+      actions?.assignTo == null || pickedEvent?.name == null
+        ? undefined
+        : () => actions.assignTo?.(pickedEvent),
+    replaceMedia:
+      actions?.replace == null || pickedSource === null
+        ? undefined
+        : () => actions.replace?.(pickedSource),
+    newEvent: editing === null ? undefined : () => setNaming({ copyOf: null, initial: "" }),
+    addSound: selected === null || into === null ? undefined : () => requestMedia(selected),
+    addRandom: addContainer("random"),
+    addSequence: addContainer("sequence"),
+    addSwitch: addContainer("switch"),
+    importWem: editing === null || into === null ? undefined : () => void importInto(into),
   });
+
+  /** Plays `row`, or stops it if it plays. */
+  function togglePlay(row: VoiceRow) {
+    if (player.playing === row.key) player.stop();
+    else playRow(row);
+  }
+
+  /** Expands every listed event. */
+  function expandEvents() {
+    setExpanded((current) => new Set([...current, ...listed.map((event) => eventKey(event.id))]));
+  }
+
+  /** Opens the add row that Add on `key` reaches with its media picker. */
+  function requestMedia(key: string) {
+    const row = byKey.get(key);
+    if (row === undefined) return;
+
+    const added = addOf(row);
+    expand(eventKey(row.eventId), true);
+    setSelected(added);
+    setMediaRequest(added);
+  }
+
+  /** Imports a WEM that the reader picks into `parent`, as From file of an add row does. */
+  async function importInto(parent: NodeParent) {
+    const file = await open({
+      multiple: false,
+      directory: false,
+      title: m.audio_add_file_title(),
+      filters: [{ name: m.audio_add_file_filter_label(), extensions: ["wem"] }],
+    });
+    if (typeof file === "string" && editing !== null) await editing.importWem(parent, file);
+  }
 
   const announcement =
     player.playing === null ? m.audio_stopped_label() : m.audio_event_playing_label();
+  const count = countLabel(picks.picked.size, events.data?.list.events.length);
 
   const tools = (
     <AudioPanelTools
@@ -461,15 +558,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
           clearLabel={m.audio_filter_clear_label()}
         />
       }
-      count={events.data && m.audio_events_total_label({ count: events.data.list.events.length })}
-      selection={
-        picks.picked.size > 1 && (
-          <span className="shrink-0 text-meta text-surface-300">
-            {m.audio_selection_count_label({ count: picks.picked.size })}
-          </span>
-        )
-      }
-      create={
+      count={count}
+      entry={
         editing !== null && (
           <>
             {using !== null && using.name !== null && (
@@ -494,24 +584,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
           </>
         )
       }
-      panes={
-        <IconButton
-          icon={<SidebarSimpleIcon weight="bold" mirrored />}
-          label={m.audio_inspector_toggle_action()}
-          aria-keyshortcuts={shortcutOf("toggleInspector") ?? undefined}
-          tooltip={
-            <KeyHint
-              label={m.audio_inspector_toggle_action()}
-              shortcut={shortcutOf("toggleInspector") ?? ""}
-            />
-          }
-          pressed={inspecting}
-          onClick={() => setInspecting(!inspecting)}
-        />
-      }
     />
   );
-
   if (events.error) {
     return (
       <>
@@ -563,6 +637,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
               actions={actions}
               adding={adding}
               onAdding={setAdding}
+              mediaRequest={mediaRequest}
+              onMediaRequestTaken={() => setMediaRequest(null)}
               editing={editing}
               files={files}
               reveal={reveal}
@@ -750,6 +826,14 @@ function SetNotices({ response }: { response: AudioEventsResponse }) {
       )}
     </NoticeBand>
   );
+}
+
+/** Returns the count of the toolbar: the picked rows if several are, else the events. */
+function countLabel(picked: number, total: number | undefined): string | undefined {
+  if (picked > 1) return m.audio_selection_count_label({ count: picked });
+  if (total === undefined) return undefined;
+
+  return m.audio_events_total_label({ count: total });
 }
 
 /** Returns the edit that the name entry commits: a new event, a copy or a rename. */

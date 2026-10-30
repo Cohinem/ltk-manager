@@ -1,7 +1,5 @@
-import { PlusIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useState } from "react";
 
-import { Button, ExperimentalChip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -25,28 +23,15 @@ interface NewEventEntryProps {
 }
 
 /**
- * `+ New event` in the toolbar, and the name entry that it opens in its place.
+ * The name entry of an event in the toolbar row, which Insert - New event opens.
  *
  * Enter creates the event, whose ID is the hash of the name, and Escape or a press outside drops
  * the entry. A refused name keeps the entry open with the text. Duplicate on an event opens the
- * same entry, prefilled, and so does Rename. Per "New objects" in docs/ux/AUDIO.md.
+ * same entry, prefilled, and so does Rename. Draws nothing while `naming` is null. Per "New
+ * objects" in docs/ux/AUDIO.md.
  */
 export function NewEventEntry({ naming, onNaming, onCommit }: NewEventEntryProps) {
-  if (naming === null) {
-    return (
-      <span className="flex shrink-0 items-center gap-1.5">
-        <Button
-          variant="ghost"
-          size="xs"
-          left={<PlusIcon weight="bold" />}
-          onClick={() => onNaming({ copyOf: null, initial: "" })}
-        >
-          {m.audio_events_new_action()}
-        </Button>
-        <ExperimentalChip />
-      </span>
-    );
-  }
+  if (naming === null) return null;
 
   return (
     <NameField

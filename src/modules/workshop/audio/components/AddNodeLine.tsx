@@ -9,7 +9,7 @@ import {
   WaveformIcon,
 } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -33,6 +33,10 @@ interface AddNodeLineProps {
   readonly onPreview: (media: MediaLocation) => void;
   /** The line closed its menu or a picker, which returns focus to the tree. */
   readonly onLeave: () => void;
+  /** `true` while a menu command asks the line to open its media picker. */
+  readonly mediaRequested?: boolean;
+  /** The line opened its media picker for the request. */
+  readonly onMediaRequestTaken?: () => void;
 }
 
 /** What the line shows in place of its press. */
@@ -65,8 +69,18 @@ export function AddNodeLine({
   onOpening,
   onPreview,
   onLeave,
+  mediaRequested = false,
+  onMediaRequestTaken,
 }: AddNodeLineProps) {
   const [picking, setPicking] = useState<Picking>("none");
+
+  /* Insert - New sound reaches the line once the tree draws it, which can be after the press. */
+  useEffect(() => {
+    if (!mediaRequested) return;
+
+    setPicking("media");
+    onMediaRequestTaken?.();
+  }, [mediaRequested, onMediaRequestTaken]);
 
   function close() {
     setPicking("none");

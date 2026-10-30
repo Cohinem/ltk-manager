@@ -1,19 +1,11 @@
-import {
-  DotsThreeVerticalIcon,
-  InfoIcon,
-  KeyboardIcon,
-  MagnifyingGlassIcon,
-} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
 
 import {
   AlertBox,
   Code,
   EmptyState,
-  IconButton,
   LoadingState,
-  Menu,
   Popover,
   Properties,
   Property,
@@ -24,11 +16,10 @@ import {
 import { m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
 import type { AssetRef, AudioContainer, AudioInfo, MediaRow } from "@/lib/tauri";
+import { useAudioInspector } from "@/stores";
 import { formatBytes } from "@/utils/formatBytes";
 
 import { useAssetInfo } from "../../preview/api/useAssetInfo";
-import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
-import { fileReferences, useFindReferences } from "../../references/api/useFindReferences";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { audioQueries } from "../api/queries";
@@ -38,16 +29,16 @@ import { useMediaActions } from "../hooks/useMediaActions";
 import { useMediaPlayer } from "../hooks/useMediaPlayer";
 import { useMediaFocus } from "../state/mediaFocus";
 import { type PanelCommands, PanelCommandsContext, usePanelCommands } from "../state/panelCommands";
-import { useNudgeVolume, useToggleLoop } from "../state/previewTransport";
-import { menuShortcut } from "../utils/keymap";
+import { useNudgeVolume, usePreviewRepeat, useToggleLoop } from "../state/previewTransport";
+import { AUDIO_KEYMAP, type AudioCommandId, type AudioSurface } from "../utils/keymap";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
-import { AudioGestureHint, AudioKeysDialog, DOCUMENT_SCOPE } from "./AudioKeys";
-import { AudioPanelTools, AudioToolbar, AudioToolsSlotContext, BankHistory } from "./AudioToolbar";
-import { BankUnitMenu } from "./BankUnits";
-import { EventsPanel } from "./EventsPanel";
+import { AudioKeysDialog, DOCUMENT_SCOPE } from "./AudioKeys";
+import { AudioMenubar, VolumeReadout } from "./AudioMenubar";
+import { AudioPanelTools, AudioToolbar, AudioToolsSlotContext } from "./AudioToolbar";
+import { BankUnitItems } from "./BankUnits";
+import { EventsPanel, EXPAND_ALL_LIMIT } from "./EventsPanel";
 import { MediaTable } from "./MediaTable";
 import { NoticeBand } from "./NoticeBand";
-import { PreviewTransport } from "./PreviewTransport";
 import { MediaWaveform } from "./Waveform";
 
 interface AudioFileDocumentProps {
@@ -58,7 +49,7 @@ interface AudioFileDocumentProps {
   readonly documentId?: string | null;
   /** This document is the one on screen. Only the active document's toolbar shows. */
   readonly active: boolean;
-  /** The menu items of the tab that move the file out, listed in the kebab. */
+  /** The menu items of the tab that move the file out, listed in the File menu. */
   readonly fileActions?: ReactNode;
 }
 
@@ -71,13 +62,22 @@ const CONTAINER_LABELS: Record<AudioContainer, () => string> = {
   media: m.audio_container_media_label,
 };
 
+/** The surfaces of a bank with a hierarchy, whose menus list the event tree's commands. */
+const BANK_SURFACES: readonly AudioSurface[] = ["media", "voices", "document"];
+
+/** The surfaces of a file without a hierarchy. */
+const MEDIA_SURFACES: readonly AudioSurface[] = ["media", "document"];
+
+/** The commands of a bank's edits, which a file without a hierarchy never takes. */
+const BANK_COMMANDS: readonly AudioCommandId[] = ["save", "undo", "redo"];
+
 /**
- * A Wwise package, bank or WEM: one toolbar, the notices about the file, and the table of its
- * media.
+ * A Wwise package, bank or WEM: the menu bar and the view tools in one row, the notices about the
+ * file, and the table of its media.
  *
  * A bank with a hierarchy adds an Events view with the event tree, which opens first in a bank
  * without media. A "Show media" request for the file switches to the Media view. The `BKHD`
- * facts open from the kebab. Per "The audio file document" in docs/ux/AUDIO.md.
+ * facts open from the File menu. Per "The audio file document" in docs/ux/AUDIO.md.
  */
 export function AudioFileDocument({
   asset,
@@ -95,9 +95,14 @@ export function AudioFileDocument({
   const [focused, setFocused] = useState<number | null>(null);
   const [tools, setTools] = useState<HTMLSpanElement | null>(null);
   const [help, setHelp] = useState(false);
+  const [details, setDetails] = useState(false);
+  const frame = useRef<HTMLDivElement>(null);
+  const row = useRef<HTMLDivElement>(null);
   const shownView: AudioView = hierarchy ? (view ?? defaultView(audio)) : "media";
   const toggleLoop = useToggleLoop();
   const nudgeVolume = useNudgeVolume();
+  const looping = usePreviewRepeat() === "loop";
+  const inspecting = useAudioInspector();
   const editable = bank.state?.editable === true;
   const { hub, panels } = usePanelHub();
 
@@ -112,6 +117,7 @@ export function AudioFileDocument({
     volumeDown: () => nudgeVolume(-1),
     volumeUp: () => nudgeVolume(1),
     help: () => setHelp(true),
+    details: audio === null ? undefined : () => setDetails(true),
     viewMedia: hierarchy ? () => setView("media") : undefined,
     viewEvents: hierarchy ? () => setView("events") : undefined,
     save:
@@ -122,9 +128,12 @@ export function AudioFileDocument({
   const commands: PanelCommands = { ...panels[shownView], ...own };
 
   const handleKeyDown = useAudioCommands(documentId, commands);
+  const detailsLabel =
+    audio?.bank != null ? m.audio_details_bank_action() : m.audio_details_file_action();
+  const units = audio !== null && audio.container !== "media";
 
   return (
-    <DocumentFrame data-ui="AudioFileDocument" onKeyDown={handleKeyDown}>
+    <DocumentFrame ref={frame} data-ui="AudioFileDocument" onKeyDown={handleKeyDown}>
       <PanelCommandsContext value={hub}>
         <Tabs.Root
           value={shownView}
@@ -133,25 +142,43 @@ export function AudioFileDocument({
         >
           <AudioToolbar
             active={active}
-            history={editable && <BankHistory bank={bank} />}
-            views={hierarchy && <ViewSwitch />}
-            toolsRef={setTools}
-            transport={
-              <>
-                <PreviewTransport />
-                <AudioGestureHint onOpen={() => setHelp(true)} />
-              </>
-            }
-            unit={audio !== null && audio.container !== "media" && <BankUnitMenu asset={asset} />}
-            menu={
-              <AudioFileMenu
-                asset={asset}
-                audio={audio}
-                fileActions={fileActions}
-                onKeys={() => setHelp(true)}
+            rowRef={row}
+            menubar={
+              <AudioMenubar
+                facts={{
+                  surfaces: hierarchy ? BANK_SURFACES : MEDIA_SURFACES,
+                  hidden: hierarchy ? [] : BANK_COMMANDS,
+                  commands,
+                  checked: {
+                    viewMedia: shownView === "media",
+                    viewEvents: shownView === "events",
+                    toggleInspector: inspecting,
+                    loop: looping,
+                  },
+                  reasons: menuReasons(shownView, bank),
+                }}
+                slots={{
+                  fileActions,
+                  units: units && <BankUnitItems asset={asset} />,
+                  volume: <VolumeReadout />,
+                }}
+                titles={{ details: detailsLabel }}
+                keyScope={frame}
+                experimental={editable}
               />
             }
+            views={hierarchy && <ViewSwitch />}
+            toolsRef={setTools}
           />
+          {audio !== null && (
+            <DetailsPopover
+              audio={audio}
+              label={detailsLabel}
+              anchor={row}
+              open={details}
+              onOpenChange={setDetails}
+            />
+          )}
           {audio !== null && <AudioNotices asset={asset} audio={audio} view={shownView} />}
           <AudioToolsSlotContext value={tools}>
             {!hierarchy && <MediaPanel asset={asset} name={name} />}
@@ -162,6 +189,60 @@ export function AudioFileDocument({
       <AudioKeysDialog open={help} onClose={() => setHelp(false)} scope={DOCUMENT_SCOPE} />
     </DocumentFrame>
   );
+}
+
+/**
+ * Returns the reasons that the menus show on a disabled command of a bank with a hierarchy.
+ *
+ * A bank that takes no edits names its version on every edit. In the Media view, a command of the
+ * event tree points at the Events view.
+ */
+function menuReasons(view: AudioView, bank: BankDocument): Partial<Record<AudioCommandId, string>> {
+  const reasons: Partial<Record<AudioCommandId, string>> = {};
+  const tree = AUDIO_KEYMAP.filter(
+    (binding) => binding.surfaces.includes("voices") && !binding.surfaces.includes("media"),
+  );
+
+  if (view === "media") {
+    for (const binding of tree) reasons[binding.id] = m.audio_menu_events_view_reason();
+  }
+  if (view === "events") Object.assign(reasons, pickReasons());
+  if (bank.state !== null && !bank.state.editable) {
+    const refused = m.audio_menu_no_edits_reason({ version: String(bank.state.version) });
+    for (const binding of tree) {
+      if (binding.group === "editing") reasons[binding.id] = refused;
+    }
+    for (const id of BANK_COMMANDS) reasons[id] = refused;
+  }
+
+  return reasons;
+}
+
+/** The reasons of the commands of the event tree that wait for a pick, in the Events view. */
+function pickReasons(): Partial<Record<AudioCommandId, string>> {
+  const row = m.audio_menu_select_row_reason();
+  const event = m.audio_menu_one_event_reason();
+
+  return {
+    rename: event,
+    useIn: event,
+    replaceMedia: m.audio_menu_one_sound_reason(),
+    paste: m.audio_menu_paste_reason(),
+    add: row,
+    addSound: row,
+    addRandom: row,
+    addSequence: row,
+    addSwitch: row,
+    importWem: row,
+    duplicate: row,
+    wrap: row,
+    cut: row,
+    remove: row,
+    copy: row,
+    play: row,
+    playAll: row,
+    expandAll: m.audio_menu_expand_limit_reason({ count: String(EXPAND_ALL_LIMIT) }),
+  };
 }
 
 /** Returns the view that a bank with a hierarchy opens on: Events if it holds no media. */
@@ -199,105 +280,35 @@ function ViewPanels({ asset, name, bank }: ViewPanelsProps) {
   );
 }
 
-interface AudioFileMenuProps {
-  readonly asset: AssetRef;
-  readonly audio: AudioInfo | null;
-  readonly fileActions: ReactNode;
-  /** Opens the shortcut sheet. */
-  readonly onKeys: () => void;
+interface DetailsPopoverProps {
+  readonly audio: AudioInfo;
+  readonly label: string;
+  readonly anchor: RefObject<HTMLDivElement | null>;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
 }
 
-/**
- * The kebab of the file: the details popover, the shortcut sheet, the tab's file actions, and
- * Find references on the game path that the bank units name the file by.
- *
- * Find references is listed only inside a project, which owns the References document.
- */
-function AudioFileMenu({ asset, audio, fileActions, onKeys }: AudioFileMenuProps) {
-  const project = useOptionalProjectContext();
-  const anchor = useRef<HTMLSpanElement>(null);
-  const [details, setDetails] = useState(false);
-  const detailsLabel =
-    audio?.bank != null ? m.audio_details_bank_action() : m.audio_details_file_action();
-
+/** The popover of Bank details or File details, under the toolbar row. */
+function DetailsPopover({ audio, label, anchor, open, onOpenChange }: DetailsPopoverProps) {
   return (
-    <span ref={anchor} className="inline-flex shrink-0">
-      <Menu.Root>
-        <Menu.Trigger
-          render={
-            <IconButton
-              icon={<DotsThreeVerticalIcon />}
-              aria-label={m.audio_file_actions_label()}
-            />
-          }
-        />
-        <Menu.Content align="end" sideOffset={4} className="w-60">
-          <Menu.Item
-            icon={<InfoIcon className="size-4" />}
-            disabled={audio === null}
-            /* The menu is still closing, and it takes focus back first. */
-            onClick={() => setTimeout(() => setDetails(true), 0)}
-          >
-            {detailsLabel}
-          </Menu.Item>
-          <Menu.Item
-            icon={<KeyboardIcon className="size-4" />}
-            shortcut={menuShortcut("help")}
-            /* The menu is still closing, and it takes focus back first. */
-            onClick={() => setTimeout(onKeys, 0)}
-          >
-            {m.audio_keys_title()}
-          </Menu.Item>
-          {fileActions !== null && (
-            <>
-              <Menu.Separator />
-              {fileActions}
-            </>
-          )}
-          {project !== null && <FindReferencesItem asset={asset} />}
-        </Menu.Content>
-      </Menu.Root>
-      {audio !== null && (
-        <Popover.Root open={details} onOpenChange={setDetails}>
-          <Popover.Content
-            anchor={anchor}
-            side="bottom"
-            align="end"
-            sideOffset={8}
-            aria-label={detailsLabel}
-            className="w-64 p-3"
-            data-ui="AudioFileDocument:details"
-          >
-            <Stack gap={2}>
-              <Popover.Title>{detailsLabel}</Popover.Title>
-              <FileFacts audio={audio} />
-            </Stack>
-          </Popover.Content>
-        </Popover.Root>
-      )}
-    </span>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
+      <Popover.Content
+        anchor={anchor}
+        side="bottom"
+        align="start"
+        sideOffset={8}
+        aria-label={label}
+        className="w-64 p-3"
+        data-ui="AudioFileDocument:details"
+      >
+        <Stack gap={2}>
+          <Popover.Title>{label}</Popover.Title>
+          <FileFacts audio={audio} />
+        </Stack>
+      </Popover.Content>
+    </Popover.Root>
   );
 }
-
-/** Find references on the game path that the bank units name the file by. */
-function FindReferencesItem({ asset }: { asset: AssetRef }) {
-  const sandbox = useSandbox();
-  const version = useAssetVersion(asset);
-  const references = useQuery(audioQueries.references(sandbox, asset, version));
-  const findReferences = useFindReferences();
-  const path = references.data?.path ?? null;
-
-  return (
-    <Menu.Item
-      icon={<MagnifyingGlassIcon className="size-4" />}
-      disabled={path === null}
-      onClick={() => path !== null && findReferences(fileReferences(path))}
-    >
-      {m.audio_file_find_references_action()}
-    </Menu.Item>
-  );
-}
-
 /** The `BKHD` facts of a bank, then its size and media count, as label and value rows. */
 function FileFacts({ audio }: { audio: AudioInfo }) {
   const bank = audio.bank;
@@ -409,15 +420,22 @@ function MediaPanel({ asset, name }: { asset: AssetRef; name: string }) {
     setFilter("");
   }
 
-  usePanelCommands("media", {
-    find: () => filterBox.current?.select(),
-    stop: player.playing === null ? undefined : () => player.channel.stopAll(),
-  });
-
   const rows = useMemo(
     () => sortRows(filterRows(media.data ?? [], filter), sort),
     [media.data, filter, sort],
   );
+  const selectedRow = rows.find((row) => row.sourceId === selected);
+
+  usePanelCommands("media", {
+    find: () => filterBox.current?.select(),
+    stop: player.playing === null ? undefined : () => player.channel.stopAll(),
+    play:
+      selectedRow?.playback.kind === "playable"
+        ? () => player.toggle(selectedRow.sourceId)
+        : undefined,
+    copy: selectedRow === undefined ? undefined : () => actions.copySource(selectedRow),
+  });
+
   const announcement =
     player.playing === null
       ? m.audio_stopped_label()

@@ -135,6 +135,16 @@ describe("sheetGroups", () => {
     expect(ids).not.toContain("viewMedia");
     expect(ids).not.toContain("wrap");
   });
+
+  it("leaves out a command that only a menu runs", () => {
+    const ids = sheetGroups(["voices", "document"]).flatMap((group) =>
+      group.bindings.map((each) => each.id),
+    );
+
+    expect(ids).toContain("wrap");
+    expect(ids).not.toContain("rename");
+    expect(ids).not.toContain("details");
+  });
 });
 
 describe("shortcutOf", () => {
