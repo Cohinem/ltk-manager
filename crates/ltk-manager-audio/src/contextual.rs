@@ -62,17 +62,11 @@ pub fn contextual_names(
                 .spells
                 .iter()
                 .filter_map(|spell| names.hash_name(*spell))
-                .map(|path| last_segment(&path).to_owned())
+                .map(|path| spell_segment(&path).to_owned())
                 .collect();
 
             for audience_name in &rule.names {
-                let mut composed = Vec::new();
-                for tag in &indexed.holder.tags {
-                    composed.push(format!("{PREFIX}{tag}_{}", audience_name.name));
-                    for spell in &spells {
-                        composed.push(format!("{PREFIX}{tag}_{spell}_{}", audience_name.name));
-                    }
-                }
+                let composed = compose_vo_names(&indexed.holder.tags, &spells, &audience_name.name);
 
                 let mut ids = HashSet::new();
                 let matched: Vec<(ObjectId, String)> = composed
@@ -107,10 +101,31 @@ pub fn contextual_names(
     found
 }
 
-/// Returns the part of `path` after its last `/`.
-fn last_segment(path: &str) -> &str {
+/// Returns the event names that the short name `short` composes for a skin.
+///
+/// For each of `tags`, the skin's `tagEventList`, the function writes `Play_vo_<tag>_<short>`,
+/// then `Play_vo_<tag>_<spell>_<short>` for each of `spells`, the [`spell_segment`] of each
+/// spell condition of the rule. Returns no name if `tags` is empty.
+#[must_use]
+pub fn compose_vo_names(tags: &[String], spells: &[String], short: &str) -> Vec<String> {
+    let mut composed = Vec::with_capacity(tags.len() * (spells.len() + 1));
+    for tag in tags {
+        composed.push(format!("{PREFIX}{tag}_{short}"));
+        for spell in spells {
+            composed.push(format!("{PREFIX}{tag}_{spell}_{short}"));
+        }
+    }
+    composed
+}
+
+/// Returns the part of the spell path `path` after its last `/`, which a composed name writes.
+#[must_use]
+pub fn spell_segment(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
 /// The prefix of a voice-over play event name.
 const PREFIX: &str = "Play_vo_";
+
+#[cfg(test)]
+mod tests;

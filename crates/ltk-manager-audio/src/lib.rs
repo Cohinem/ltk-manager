@@ -39,7 +39,7 @@ pub use bin_audio::{
     HolderAudio, SOUND_TARGETS, SiteStep, SitedUnit, SoundField,
 };
 pub use cache::SoundCache;
-pub use contextual::{ContextualMatch, contextual_names};
+pub use contextual::{ContextualMatch, compose_vo_names, contextual_names, spell_segment};
 pub use decode::{AudioFormat, DecodeError, DecodeFailure, Decoded, decode};
 pub use edit::{
     BankEdit, BankEditError, ContainerKind, EditContext, EventBankDocument, ImportedSound,
