@@ -11,6 +11,7 @@ import type {
 import { childrenOf, eventKey, shownChildOrder, type TreeState } from "./eventTree";
 import { type NodeField, nodeFields } from "./nodeFields";
 import { takesChild } from "./treeEditing";
+import type { MixPath } from "./voiceMix";
 
 /** A node that holds children: a random, sequence, switch or layer container, or an actor-mixer. */
 export type ContainerNode = Extract<EventNode, { kind: "random" | "switch" | "layer" | "mixer" }>;
@@ -656,25 +657,49 @@ function leaf(parent: string, depth: number, eventId: number) {
   return { depth, parent, expandable: false, open: false, defaultOpen: false, eventId };
 }
 
-/** What a committed edit plays again: one voice, or a new press of its event. */
+/** Returns the IDs of the containers of a voice's `path`, the innermost first. */
+export function stepAncestors(path: readonly VoiceStep[]): number[] {
+  return path.map((step) => step.container.id).reverse();
+}
+
+/**
+ * What a committed edit plays again: one voice, or a new press of its event.
+ *
+ * `object` is the object of the edited row, which a voice that plays it may already follow.
+ */
 export type Replay =
-  | { readonly kind: "voice"; readonly key: string; readonly media: MediaLocation }
-  | { readonly kind: "event"; readonly key: string; readonly event: number };
+  | {
+      readonly kind: "voice";
+      readonly key: string;
+      readonly object: number;
+      readonly media: MediaLocation;
+      readonly path: MixPath;
+    }
+  | {
+      readonly kind: "event";
+      readonly key: string;
+      readonly object: number;
+      readonly event: number;
+    };
 
 /**
  * Returns what plays once after an edit on `row` lands.
  *
- * A voice row and an event row that draws its voice replay that voice. A header row and an event
- * row of another event replay the event. Returns null for a voice without media and for any
- * other row.
+ * A voice row and an event row that draws its voice replay that voice, with the containers above
+ * it. A header row and an event row of another event replay the event. Returns null for a voice
+ * without media and for any other row.
  */
 export function replayOf(row: VoiceRow): Replay | null {
-  if (row.kind === "group" || (row.kind === "event" && row.inline === null)) {
-    return { kind: "event", key: eventKey(row.eventId), event: row.eventId };
+  const event = { kind: "event", key: eventKey(row.eventId), event: row.eventId } as const;
+  if (row.kind === "group") {
+    return { ...event, object: row.group.container?.id ?? row.group.play.id };
   }
+  if (row.kind === "event" && row.inline === null) return { ...event, object: row.eventId };
 
-  const node = voiceLine(row)?.voice.node;
-  if (node?.kind !== "sound" || node.media === null) return null;
+  const voice = voiceLine(row)?.voice;
+  const node = voice?.node;
+  if (voice === undefined || node?.kind !== "sound" || node.media === null) return null;
 
-  return { kind: "voice", key: row.key, media: node.media };
+  const path = { nodes: [node.id, ...stepAncestors(voice.path)], action: null };
+  return { kind: "voice", key: row.key, object: node.id, media: node.media, path };
 }

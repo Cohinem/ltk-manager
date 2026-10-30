@@ -12,6 +12,7 @@ import { type Waveform as WaveformData, waveformQuery } from "../api/waveform";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import type { MediaPlayer } from "../hooks/useMediaPlayer";
 import { useWaveformColors } from "../hooks/useWaveformColors";
+import { plainVoice } from "../player/solo";
 import type { SoundChannel } from "../player/soundPlayer";
 import { mediaUrl, useChannelState } from "../player/useSoundChannel";
 import { formatDuration } from "../utils/mediaRows";
@@ -44,7 +45,7 @@ interface WaveformProps {
  * waveform is a slider for the keyboard. Per "Waveform" in docs/ux/AUDIO.md.
  */
 export function Waveform({ channel, subject }: WaveformProps) {
-  const url = subject?.urls[0] ?? null;
+  const url = subject?.voices[0]?.url ?? null;
   const decoded = useDebouncedValue(url, DECODE_DELAY_MS);
   const waveform = useQuery(waveformQuery(decoded));
 
@@ -58,7 +59,7 @@ export function Waveform({ channel, subject }: WaveformProps) {
 
   return (
     <WaveformView
-      key={`${subject.key}\n${subject.urls.join("\n")}`}
+      key={`${subject.key}\n${subject.voices.map((voice) => voice.url).join("\n")}`}
       channel={channel}
       subject={subject}
       waveform={waveform.data}
@@ -75,7 +76,7 @@ interface MediaWaveformProps {
 /** The waveform of the media table: the source that plays, or the selected playable row. */
 export function MediaWaveform({ player, rows, selected }: MediaWaveformProps) {
   const subjectOf = (source: number | null): WaveformSubject | null =>
-    source === null ? null : { key: String(source), urls: [player.url(source)] };
+    source === null ? null : { key: String(source), voices: [plainVoice(player.url(source))] };
 
   const row = rows.find((each) => each.sourceId === selected);
   const playable =
@@ -101,7 +102,9 @@ export function EventWaveform({ player, selection }: EventWaveformProps) {
   const subject = shownSubject(
     player.played,
     player.playing,
-    selection === null ? null : { key: selection.key, urls: [mediaUrl(selection.media)] },
+    selection === null
+      ? null
+      : { key: selection.key, voices: [{ url: mediaUrl(selection.media), path: selection.path }] },
   );
 
   return <Waveform channel={player.channel} subject={subject} />;

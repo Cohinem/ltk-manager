@@ -1,14 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import type { ObjectProperties } from "@/lib/tauri";
 
 import { playSolo } from "../player/solo";
-import type { SoundChannel } from "../player/soundPlayer";
+import type { ChannelVoice, SoundChannel } from "../player/soundPlayer";
 import {
   mediaUrl,
   PREVIEW_VOLUME,
   useChannelState,
   useSoundChannel,
 } from "../player/useSoundChannel";
+import { useMixDraftStore } from "../state/mixDrafts";
 import type { EventVoice } from "../utils/eventTree";
+import { voiceMix, withDrafts } from "../utils/voiceMix";
 import type { WaveformSubject } from "../utils/waveformSync";
 
 /** The player of the event tree. */
@@ -17,18 +21,23 @@ export interface EventPlayer {
   readonly playing: string | null;
   /** The keys of the rows whose media failed to play. */
   readonly failed: ReadonlySet<string>;
-  /** The key and the media of the last play that had media, or `null` before one. */
+  /** The key and the voices of the last play that had media, or `null` before one. */
   readonly played: WaveformSubject | null;
-  /** Plays `voices` for the row `key`, each after its delay, and stops what played before. */
+  /**
+   * Plays `voices` for the row `key`, each with the mix of its path, and stops what played
+   * before.
+   */
   readonly play: (key: string, voices: readonly EventVoice[]) => void;
   readonly stop: () => void;
+  /** Sets the properties that the mix of each voice reads, and moves the voices that play. */
+  readonly mix: (properties: ReadonlyMap<number, ObjectProperties>) => void;
   /** The channel that plays the media, keyed by the row. */
   readonly channel: SoundChannel;
 }
 
 /**
  * Plays the picks of an event, a container or a sound on a channel of the shared player, each
- * media after the delay of its action.
+ * with the properties along its path.
  *
  * A press stops what the press before it started. The row stops playing when every media ends,
  * and everything stops when the tree unmounts.
@@ -42,18 +51,49 @@ export function useEventPlayer(): EventPlayer {
   const stop = useCallback(() => channel.stopAll(), [channel]);
   const play = useCallback(
     (key: string, voices: readonly EventVoice[]) => {
-      const urls = voices.map((voice) => mediaUrl(voice.media));
-      playSolo(
-        channel,
-        key,
-        urls,
-        voices.map((voice) => voice.delay),
-      );
+      const sent = voices.map(channelVoice);
+      playSolo(channel, key, sent);
 
-      if (urls.length > 0) setPlayed({ key, urls });
+      if (sent.length > 0) setPlayed({ key, voices: sent });
     },
     [channel],
   );
+  const mix = useCallback(
+    (properties: ReadonlyMap<number, ObjectProperties>) =>
+      channel.setMixer((path) => voiceMix(path, properties)),
+    [channel],
+  );
 
-  return { playing, failed: state.failed, played, play, stop, channel };
+  return { playing, failed: state.failed, played, play, stop, mix, channel };
+}
+
+/** Returns the voice that the channel plays for `voice`. */
+function channelVoice(voice: EventVoice): ChannelVoice {
+  return { url: mediaUrl(voice.media), path: voice.path };
+}
+
+/**
+ * Keeps the mix of `player` on `properties` and the values of the knobs that turn.
+ *
+ * A knob step reaches the player without a render of the caller.
+ */
+export function usePlayerMix(
+  player: EventPlayer,
+  properties: ReadonlyMap<number, ObjectProperties>,
+): void {
+  const latest = useRef(properties);
+  const { mix } = player;
+
+  useEffect(() => {
+    latest.current = properties;
+    mix(withDrafts(properties, useMixDraftStore.getState().drafts));
+  }, [mix, properties]);
+
+  useEffect(
+    () =>
+      useMixDraftStore.subscribe((state, before) => {
+        if (state.drafts !== before.drafts) mix(withDrafts(latest.current, state.drafts));
+      }),
+    [mix],
+  );
 }

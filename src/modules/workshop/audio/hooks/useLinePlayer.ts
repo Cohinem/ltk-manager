@@ -46,6 +46,7 @@ export function useLinePlayer(random: () => number = Math.random): LinePlayer {
       const voices = eventVoices(answer.value.tree, random);
       if (voices.length === 0) return false;
 
+      player.mix(new Map(answer.value.properties.map((object) => [object.id, object])));
       player.play(line.key, voices);
       return true;
     },

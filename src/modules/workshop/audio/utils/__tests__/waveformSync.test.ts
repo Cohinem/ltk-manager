@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { openFakeChannel, playedUrls } from "../../player/__tests__/fakeChannel";
+import { plainVoice } from "../../player/solo";
 import { createWaveformSync, seekKeyTime, type WaveformSubject } from "../waveformSync";
 
-const subject: WaveformSubject = { key: "7", urls: ["sound-7"] };
+const subject: WaveformSubject = { key: "7", voices: [plainVoice("sound-7")] };
 
 function setup(duration = 4) {
   const channel = openFakeChannel();
@@ -13,7 +14,7 @@ function setup(duration = 4) {
 describe("createWaveformSync", () => {
   it("returns the position of the subject on the first frame, then null until it moves", () => {
     const { channel, sync } = setup();
-    channel.play("7", ["sound-7"], "once", 1.5);
+    channel.play("7", [plainVoice("sound-7")], "once", 1.5);
 
     expect(sync.frame()).toBe(1.5);
     expect(sync.frame()).toBeNull();
@@ -24,7 +25,7 @@ describe("createWaveformSync", () => {
 
   it("returns the start while the subject does not play", () => {
     const { channel, sync } = setup();
-    channel.play("7", ["sound-7"], "once", 3);
+    channel.play("7", [plainVoice("sound-7")], "once", 3);
     channel.stop("7");
 
     expect(sync.time()).toBe(0);
@@ -44,7 +45,7 @@ describe("createWaveformSync", () => {
 
   it("stops another key of the channel before it plays the subject", () => {
     const { channel, sync } = setup();
-    channel.play("9", ["sound-9"]);
+    channel.play("9", [plainVoice("sound-9")]);
 
     sync.seek(1);
 
@@ -63,7 +64,7 @@ describe("createWaveformSync", () => {
 
   it("moves the subject's voices without a new play while it plays", () => {
     const { channel, sync } = setup();
-    channel.play("7", ["sound-7"]);
+    channel.play("7", [plainVoice("sound-7")]);
     const before = playedUrls.length;
 
     sync.seek(3);
@@ -74,7 +75,7 @@ describe("createWaveformSync", () => {
 
   it("keeps a paused subject paused when it seeks", () => {
     const { channel, sync } = setup();
-    channel.play("7", ["sound-7"]);
+    channel.play("7", [plainVoice("sound-7")]);
     channel.pause();
 
     sync.seek(1);
@@ -95,7 +96,7 @@ describe("createWaveformSync", () => {
 
   it("returns no frame during a drag and seeks to the fraction where the drag ends", () => {
     const { channel, sync } = setup(4);
-    channel.play("7", ["sound-7"], "once", 1);
+    channel.play("7", [plainVoice("sound-7")], "once", 1);
     sync.frame();
 
     sync.dragStart();

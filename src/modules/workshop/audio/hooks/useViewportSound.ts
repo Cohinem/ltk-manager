@@ -57,10 +57,8 @@ export function useViewportSound(
       const voices = eventVoices(tree, Math.random);
       channel.play(
         cue.key,
-        voices.map((voice) => mediaUrl(voice.media)),
+        voices.map((voice) => ({ url: mediaUrl(voice.media), path: voice.path })),
         cue.repeat,
-        0,
-        voices.map((voice) => voice.delay),
       );
     },
     stop: (key) => channel.stop(key),

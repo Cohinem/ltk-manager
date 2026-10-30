@@ -36,7 +36,7 @@ import { useAudioInspector, useSetAudioInspector } from "@/stores";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { audioQueries } from "../api/queries";
 import type { BankDocument } from "../hooks/useBankDocument";
-import { useEventPlayer } from "../hooks/useEventPlayer";
+import { useEventPlayer, usePlayerMix } from "../hooks/useEventPlayer";
 import { useTreePicks } from "../hooks/useTreePicks";
 import { NodeNamesContext } from "../state/nodeNames";
 import { useBankEventRequest, useBankEventStore } from "../state/voiceLines";
@@ -78,8 +78,9 @@ import {
   type TreeEditing,
   voiceTarget,
 } from "../utils/treeEditing";
-import { structureRow, treeSelection, voiceSelection } from "../utils/viewRows";
-import { replayOf, type VoiceRow, voiceRows } from "../utils/voices";
+import { structureRow, treeAncestors, treeSelection, voiceSelection } from "../utils/viewRows";
+import { PLAIN_PATH } from "../utils/voiceMix";
+import { replayOf, stepAncestors, type VoiceRow, voiceRows } from "../utils/voices";
 import { AudioPanelTools } from "./AudioToolbar";
 import { EventMenu, type NodeActions } from "./EventMenu";
 import { isPlayable } from "./EventRowParts";
@@ -178,6 +179,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   );
 
   const shownProperties = editing?.properties ?? properties(read);
+  usePlayerMix(player, shownProperties);
   const addable = (into: NodeParent) =>
     editing !== null && (into.kind === "event" || isEditable(editing, into.container));
   const rows = voices
@@ -313,8 +315,22 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
     }
     if (row.kind === "action" && row.action.node !== null)
       return nodeVoices(row.action.node, random);
-    if (row.kind === "node") return nodeVoices(row.node, random);
+    if (row.kind === "node") return nodeVoices(row.node, random, treeAncestors(row, byKey));
     return [];
+  }
+
+  /** Returns the voices of one press on `row` of the Voices view, under the containers above it. */
+  async function voiceRowVoices(row: VoiceRow): Promise<EventVoice[]> {
+    if (row.kind === "voice") {
+      const { voice } = row.line;
+      return nodeVoices(voice.node, random, stepAncestors(voice.path));
+    }
+    if (row.kind === "group" && row.group.container !== null) {
+      return nodeVoices(row.group.container, random, stepAncestors(row.group.path));
+    }
+
+    const found = structureRow(row);
+    return found === null ? [] : voicesOf(found.row);
   }
 
   /** Plays `row`, or every picked row together if `row` is one of several picks. */
@@ -328,24 +344,21 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   function playVoiceRow(row: VoiceRow) {
     const together = picks.picked.size > 1 && picks.picked.has(row.key);
     const shown = together ? voiceList.filter((each) => picks.picked.has(each.key)) : [row];
-    const structured = shown.flatMap((each) => {
-      const found = structureRow(each);
-      return found === null ? [] : [found.row];
-    });
-    void Promise.all(structured.map(voicesOf)).then((each) => {
+    void Promise.all(shown.map(voiceRowVoices)).then((each) => {
       const voicesPlayed = each.flat();
       if (voicesPlayed.length > 0) player.play(row.key, voicesPlayed);
     });
   }
 
   /* The read of an edited bank lands after the edit resolves, so an event replays from a read of
-     the document rather than from the query of the revision before the edit. */
+     the document rather than from the query of the revision before the edit. A voice that plays
+     with the edited object follows the edit live and does not restart. */
   async function replay(row: VoiceRow) {
     const what = replayOf(row);
-    if (what === null) return;
+    if (what === null || player.channel.reaches(what.object)) return;
 
     if (what.kind === "voice") {
-      player.play(what.key, [{ media: what.media, delay: 0 }]);
+      player.play(what.key, [{ media: what.media, path: what.path }]);
       return;
     }
 
@@ -551,7 +564,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
               player={player}
               onPlay={playVoiceRow}
               onReplay={(row) => void replay(row)}
-              onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
+              onPreview={(key, media) => player.play(key, [{ media, path: PLAIN_PATH }])}
               onCopy={copyPicks}
               actions={actions}
               adding={adding}
@@ -625,7 +638,7 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
             files={files}
             adding={adding}
             onAdding={setAdding}
-            onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
+            onPreview={(key, media) => player.play(key, [{ media, path: PLAIN_PATH }])}
             menu={(row) => (
               <EventMenu
                 row={row}
