@@ -1,6 +1,6 @@
 import { type KeyboardEvent, use, useEffect, useMemo, useRef, useState } from "react";
 
-import { ContextMenu, EmptyState, Spinner } from "@/components";
+import { ContextMenu, EmptyState, Spinner, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AudienceLine, BinEdit, ValueEdit, VoiceRule, VoiceSituation } from "@/lib/tauri";
@@ -118,6 +118,7 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
   const setInspecting = useSetAudioInspector();
   const player = useLinePlayer();
   const copy = useCopyToClipboard();
+  const toast = useToast();
   const open = useOpenDocumentAs();
   const askBank = useBankEventStore((state) => state.ask);
   const list = useRef<HTMLDivElement>(null);
@@ -200,7 +201,10 @@ function VoiceLinesView({ view, editable }: VoiceLinesViewProps) {
   function playSituation(situation: VoiceSituation) {
     const rule = simulateTrigger(situation, trigger, Math.random);
     const line = rule === null ? null : lineFor(rule, trigger.audience);
-    if (rule === null || line?.event == null) return;
+    if (rule === null || line?.event == null) {
+      toast.info(m.audio_voice_play_none_label());
+      return;
+    }
 
     player.play({ key: `s:${situation.path}`, event: line.event });
   }

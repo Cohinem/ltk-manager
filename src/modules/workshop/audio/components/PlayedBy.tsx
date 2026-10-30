@@ -149,7 +149,7 @@ function RulesCard({ rules }: { rules: readonly PlayingRule[] }) {
           </li>
         ))}
       </ul>
-      <span className="text-meta text-surface-400">{m.audio_event_context_inferred_hint()}</span>
+      <span className="text-meta text-surface-400">{inferredHint(rules)}</span>
     </div>
   );
 }
@@ -157,4 +157,10 @@ function RulesCard({ rules }: { rules: readonly PlayingRule[] }) {
 /** Returns the audiences that `contexts` play for, each once, in words. */
 function audiencesOf(contexts: readonly EventContext[]): string {
   return [...new Set(contexts.map((context) => context.audience))].map(audienceLabel).join(", ");
+}
+
+/** Returns the hint under the rules: inferred, or ambiguous where two tags name two events. */
+function inferredHint(rules: readonly PlayingRule[]): string {
+  const ambiguous = rules.some((rule) => rule.contexts.some((context) => context.ambiguous));
+  return ambiguous ? m.audio_event_context_ambiguous_hint() : m.audio_event_context_inferred_hint();
 }
