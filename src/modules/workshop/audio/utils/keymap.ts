@@ -78,7 +78,10 @@ export type AudioCommandId =
   | "createEvent"
   | "showInBank"
   | "showInTree"
-  | "copyForSkin";
+  | "copyForSkin"
+  | "addChance"
+  | "removeChance"
+  | "pickRandom";
 
 /**
  * Who answers the keys of a binding.
@@ -262,6 +265,9 @@ export const AUDIO_KEYMAP: readonly AudioBinding[] = [
   { id: "showInBank", keys: [], surfaces: LINES, group: "view", owner: "menu" },
   { id: "showInTree", keys: [], surfaces: LINES, group: "view", owner: "menu" },
   { id: "copyForSkin", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
+  { id: "addChance", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
+  { id: "removeChance", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
+  { id: "pickRandom", keys: [], surfaces: LINES, group: "editing", owner: "menu" },
   { id: "rename", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "replaceMedia", keys: [], surfaces: BANK, group: "editing", owner: "menu" },
   { id: "newEvent", keys: [], surfaces: BANK, group: "editing", owner: "menu" },

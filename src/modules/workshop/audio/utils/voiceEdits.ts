@@ -8,7 +8,7 @@ import type {
 } from "@/lib/tauri";
 
 import { fnv1a32, nameHash } from "../../bin/shared/utils/binHash";
-import type { RuleChance } from "./voiceConditions";
+import { CLASS, type RuleChance } from "./voiceConditions";
 
 /** The field of `ContextualActionData` that every edit of the view addresses. */
 export const SITUATIONS_FIELD = nameHash("mSituations");
@@ -44,6 +44,40 @@ export function chanceEdits(chances: readonly RuleChance[], percent: number): Va
   const clamped = Math.round(Math.min(100, Math.max(0, percent)));
   return chances.flatMap((chance) =>
     fieldEdits(chance.path, "mPercentChanceToPlay", { type: "integer", text: String(clamped) }),
+  );
+}
+
+/** The class of the condition that the chance knob draws. */
+const CHANCE_CLASS = "ContextualConditionChanceToPlay";
+
+/**
+ * Returns the edits that add a chance condition of `percent` to each of `rules` that has none.
+ *
+ * The condition lands at the end of `mConditions`, which the rule gains first where it does not
+ * write it.
+ */
+export function addChanceEdits(rules: readonly VoiceRule[], percent: number): ValueEdit[] {
+  return rules.flatMap((rule): ValueEdit[] => {
+    if (rule.conditions.some((condition) => condition.class === CLASS.chance)) return [];
+
+    const list = conditionsPath(rule);
+    const added = `${list}[${rule.conditions.length}]`;
+    return [
+      { type: "ensureProperty", path: rule.path, field: nameHash("mConditions") },
+      { type: "insertItem", path: list, item: { index: null, key: null, class: CHANCE_CLASS } },
+      ...chanceEdits([{ path: added, percent }], percent),
+    ];
+  });
+}
+
+/** Returns the edits that remove every chance condition of `rules`. */
+export function removeChanceEdits(rules: readonly VoiceRule[]): ValueEdit[] {
+  return removeEdits(
+    rules.flatMap((rule) =>
+      rule.conditions
+        .filter((condition) => condition.class === CLASS.chance)
+        .map((condition) => condition.path),
+    ),
   );
 }
 

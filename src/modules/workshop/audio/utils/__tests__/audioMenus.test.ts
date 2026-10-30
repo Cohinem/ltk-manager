@@ -117,6 +117,10 @@ describe("audioMenus", () => {
       "selectAll",
     ]);
     expect(menus.find((menu) => menu.id === "voice")?.entries.map(entryName)).toEqual([
+      "addChance",
+      "removeChance",
+      "pickRandom",
+      "-",
       "createEvent",
       "showInBank",
       "showInTree",

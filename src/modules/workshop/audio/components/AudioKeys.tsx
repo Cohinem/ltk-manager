@@ -20,6 +20,8 @@ import {
   ListBulletsIcon,
   ListNumbersIcon,
   MagnifyingGlassIcon,
+  MinusCircleIcon,
+  PercentIcon,
   PencilSimpleIcon,
   PlayCircleIcon,
   PlayIcon,
@@ -113,6 +115,9 @@ export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
   showInBank: m.audio_key_show_in_bank_label,
   showInTree: m.audio_key_show_in_tree_label,
   copyForSkin: m.audio_key_copy_for_skin_label,
+  addChance: m.audio_key_add_chance_label,
+  removeChance: m.audio_key_remove_chance_label,
+  pickRandom: m.audio_key_pick_random_label,
 };
 
 /** The short words of a command in a menu. A command without them shows its sheet words. */
@@ -157,6 +162,9 @@ const COMMAND_TITLES: Partial<Readonly<Record<AudioCommandId, () => string>>> = 
   showInBank: m.audio_voice_show_in_bank_action,
   showInTree: m.audio_voice_show_in_tree_action,
   copyForSkin: m.audio_voice_copy_for_skin_action,
+  addChance: m.audio_voice_add_chance_action,
+  removeChance: m.audio_voice_remove_chance_action,
+  pickRandom: m.audio_voice_pick_random_action,
 };
 
 /** Returns the words of `id` in a menu. */
@@ -204,6 +212,9 @@ export const COMMAND_ICONS: Partial<Readonly<Record<AudioCommandId, Icon>>> = {
   showInBank: ListBulletsIcon,
   showInTree: TreeStructureIcon,
   copyForSkin: FilesIcon,
+  addChance: PercentIcon,
+  removeChance: MinusCircleIcon,
+  pickRandom: ShuffleIcon,
 };
 
 const GROUP_TITLES: Readonly<Record<AudioCommandGroup, () => string>> = {

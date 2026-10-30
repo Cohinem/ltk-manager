@@ -4,6 +4,8 @@ import {
   CopyIcon,
   CopySimpleIcon,
   ListBulletsIcon,
+  MinusCircleIcon,
+  PercentIcon,
   PlayIcon,
   PlaylistIcon,
   PlusIcon,
@@ -31,6 +33,11 @@ export interface LineActions {
   readonly showInBank: (() => void) | null;
   readonly showInTree: (() => void) | null;
   readonly copyShort: (() => void) | null;
+  /** Adds a chance condition to the picked rules that have none. */
+  readonly addChance: (() => void) | null;
+  readonly removeChance: (() => void) | null;
+  /** Whether the line's situation picks a random valid rule, and the switch of it. */
+  readonly pickRandom: { readonly checked: boolean; readonly toggle: () => void } | null;
 }
 
 /**
@@ -110,6 +117,27 @@ export function VoiceLineMenu({ actions }: { actions: LineActions }) {
         >
           {m.audio_voice_delete_action()}
         </ContextMenu.Item>
+      )}
+      {(actions.addChance !== null ||
+        actions.removeChance !== null ||
+        actions.pickRandom !== null) && <ContextMenu.Separator />}
+      {actions.addChance !== null && (
+        <ContextMenu.Item icon={<PercentIcon />} onClick={actions.addChance}>
+          {m.audio_voice_add_chance_action()}
+        </ContextMenu.Item>
+      )}
+      {actions.removeChance !== null && (
+        <ContextMenu.Item icon={<MinusCircleIcon />} onClick={actions.removeChance}>
+          {m.audio_voice_remove_chance_action()}
+        </ContextMenu.Item>
+      )}
+      {actions.pickRandom !== null && (
+        <ContextMenu.CheckboxItem
+          checked={actions.pickRandom.checked}
+          onCheckedChange={actions.pickRandom.toggle}
+        >
+          {m.audio_voice_pick_random_action()}
+        </ContextMenu.CheckboxItem>
       )}
       {links && <ContextMenu.Separator />}
       {actions.createEvent !== null && (

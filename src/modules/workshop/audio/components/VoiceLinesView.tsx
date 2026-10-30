@@ -41,17 +41,20 @@ import { pickMode } from "../utils/rowSelection";
 import { spellOf, CLASS } from "../utils/voiceConditions";
 import { ruleChance } from "../utils/voiceConditions";
 import {
+  addChanceEdits,
   chanceEdits,
   cooldownEdit,
   duplicateEdits,
   fieldPath,
   objectPath,
   priorityEdits,
+  removeChanceEdits,
   removeEdits,
   rulesPath,
   shortNameEdits,
   situationsEdit,
 } from "../utils/voiceEdits";
+import { topicEdits } from "../utils/voiceFieldTopics";
 import {
   audienceSummary,
   rowGroups,
@@ -278,6 +281,18 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
     return editSituations(chanceEdits(chances, percent));
   }
 
+  /** Adds a chance to the picked rules of `row` that have none, then opens the entry of its knob. */
+  async function addChance(row: RuleRow) {
+    const landed = await editSituations(
+      addChanceEdits(
+        picked(row).map((each) => each.rule),
+        NEW_CHANCE_PERCENT,
+      ),
+    );
+    if (landed) setEntering(`${row.key}:chance`);
+    return landed;
+  }
+
   function composedName(rule: VoiceRule, line: AudienceLine): string | null {
     const spell = rule.conditions.find((each) => each.class === CLASS.spellName);
     const segment = spell === undefined ? null : spellOf(spell);
@@ -301,7 +316,17 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
       showInBank: null,
       showInTree: null,
       copyShort: null,
+      addChance: null,
+      removeChance: null,
+      pickRandom: null,
     };
+    const pickRandom = (situation: VoiceSituation) =>
+      editable
+        ? {
+            checked: situation.chooseRandom,
+            toggle: () => void editSituations(randomEdits(situation)),
+          }
+        : null;
     const showInTree = (path: string) =>
       view.onShowInProperties === undefined
         ? null
@@ -316,6 +341,7 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
         playAll: () => playAll(row.situation),
         add: editable ? () => void addRule(row.situation) : null,
         showInTree: showInTree(row.situation.path),
+        pickRandom: pickRandom(row.situation),
       };
     }
 
@@ -371,6 +397,15 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
       showInTree: showInTree(row.rule.path),
       copyShort:
         line === null ? null : () => void copy(line.short, m.audio_voice_copy_short_action()),
+      addChance:
+        editable && rules.some((each) => ruleChance(each.rule) === null)
+          ? () => void addChance(row)
+          : null,
+      removeChance:
+        editable && rules.some((each) => ruleChance(each.rule) !== null)
+          ? () => void editSituations(removeChanceEdits(rules.map((each) => each.rule)))
+          : null,
+      pickRandom: pickRandom(row.situation),
     };
   }
 
@@ -483,8 +518,11 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
         return true;
       case "enter": {
         const cell = activeCell(row);
-        if (row.kind === "rule" && cell !== null && editable) setEntering(`${row.key}:${cell}`);
-        else if (row.kind === "add") actions.add?.();
+        if (row.kind === "rule" && cell === "chance" && ruleChance(row.rule) === null) {
+          actions.addChance?.();
+        } else if (row.kind === "rule" && cell !== null && editable) {
+          setEntering(`${row.key}:${cell}`);
+        } else if (row.kind === "add") actions.add?.();
         else if (key === "Enter") actions.play?.();
         return true;
       }
@@ -640,7 +678,10 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
           >
             <RowCaret expandable expanded={row.open} />
           </span>
-          <SituationText situation={row.situation} />
+          <SituationText
+            situation={row.situation}
+            onToggleRandom={editable ? () => void editSituations(randomEdits(row.situation)) : null}
+          />
           <span className="ml-auto flex">
             <PlayButton
               playable={resolved}
@@ -702,6 +743,13 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
             editable
               ? {
                   chance: (percent) => chanceOf(row, percent),
+                  addChance: () => addChance(row),
+                  weight: (weight) =>
+                    editSituations(
+                      picked(row).flatMap((each) =>
+                        topicEdits(each.rule.path, "chanceWeight", weight),
+                      ),
+                    ),
                   name: (name) =>
                     editSituations([
                       {
@@ -795,7 +843,11 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
               surfaces: LINES_SURFACES,
               hidden: [],
               commands: menuCommands,
-              checked: { toggleInspector: inspecting, loop: looping },
+              checked: {
+                toggleInspector: inspecting,
+                loop: looping,
+                pickRandom: selectedRow?.situation.chooseRandom === true,
+              },
               reasons: selectedRow === undefined ? selectRowReasons() : {},
             }}
             slots={{ volume: <VolumeReadout /> }}
@@ -904,6 +956,14 @@ function isPlaying(row: VoiceLineRow, playing: string | null): boolean {
   return false;
 }
 
+/** The percent of a chance that Add chance writes, which plays the line as it played before. */
+const NEW_CHANCE_PERCENT = 100;
+
+/** Returns the edits that turn random choice of `situation` on, or off where it is on. */
+function randomEdits(situation: VoiceSituation): ValueEdit[] {
+  return topicEdits(situation.path, "chooseRandom", !situation.chooseRandom);
+}
+
 /** The surface of the view, whose commands the menu bar lists. */
 const LINES_SURFACES: readonly AudioSurface[] = ["lines"];
 
@@ -922,6 +982,9 @@ function selectRowReasons(): Partial<Record<AudioCommandId, string>> {
     "createEvent",
     "showInBank",
     "showInTree",
+    "addChance",
+    "removeChance",
+    "pickRandom",
   ];
 
   return Object.fromEntries(ids.map((id) => [id, reason]));
@@ -938,6 +1001,9 @@ function lineCommands(actions: LineActions | null): Partial<Record<AudioCommandI
     moveUp: actions.moveUp ?? undefined,
     moveDown: actions.moveDown ?? undefined,
     copy: actions.copyShort ?? undefined,
+    addChance: actions.addChance ?? undefined,
+    removeChance: actions.removeChance ?? undefined,
+    pickRandom: actions.pickRandom?.toggle,
     createEvent: actions.createEvent ?? undefined,
     showInBank: actions.showInBank ?? undefined,
     showInTree: actions.showInTree ?? undefined,

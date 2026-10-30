@@ -12,6 +12,7 @@ A class view, its sections and its sandbox are in docs/ux/BIN_EDITOR.md, under "
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-10-30 | Author chance, weight and random choice from the list                  |
 | 2026-10-30 | Add the menu bar, and lay the rules out as a cue sheet                 |
 | 2026-10-30 | Name the event tree of a bank in place of its Voices view              |
 | 2026-10-30 | Read the keys from the audio keymap, add drags and type-ahead          |
@@ -30,7 +31,7 @@ view does not draw lists under it as a field row, without the Other header.
 ```
 Edit  Insert  View  Playback  Voice   [Filter............]  [2 unresolved]   [! 86 skins] `Characters/Lux/CAC/Lux_Base`
 Resolve as [Skin 7 v] `Lux` `LuxSkin07` (Inferred) | Shared cooldown [15] s    Simulate [Self v]  Target [Any v]  Spell [Any v]
-         RULE      LINE                             HEARD BY  CHANCE    PRIORITY  WHEN
+         RULE      LINE                             HEARD BY  CHANCE    WEIGHT  PRIORITY  WHEN
 v Spell cast  SpellCast  8 rules                                                                      (>)
          Q         cast3D                     Lux   S A E Sp  (o) 50 %       -10  spell LuxLightBinding
          R         cast3D             [LuxSkin07]   S A E Sp                 100  spell LuxR
@@ -48,13 +49,13 @@ simulates.
 - The menu bar is the one of the audio file document, per "Menu bar" in docs/ux/AUDIO.md, with the
   commands of this view. Alt or F10 moves focus to it from anywhere in the view.
 
-  | Menu     | Items                                                                                  |
-  | -------- | -------------------------------------------------------------------------------------- |
-  | Edit     | Duplicate, Delete. Move up, Move down. Copy short name. Select all                     |
-  | Insert   | Add rule                                                                               |
-  | View     | Inspector as a switch. Expand all, Collapse all. Keys and gestures                     |
-  | Playback | Play or stop, Play all, Stop all. Loop as a switch. Volume up, Volume down, the volume |
-  | Voice    | Create event..., Show in bank, Show in tree. Copy for this skin                        |
+  | Menu     | Items                                                                                                                      |
+  | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+  | Edit     | Duplicate, Delete. Move up, Move down. Copy short name. Select all                                                         |
+  | Insert   | Add rule                                                                                                                   |
+  | View     | Inspector as a switch. Expand all, Collapse all. Keys and gestures                                                         |
+  | Playback | Play or stop, Play all, Stop all. Loop as a switch. Volume up, Volume down, the volume                                     |
+  | Voice    | Add chance, Remove chance, Pick a random rule as a switch. Create event..., Show in bank, Show in tree. Copy for this skin |
 
   A command of the selected line reads "Select a row" while no line is selected.
 
@@ -87,7 +88,7 @@ them. ADR-0073.
 
 A situation is a header row with a filled band: the caret, the situation's word, its key in mono
 where the word differs, and the rule count, with the play button at the band's end. Settings show only where they differ
-from the default: a Random chip for `mChooseRandomValidRule`, the situation cooldown when it is not
+from the default: a Random chip for `mChooseRandomValidRule`, whose press turns random choice off, the situation cooldown when it is not
 0, and the count of unresolved rules as a warning. An unnamed key shows its hash. The view writes a
 word for the named keys a modder meets most, such as Spell cast for `SpellCast` and Attack order
 for the four `Attack*2D` keys, and the key itself for the rest.
@@ -110,6 +111,7 @@ the line plays. Space and a middle click play any rule.
 | Line     | The short name, `+N` when other audiences name others, then the resolved tag | F2                        |
 | Heard by | Four slots, Self, Ally, Enemy and Spectator: a letter if named, else a dot   |                           |
 | Chance   | The knob and the percent of the rule's one `ContextualConditionChanceToPlay` | The knob, F2              |
+| Weight   | `ChanceWeight`, in a situation that picks a random rule, else empty          | F2                        |
 | Priority | `mPriority`, empty while unset                                               | F2, an empty entry clears |
 | When     | The conditions in words, joined by `·`, but the chance. `One passes` before  | In the inspector          |
 
@@ -168,6 +170,11 @@ a null `CooldownModifications` or `mAudioAction` gives the pointer its class fir
   the entry of its short name.
 - Ctrl+D copies each picked rule after itself, and Delete removes the picked rules.
 - Alt+Up and Alt+Down move the selected rule, because list order decides the first valid rule.
+- Add chance appends a `ContextualConditionChanceToPlay` of 100 % to each picked rule without one,
+  then opens the entry of its knob. An empty Chance cell shows + Chance on hover, and F2 or Enter on
+  it does the same. Remove chance removes the chance condition of each picked rule.
+- Pick a random rule, in the menu of a line and the Voice menu, switches
+  `mChooseRandomValidRule` of the line's situation. A random situation draws the Weight column.
 
 ### Keys and gestures
 

@@ -119,6 +119,10 @@ export const AUDIO_MENU_SPEC: readonly {
   {
     id: "voice",
     entries: [
+      command("addChance"),
+      command("removeChance"),
+      { kind: "check", id: "pickRandom" },
+      SEPARATOR,
       command("createEvent"),
       command("showInBank"),
       command("showInTree"),

@@ -13,7 +13,13 @@ import type {
 import { fnv1a32 } from "../../../bin/shared/utils/binHash";
 import { playedBy } from "../playedBy";
 import { conditionText, ruleChance } from "../voiceConditions";
-import { chanceEdits, objectPath } from "../voiceEdits";
+import {
+  addChanceEdits,
+  chanceEdits,
+  conditionsPath,
+  objectPath,
+  removeChanceEdits,
+} from "../voiceEdits";
 import { topicEdits } from "../voiceFieldTopics";
 import { copyObjectName, resolvedTag, rowGroups, voiceLineRows } from "../voiceLines";
 import { simulateTrigger, type TriggerContext } from "../voiceTrigger";
@@ -181,6 +187,37 @@ describe("chanceEdits", () => {
       path: "{1}.a[0].3f2d5dae",
       value: { type: "integer", text: "100" },
     });
+  });
+});
+
+describe("addChanceEdits", () => {
+  it("appends a chance after the rule's conditions and sets its percent", () => {
+    const edits = addChanceEdits(
+      [rule("{1}.r[0]", { conditions: [spell("{1}.r[0].c[0]", "Q")] })],
+      50,
+    );
+
+    expect(edits.map((edit) => edit.type)).toEqual([
+      "ensureProperty",
+      "insertItem",
+      "ensureProperty",
+      "setLeaf",
+    ]);
+    expect(edits[3]).toMatchObject({ path: `${conditionsPath(rule("{1}.r[0]"))}[1].3f2d5dae` });
+  });
+
+  it("skips a rule that has a chance already", () => {
+    expect(addChanceEdits([rule("a", { conditions: [chance("a.c[0]", 30)] })], 50)).toEqual([]);
+  });
+});
+
+describe("removeChanceEdits", () => {
+  it("removes each chance condition of the rules", () => {
+    const edits = removeChanceEdits([
+      rule("a", { conditions: [spell("a.c[0]", "Q"), chance("a.c[1]", 30)] }),
+    ]);
+
+    expect(edits).toEqual([{ type: "removeItem", path: "a.c[1]" }]);
   });
 });
 

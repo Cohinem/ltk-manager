@@ -23,7 +23,7 @@ import {
 import { LineEntry } from "./LineEntry";
 
 /** The cells of a rule line that the arrows move between and Enter or F2 opens. */
-export type LineCell = "name" | "chance" | "priority" | "short";
+export type LineCell = "name" | "chance" | "weight" | "priority" | "short";
 
 /** A rule line of the view. */
 export type RuleRow = Extract<VoiceLineRow, { kind: "rule" }>;
@@ -35,7 +35,8 @@ export function lineCells(row: VoiceLineRow): LineCell[] {
   const cells: LineCell[] = [];
   if (row.rule.name !== null) cells.push("name");
   if (row.rule.audio !== null) cells.push("short");
-  if (ruleChance(row.rule) !== null) cells.push("chance");
+  cells.push("chance");
+  if (row.situation.chooseRandom) cells.push("weight");
   cells.push("priority");
   return cells;
 }
@@ -50,6 +51,7 @@ const COLUMN = {
   line: "w-80 shrink-0",
   heard: "w-[4.5rem] shrink-0",
   chance: "w-20 shrink-0",
+  weight: "w-14 shrink-0 justify-end",
   priority: "w-14 shrink-0 justify-end",
   when: "min-w-24 flex-1",
 } as const;
@@ -110,6 +112,7 @@ export function ColumnHeads() {
       {head(COLUMN.line, m.audio_voice_column_line_label())}
       {head(COLUMN.heard, m.audio_voice_column_heard_label())}
       {head(COLUMN.chance, m.audio_voice_column_chance_label())}
+      {head(COLUMN.weight, m.audio_voice_column_weight_label())}
       {head(COLUMN.priority, m.audio_voice_column_priority_label())}
       {head(COLUMN.when, m.audio_voice_column_when_label())}
     </div>
@@ -120,7 +123,14 @@ export function ColumnHeads() {
  * The situation's word, its key where the word differs, the rule count, and the settings that
  * differ from the default: random choice, a cooldown and the count of unresolved rules.
  */
-export function SituationText({ situation }: { situation: VoiceSituation }) {
+export function SituationText({
+  situation,
+  onToggleRandom,
+}: {
+  situation: VoiceSituation;
+  /** Turns random choice off, or null while the document takes no edit. */
+  onToggleRandom: (() => void) | null;
+}) {
   const word = situationWord(situation.name);
   const cooldown = situation.cooldown ?? 0;
   const unresolved = situation.rules.filter(isUnresolved).length;
@@ -138,7 +148,22 @@ export function SituationText({ situation }: { situation: VoiceSituation }) {
       <span className="shrink-0 text-meta text-surface-400">
         {m.audio_voice_rules_label({ count: situation.rules.length })}
       </span>
-      {situation.chooseRandom && <Badge>{m.audio_voice_random_label()}</Badge>}
+      {situation.chooseRandom && onToggleRandom === null && (
+        <Badge>{m.audio_voice_random_label()}</Badge>
+      )}
+      {situation.chooseRandom && onToggleRandom !== null && (
+        <Tooltip content={m.audio_voice_pick_random_action()}>
+          <Badge
+            aria-pressed
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleRandom();
+            }}
+          >
+            {m.audio_voice_random_label()}
+          </Badge>
+        </Tooltip>
+      )}
       {cooldown > 0 && (
         <span className="shrink-0 text-meta text-surface-400">
           {m.audio_voice_situation_cooldown_label({ seconds: String(cooldown) })}
@@ -158,6 +183,10 @@ export function SituationText({ situation }: { situation: VoiceSituation }) {
 export interface RuleLineEdits {
   /** Sets the chance of the rule, and of each picked rule with this one. */
   readonly chance: (percent: number) => Promise<boolean>;
+  /** Adds a chance to the rule, and to each picked rule with this one that has none. */
+  readonly addChance: () => Promise<boolean>;
+  /** Sets the `ChanceWeight` of the rule, and of each picked rule with this one. */
+  readonly weight: (weight: number) => Promise<boolean>;
   readonly name: (name: string) => Promise<boolean>;
   /** Sets or, with null, clears the priority. */
   readonly priority: (priority: number | null) => Promise<boolean>;
@@ -237,9 +266,21 @@ export function RuleCells({
         COLUMN.chance,
         <ChanceCell
           rule={rule}
+          active={active === "chance"}
           entering={entering === "chance"}
           edits={edits}
           onEntering={onEntering}
+        />,
+      )}
+      {cell(
+        "weight",
+        COLUMN.weight,
+        <WeightCell
+          rule={rule}
+          random={row.situation.chooseRandom}
+          entering={entering === "weight"}
+          edits={edits}
+          onClose={close}
         />,
       )}
       {cell(
@@ -307,14 +348,36 @@ function WhenCell({ rule }: { rule: VoiceRule }) {
 
 function ChanceCell({
   rule,
+  active,
   entering,
   edits,
   onEntering,
-}: Omit<CellProps, "onClose"> & { onEntering: (cell: LineCell | null) => void }) {
+}: Omit<CellProps, "onClose"> & {
+  active: boolean;
+  onEntering: (cell: LineCell | null) => void;
+}) {
   const chance = ruleChance(rule);
   const [draft, setDraft] = useState<{ value: number; over: number } | null>(null);
   if (draft !== null && chance !== null && draft.over !== chance.percent) setDraft(null);
-  if (chance === null) return null;
+  if (chance === null) {
+    if (edits === null) return null;
+
+    return (
+      <span
+        className={twMerge(
+          "flex cursor-pointer items-center gap-1 text-meta text-surface-400 hover:text-surface-200",
+          !active && "opacity-0 group-hover/row:opacity-100",
+        )}
+        onClick={(event) => {
+          event.stopPropagation();
+          void edits.addChance();
+        }}
+      >
+        <PlusIcon weight="bold" className="size-3" aria-hidden />
+        {m.audio_voice_column_chance_label()}
+      </span>
+    );
+  }
 
   const shown = Math.round(draft?.value ?? chance.percent);
   return (
@@ -346,6 +409,26 @@ function ChanceCell({
       </span>
     </>
   );
+}
+
+/** The `ChanceWeight` that a random situation draws the rule by, or nothing elsewhere. */
+function WeightCell({ rule, random, entering, edits, onClose }: CellProps & { random: boolean }) {
+  if (!random) return null;
+
+  const weight = rule.chanceWeight ?? 1;
+  if (entering && edits !== null) {
+    return (
+      <LineEntry
+        label={m.audio_voice_field_chance_weight_label()}
+        initial={String(weight)}
+        numeric="number"
+        onCommit={(text) => edits.weight(text.trim() === "" ? 1 : Number(text))}
+        onClose={onClose}
+      />
+    );
+  }
+
+  return <span className={NUMBER_CLASSES}>{weight}</span>;
 }
 
 function PriorityCell({ rule, entering, edits, onClose }: CellProps) {
