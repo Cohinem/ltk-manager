@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                        |
 | ---------- | --------------------------------------------- |
+| 2026-10-30 | Replace the context badge with Played by      |
 | 2026-10-30 | Group voices under headers, add the inspector |
 | 2026-10-30 | Replace media, follow units, use events       |
 | 2026-10-30 | Add derived node names                        |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-30 | Edit fields as rows, add the knob             |
 | 2026-10-30 | Add event bank editing                        |
 | 2026-10-30 | Pick by playlist, default switch and delay    |
-| 2026-10-29 | Add ability sound                             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -191,10 +191,11 @@ An event takes its name from the first of:
    composition whose ID is an event of the bank names that event.
 
 The composition is observed in shipped data and not read from the client, so an event that a
-rule plays carries the rule as an inferred context: a dashed badge with the situation, the
-`mRuleName` and the audience (self, ally, enemy or spectator). If two tags compose two events of
-the bank for one rule, both keep the rule, and the badge's tooltip says that the match is
-ambiguous. `mRuleName` is not in the meta class, and the shipped rules carry it.
+rule plays carries the rule as an inferred context, which the Played by column of the event row
+draws, per "Played by" in docs/ux/CONTEXTUAL_VOICE.md. If two tags compose two events of the bank
+for one rule, both keep the rule, and the column's card says that the match is ambiguous.
+`mRuleName` is not in the meta class, and the shipped rules carry it. The name composition is one
+function, `compose_vo_names`, which the Voice lines view resolves its names with too.
 
 The audio index is built on a background thread the first time an event bank opens, and again
 when the game build changes. It is cached beside the game index cache. While it builds, the Events
@@ -337,7 +338,7 @@ selected. The keys of the Voices view are in "Voices".
 
 An event's context menu contains Copy event name, which copies `#` and the ID for an unnamed
 event. Inside a project it also contains Show contextual rule, which opens the `ContextualActionData`
-object at the first rule that plays the event, and Show in bank unit, which opens the bin at the
+object in its Voice lines view at the first rule that plays the event, and Show in bank unit, which opens the bin at the
 `events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu contains Copy object ID. A sound whose media is found also
 contains Show media, which opens the document of the file that contains the media, switches it to the
 Media view and selects the row of the source ID.
