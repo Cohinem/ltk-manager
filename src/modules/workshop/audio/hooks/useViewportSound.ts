@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useContentVisible } from "@/hooks";
-import type { BinDocumentId, EventTree, ResolvedSound } from "@/lib/tauri";
+import type { BinDocumentId, EventTree, ObjectProperties, ResolvedSound } from "@/lib/tauri";
 import { usePreviewSound, usePreviewSoundVolume } from "@/stores";
 
 import { audioQueries } from "../api/queries";
@@ -10,6 +10,7 @@ import { mediaUrl, useSoundChannel } from "../player/useSoundChannel";
 import { eventSounds, eventVoices } from "../utils/eventTree";
 import type { SoundCue } from "../utils/soundCue";
 import type { SoundOutput } from "../utils/soundFollower";
+import { voiceMix } from "../utils/voiceMix";
 
 /** The sound of one viewport: whether it plays, where its cues go, and what did not resolve. */
 export interface ViewportSound {
@@ -25,7 +26,8 @@ export interface ViewportSound {
  * Returns the sound of a viewport of `document` that fires `cues` while `playing`.
  *
  * The names are resolved once per view while the switch is on, over the document's bank units
- * and one unit of `bankPaths`. The channel pauses with the
+ * and one unit of `bankPaths`. Each voice plays with the properties of its path. The channel
+ * pauses with the
  * transport and stops when the switch turns off, when the viewport's tab is hidden and when the
  * viewport unmounts. Per "Viewport sound" in docs/ux/AUDIO.md.
  */
@@ -45,6 +47,11 @@ export function useViewportSound(
   const resolved = useQuery({ ...audioQueries.sounds(document, names, bankPaths), enabled: on });
   const trees = useMemo(() => treesOf(resolved.data?.sounds ?? []), [resolved.data]);
   const unresolved = resolved.data === undefined ? 0 : names.length - trees.size;
+
+  useEffect(() => {
+    const properties = propertiesOf(resolved.data?.sounds ?? []);
+    channel.setMixer((path) => voiceMix(path, properties));
+  }, [channel, resolved.data]);
 
   const latest = useRef(trees);
   useEffect(() => {
@@ -85,6 +92,20 @@ function treesOf(sounds: readonly ResolvedSound[]): ReadonlyMap<string, EventTre
     trees.set(sound.name, resolution.tree);
   }
   return trees;
+}
+
+/**
+ * Returns the properties of the objects of every resolved tree, by object ID.
+ *
+ * An object ID names one object across the bank set, so two trees that share an object agree.
+ */
+function propertiesOf(sounds: readonly ResolvedSound[]): ReadonlyMap<number, ObjectProperties> {
+  const properties = new Map<number, ObjectProperties>();
+  for (const { resolution } of sounds) {
+    if (resolution.status !== "resolved") continue;
+    for (const object of resolution.properties) properties.set(object.id, object);
+  }
+  return properties;
 }
 
 /** A random source that picks the first weighted playlist item of every random container. */

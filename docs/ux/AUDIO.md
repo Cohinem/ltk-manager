@@ -866,9 +866,9 @@ many octaves as `LPF` spans. This is an approximation, and the field card of eac
   its make-up gain. The sum of every voice passes a limiter before the output, a
   `DynamicsCompressorNode` at -1 dB with a ratio of 20, a 1 ms attack and a 100 ms release. The
   clamp keeps one boosted voice at full scale, and the limiter holds the sum of many.
-- The viewports resolve their events through the sound lookup, whose answer carries no
-  properties. They play the same graph with the `DelayTime` of each Play action and no other
-  property.
+- The viewport, VFX and ability sounds read the properties of each tree from the answer of
+  the sound lookup, and play them through the same graph. A persistent VFX sound keeps looping
+  whatever its loop count.
 
 ## Waveform
 
@@ -927,8 +927,8 @@ volume, which defaults to 0.2. Both are remembered, and the Project editor card 
 lists them in its Viewport group.
 
 The playback approximates the game's mix. It applies no bus, no RTPC, no attenuation and no 3D
-position, and the switch's tooltip says so. It applies no property of a node but the delay of a
-Play action, per "Playback of properties". The tooltip also counts the event names of the view
+position, and the switch's tooltip says so. Each voice plays with the properties of its path, per
+"Playback of properties". The tooltip also counts the event names of the view
 that resolve to no event or to no media, so a missing sound reads apart from a muted one.
 
 ### Firing

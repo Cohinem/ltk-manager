@@ -10,14 +10,14 @@ use std::collections::HashSet;
 use serde::Serialize;
 
 use crate::bank_set::{BankSet, BankUnit};
-use crate::events::{EventTree, event_tree};
+use crate::events::{EventTree, ObjectProperties, event_tree, tree_properties};
 use crate::files::AudioFiles;
 use crate::index::AudioIndex;
 use crate::lookup::SoundLookup;
 use crate::names::EventNames;
 
 /// One event name and what it resolves to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedSound {
@@ -28,7 +28,7 @@ pub struct ResolvedSound {
 }
 
 /// What one event name resolves to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(
     tag = "status",
@@ -37,7 +37,11 @@ pub struct ResolvedSound {
 )]
 pub enum SoundResolution {
     /// The play tree of the event.
-    Resolved { tree: EventTree },
+    Resolved {
+        tree: EventTree,
+        /// The properties of the actions and nodes of the tree, which the voices play with.
+        properties: Vec<ObjectProperties>,
+    },
     /// No bank of the set contains an event of the name.
     NoEvent,
     /// An object of the tree cannot be decoded.
@@ -102,9 +106,11 @@ pub fn resolve_sounds(
 
 fn resolve(set: &BankSet, names: &EventNames, name: &str) -> ResolvedSound {
     let resolution = match SoundLookup::new(set, names).event_named(name) {
-        Ok(Some(tree)) => SoundResolution::Resolved {
-            tree: event_tree(set, tree),
-        },
+        Ok(Some(tree)) => {
+            let tree = event_tree(set, tree);
+            let properties = tree_properties(set, &tree);
+            SoundResolution::Resolved { tree, properties }
+        }
         Ok(None) => SoundResolution::NoEvent,
         Err(error) => SoundResolution::DecodeError {
             object: error.object.0,

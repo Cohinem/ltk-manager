@@ -245,29 +245,7 @@ impl EventBank {
     /// object that does not decode are left out.
     #[must_use]
     pub fn properties(&self, tree: &EventTree) -> Vec<ObjectProperties> {
-        fn walk(set: &BankSet, node: &EventNode, out: &mut Vec<ObjectProperties>) {
-            let (id, children) = match node {
-                EventNode::Sound { id, .. } => (*id, &[][..]),
-                EventNode::Random { id, children, .. }
-                | EventNode::Switch { id, children, .. }
-                | EventNode::Layer { id, children }
-                | EventNode::Mixer { id, children } => (*id, &children[..]),
-                EventNode::Unsupported { .. } | EventNode::Missing { .. } => return,
-            };
-            out.extend(object_properties(set, id));
-            for child in children {
-                walk(set, child, out);
-            }
-        }
-
-        let mut out = Vec::new();
-        for action in &tree.actions {
-            out.extend(object_properties(&self.set, action.id));
-            if let Some(node) = &action.node {
-                walk(&self.set, node, &mut out);
-            }
-        }
-        out
+        tree_properties(&self.set, tree)
     }
 
     /// Lists every sound and container of the bank set that a container takes as a child, the
@@ -298,6 +276,36 @@ impl EventBank {
         }
         nodes
     }
+}
+
+/// Returns the properties of every action and node of `tree` that `set` holds, in tree order.
+///
+/// An action of a class other than Play, an object that no bank holds and an object that does
+/// not decode are left out.
+pub(crate) fn tree_properties(set: &BankSet, tree: &EventTree) -> Vec<ObjectProperties> {
+    fn walk(set: &BankSet, node: &EventNode, out: &mut Vec<ObjectProperties>) {
+        let (id, children) = match node {
+            EventNode::Sound { id, .. } => (*id, &[][..]),
+            EventNode::Random { id, children, .. }
+            | EventNode::Switch { id, children, .. }
+            | EventNode::Layer { id, children }
+            | EventNode::Mixer { id, children } => (*id, &children[..]),
+            EventNode::Unsupported { .. } | EventNode::Missing { .. } => return,
+        };
+        out.extend(object_properties(set, id));
+        for child in children {
+            walk(set, child, out);
+        }
+    }
+
+    let mut out = Vec::new();
+    for action in &tree.actions {
+        out.extend(object_properties(set, action.id));
+        if let Some(node) = &action.node {
+            walk(set, node, &mut out);
+        }
+    }
+    out
 }
 
 /// Returns the editable properties of the object `id` of `set`, or `None` for an object that no

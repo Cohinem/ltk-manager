@@ -4,7 +4,13 @@ import { act, cleanup, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { api, type AssetRef, type EventTree, type ResolvedSounds } from "@/lib/tauri";
+import {
+  api,
+  type AssetRef,
+  type EventTree,
+  type ObjectProperties,
+  type ResolvedSounds,
+} from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
@@ -365,7 +371,11 @@ describe("VfxRunProvider sound", () => {
   function resolved(names: readonly string[]): { ok: true; value: ResolvedSounds } {
     const sounds = names.map((name) => ({
       name,
-      resolution: { status: "resolved", tree: treeOf(name) } as const,
+      resolution: {
+        status: "resolved" as const,
+        tree: treeOf(name),
+        properties: [] as ObjectProperties[],
+      },
     }));
     return { ok: true, value: { sounds, index: { status: "ready" } } };
   }
