@@ -254,10 +254,16 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
 
     const owner = eventKey(row.eventId);
     expand(owner, true);
-    const chain = row.kind === "chain" ? row.key : row.kind === "voice" ? row.line.chain.key : null;
-    const chainAdd =
-      chain === null ? undefined : voiceList.find((each) => each.key === `${chain}:add`);
-    return chainAdd?.key ?? `${owner}:add`;
+
+    const drawn = new Map(voiceList.map((each) => [each.key, each]));
+    let holder: VoiceRow | undefined = row;
+    while (holder !== undefined && holder.kind !== "event") {
+      const add = drawn.get(addKey(holder.key));
+      if (add !== undefined) return add.key;
+
+      holder = holder.parent === null ? undefined : drawn.get(holder.parent);
+    }
+    return addKey(owner);
   }
 
   async function voicesOf(row: EventRow): Promise<EventVoice[]> {
@@ -491,7 +497,6 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
         {listed.length > 0 && voices && (
           <VoiceList
             rows={voiceList}
-            expanded={expanded}
             onExpand={expand}
             selected={selected}
             picks={picks}

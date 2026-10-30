@@ -13,7 +13,7 @@ import {
 import { Button, ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
-import type { MediaLocation, SetFile } from "@/lib/tauri";
+import type { EventNode, MediaLocation, SetFile } from "@/lib/tauri";
 import { measureRow, twMerge } from "@/utils";
 
 import { nameColumnStyle, RowAction } from "../../shared/components/PropertyRowParts";
@@ -26,9 +26,12 @@ import { movedIndex, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import { isEditable, type TreeEditing } from "../utils/treeEditing";
 import {
+  type ContainerNode,
   type FieldCell,
+  foldKey,
   movedCell,
-  segmentKey,
+  type RowCells,
+  rowCells,
   takesMediaPick,
   type VoiceCell,
   voiceCells,
@@ -41,14 +44,21 @@ import { AddNodeLine } from "./AddNodeLine";
 import { AUDIO_LIST_GROUP } from "./audioRow";
 import type { NodeActions } from "./EventMenu";
 import { EditedMark, guideBlocks, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
-import { FieldNameCell, FieldValue } from "./FieldRows";
 import { nodeKey } from "./nodeKeys";
 import { EventContent, Status } from "./RowContent";
-import { ChainLine, MediaPicker, VoiceCells, VoiceName, voiceNameColumns } from "./VoiceRowParts";
+import {
+  GroupName,
+  groupText,
+  headerStems,
+  MediaPicker,
+  VoiceCells,
+  VoiceName,
+  voiceNameColumns,
+} from "./VoiceRowParts";
 
 interface VoiceListProps {
   readonly rows: readonly VoiceRow[];
-  readonly expanded: ReadonlySet<string>;
+  /** Opens or folds the row `key`, with the fold keys of `foldKey`. */
   readonly onExpand: (key: string, open: boolean) => void;
   /** The key of the row that the keyboard is on. */
   readonly selected: string | null;
@@ -85,22 +95,32 @@ interface VoiceListProps {
 const ROW_HEIGHT = 27;
 
 /** Returns `true` if the source of the voice of `line` takes a pick of another media. */
-function swappable(line: VoiceLine, editing: TreeEditing | null): boolean {
-  return editing !== null && takesMediaPick(line);
+function swappable(line: VoiceLine | null, editing: TreeEditing | null): line is VoiceLine {
+  return line !== null && editing !== null && takesMediaPick(line);
+}
+
+/** Returns the object that `row` stands for under its parent: a voice's node, a header's container. */
+function placedNode(row: VoiceRow): { node: EventNode; parent: ContainerNode | null } | null {
+  if (row.kind === "voice")
+    return { node: row.line.voice.node, parent: voiceParent(row.line.voice) };
+  if (row.kind === "group" && row.group.container !== null) {
+    return { node: row.group.container, parent: voiceParent(row.group) };
+  }
+
+  return null;
 }
 
 /**
- * The events of an event bank, each expanding into the voices it can play, windowed.
+ * The events of an event bank, each expanding into group headers and the voices they hold,
+ * windowed.
  *
- * An expanded event draws one chain line per Play action, whose presses open the fields of the
- * action and its containers, then a row per voice with its knobs, a fold of the other switch
- * branches and the add rows. One tab stop with `aria-activedescendant`. Up and Down move between
- * rows, Left and Right between the cells of a voice row, and Enter or F2 opens the entry of the
- * cell. Per "Voices" and "Selection" in docs/ux/AUDIO.md.
+ * A header row draws its container's name and knobs in the columns of the voice rows, and folds
+ * the rows under it. One tab stop with `aria-activedescendant`. Up and Down move between rows,
+ * Left and Right between the cells of a row and fold a header, and Enter or F2 opens the entry of
+ * the cell. Per "Voices", "Group headers" and "Selection" in docs/ux/AUDIO.md.
  */
 export function VoiceList({
   rows,
-  expanded,
   onExpand,
   selected,
   picks,
@@ -120,13 +140,17 @@ export function VoiceList({
 }: VoiceListProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
+  const openKeys = useMemo(
+    () => new Set(rows.flatMap((row) => (row.open ? [row.key] : []))),
+    [rows],
+  );
   const names = useNodeNames();
   const nameCols = useMemo(() => voiceNameColumns(rows, names), [rows, names]);
+  const stems = useMemo(() => headerStems(rows, names), [rows, names]);
   const [guides] = useState(createGuideStore);
   const [entering, setEntering] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
   const [cellName, setCellName] = useState<VoiceCell>("media");
-  const [segmentAt, setSegmentAt] = useState(0);
   const [menuRow, setMenuRow] = useState<VoiceRow | null>(null);
 
   /* A field that commits or drops its text leaves focus on no element, and the list takes it
@@ -155,6 +179,10 @@ export function VoiceList({
   const selectedRow = rows[selectedIndex];
   useEffect(() => guides.set({ active: selectedRow?.parent ?? null }), [guides, selectedRow]);
 
+  function fold(row: VoiceRow, open: boolean) {
+    onExpand(foldKey(row), open !== row.defaultOpen);
+  }
+
   function selectAt(index: number, range = false) {
     const row = rows[Math.max(0, Math.min(rows.length - 1, index))];
     if (row === undefined) return;
@@ -164,8 +192,8 @@ export function VoiceList({
   }
 
   function cellsOf(row: VoiceRow | undefined): VoiceCell[] {
-    const line = voiceLine(row);
-    return line === null ? [] : voiceCells(line.fields, line.columns);
+    const cells = rowCells(row);
+    return cells === null ? [] : voiceCells(cells.fields, cells.columns);
   }
 
   /** Returns the cell that the arrows reached on `row`: the last one named, else the first. */
@@ -174,43 +202,24 @@ export function VoiceList({
     return cells.includes(cellName) ? cellName : (cells[0] ?? null);
   }
 
-  /** Returns the objects of the presses of a chain row, the Play first. */
-  function pressesOf(row: VoiceRow): number[] {
-    if (row.kind !== "chain") return [];
-
-    return row.segments.flatMap((segment) => {
-      if (segment.kind === "play") return [segment.action.id];
-      if (segment.kind === "container") return [segment.container.id];
-      return [];
-    });
-  }
-
-  function togglePress(row: VoiceRow, id: number) {
-    const key = segmentKey(row.key, id);
-    onExpand(key, !expanded.has(key));
-  }
-
   function enterCell(row: VoiceRow, cell: VoiceCell): boolean {
-    const line = voiceLine(row);
-    if (line === null) return false;
-
     if (cell === "media") {
-      if (!swappable(line, editing)) return false;
+      if (!swappable(voiceLine(row), editing)) return false;
 
       setPicking(row.key);
       return true;
     }
 
-    const field = line.fields.cells[cell];
+    const field = rowCells(row)?.fields.cells[cell];
     if (editing === null || field?.editable !== true) return false;
 
     setEntering(`${row.key}:${cell}`);
     return true;
   }
 
-  /** Returns the container that the voice of `row` sits in, if it takes edits there. */
+  /** Returns the container that the node of `row` sits in, if it takes edits there. */
   function editableParent(row: VoiceRow) {
-    const parent = row.kind === "voice" ? voiceParent(row.line.voice) : null;
+    const parent = placedNode(row)?.parent ?? null;
     return parent !== null && isEditable(editing, parent.id) ? parent : null;
   }
 
@@ -233,22 +242,8 @@ export function VoiceList({
       const cell = activeCell(row);
       if (cell !== null) return enterCell(row, cell) || event.key === "F2";
 
-      if (row.kind === "field") {
-        if (editing !== null && row.field.editable) setEntering(row.key);
-        return true;
-      }
-      const presses = pressesOf(row);
-      const press = presses[Math.min(segmentAt, presses.length - 1)];
-      if (press !== undefined) {
-        togglePress(row, press);
-        return true;
-      }
       if (row.kind === "add") {
         onAdding(row.key);
-        return true;
-      }
-      if (row.kind === "others") {
-        onExpand(row.key, !expanded.has(row.key));
         return true;
       }
       if (row.kind === "empty") {
@@ -261,12 +256,13 @@ export function VoiceList({
     if (nodeKey(event, actions)) return true;
 
     const parent = editableParent(row);
+    const placed = placedNode(row);
 
     const moving = event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown");
-    if (moving && parent !== null && editing !== null && row.kind === "voice") {
+    if (moving && parent !== null && editing !== null && placed !== null) {
       if (parent.kind !== "random") return true;
 
-      const child = row.line.voice.node.id;
+      const child = placed.node.id;
       const at = parent.playlist.findIndex((item) => parent.children[item.child]?.id === child);
       const index = at + (event.key === "ArrowUp" ? -1 : 1);
       if (at >= 0 && index >= 0 && index < parent.playlist.length) {
@@ -303,6 +299,11 @@ export function VoiceList({
 
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
+      if (event.key === "ArrowRight" && row.kind === "group" && !row.open) {
+        fold(row, true);
+        return;
+      }
+
       const cells = cellsOf(row);
       const at = cells.indexOf(activeCell(row) ?? "media");
       const next = cells.length > 1 ? movedCell(event.key, at, cells.length) : null;
@@ -312,16 +313,9 @@ export function VoiceList({
         return;
       }
 
-      const presses = pressesOf(row).length;
-      const press =
-        presses > 1 ? movedCell(event.key, Math.min(segmentAt, presses - 1), presses) : null;
-      if (press !== null) {
-        setSegmentAt(press);
-        return;
-      }
-
-      const step = treeStep(event.key, rows, selectedIndex, expanded);
-      if (step?.kind === "expand") onExpand(step.key, step.open);
+      const step = treeStep(event.key, rows, selectedIndex, openKeys);
+      const stepped = step?.kind === "expand" ? byKey.get(step.key) : undefined;
+      if (step?.kind === "expand" && stepped !== undefined) fold(stepped, step.open);
       if (step?.kind === "select") selectAt(step.index);
       return;
     }
@@ -354,13 +348,30 @@ export function VoiceList({
     setEntering((current) => (open ? key : current === key ? null : current));
   }
 
-  function voiceParts(row: VoiceRow, line: VoiceLine) {
-    const isSelected = row.key === selected;
-    const active = isSelected ? activeCell(row) : null;
-    const node = line.voice.node;
+  function cellParts(row: VoiceRow, cells: RowCells) {
+    const active = row.key === selected ? activeCell(row) : null;
     const enteringCell = entering?.startsWith(`${row.key}:`)
       ? (entering.slice(row.key.length + 1) as FieldCell)
       : null;
+
+    return {
+      active,
+      cells: (
+        <VoiceCells
+          cells={cells}
+          editing={editing}
+          entering={enteringCell}
+          onEntering={(cell, open) => enterChange(`${row.key}:${cell}`, open)}
+          onLeave={returnFocus}
+          onCommitted={() => onReplay(row)}
+          active={active}
+        />
+      ),
+    };
+  }
+
+  function voiceParts(row: VoiceRow, line: VoiceLine) {
+    const node = line.voice.node;
     const picker =
       picking === row.key && editing !== null && node.kind === "sound" ? (
         <MediaPicker
@@ -381,34 +392,22 @@ export function VoiceList({
       ) : null;
 
     return {
-      active,
+      ...cellParts(row, line),
       picker,
       onSwap: swappable(line, editing) ? () => setPicking(row.key) : undefined,
-      cells: (
-        <VoiceCells
-          line={line}
-          editing={editing}
-          entering={enteringCell}
-          onEntering={(cell, open) => enterChange(`${row.key}:${cell}`, open)}
-          onLeave={returnFocus}
-          onCommitted={() => onReplay(row)}
-          active={active}
-        />
-      ),
     };
   }
 
   function line(row: VoiceRow): ReactNode {
-    const open = expanded.has(row.key);
     const frame = {
       row,
-      open,
+      open: row.open,
       selected: row.key === selected || picks.picked.has(row.key),
       playing: player.playing === row.key,
       blocks: guideBlocks(row, byKey),
       onSelect: (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) =>
         picks.pick(row.key, pickMode(event)),
-      onExpand: (next: boolean) => onExpand(row.key, next),
+      onExpand: (next: boolean) => fold(row, next),
       onHover: () => guides.set({ hover: row.parent }),
     };
     const lead = <Lead {...frame} expandable={row.expandable} />;
@@ -436,11 +435,15 @@ export function VoiceList({
             {lead}
             {play(row.event.mediaCount > 0)}
             <EventContent event={row.event} />
+            {row.delay !== null && (
+              <span className="shrink-0 text-meta text-surface-400">
+                {m.audio_voices_delay_label({ ms: String(row.delay) })}
+              </span>
+            )}
             {inline !== null && parts !== null && (
               <>
                 <VoiceName
                   line={inline}
-                  prefix={[]}
                   lead={null}
                   column={false}
                   active={parts.active === "media"}
@@ -456,37 +459,31 @@ export function VoiceList({
           </RowFrame>
         );
       }
-      case "chain":
+      case "group": {
+        const parts = cellParts(row, row.cells);
+        const { container } = row.group;
+        const text = groupText(row.group, names, stems.get(row.key) ?? null, row.weighted);
         return (
           <RowFrame {...frame}>
-            {lead}
-            <ChainLine
-              segments={row.segments}
-              isOpen={(id) => expanded.has(segmentKey(row.key, id))}
-              onToggle={(id) => togglePress(row, id)}
-              active={frame.selected ? Math.min(segmentAt, pressesOf(row).length - 1) : null}
+            <GroupName
+              group={row.group}
+              text={text}
+              lead={
+                <>
+                  {lead}
+                  {play(row.group.count > 0)}
+                </>
+              }
+              active={parts.active === "media"}
             />
+            {parts.cells}
+            {editing !== null && container !== null && editing.edited.has(container.id) && (
+              <EditedMark />
+            )}
+            {failed}
           </RowFrame>
         );
-      case "field":
-        return (
-          <RowFrame
-            {...frame}
-            onEdit={
-              editing !== null && row.field.editable ? () => enterChange(row.key, true) : undefined
-            }
-          >
-            <FieldNameCell name={row.field.name} lead={lead} />
-            <FieldValue
-              field={row.field}
-              editing={editing}
-              entering={entering === row.key}
-              onEntering={(next) => enterChange(row.key, next)}
-              onLeave={returnFocus}
-              onCommitted={() => onReplay(row)}
-            />
-          </RowFrame>
-        );
+      }
       case "voice": {
         const parts = voiceParts(row, row.line);
         const node = row.line.voice.node;
@@ -495,7 +492,6 @@ export function VoiceList({
           <RowFrame {...frame}>
             <VoiceName
               line={row.line}
-              prefix={row.prefix}
               lead={
                 <>
                   {lead}
@@ -520,15 +516,6 @@ export function VoiceList({
           </RowFrame>
         );
       }
-      case "others":
-        return (
-          <RowFrame {...frame}>
-            {lead}
-            <span className="text-meta text-surface-400">
-              {m.audio_voices_others_label({ count: row.count })}
-            </span>
-          </RowFrame>
-        );
       case "add":
         return (
           <RowFrame {...frame}>

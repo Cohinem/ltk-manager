@@ -1,8 +1,7 @@
-import { CaretRightIcon, PlusIcon } from "@phosphor-icons/react";
 import { useQueries } from "@tanstack/react-query";
-import { Fragment, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 
-import { Button, Combobox, Tooltip } from "@/components";
+import { Combobox, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { assetVersion, useAssetVersions } from "@/lib/assetVersions";
 import type { SetFile, SoundStream } from "@/lib/tauri";
@@ -15,16 +14,16 @@ import { useNodeNames } from "../state/nodeNames";
 import { fileName } from "../utils/bankUnits";
 import { objectLabel } from "../utils/eventTree";
 import { type MediaCandidate, matchingMedia, mediaCandidates } from "../utils/mediaPicker";
-import { nodeName, type NodeNames, runStems } from "../utils/nodeNames";
+import { eventStem, nodeName, type NodeNames } from "../utils/nodeNames";
 import type { TreeEditing } from "../utils/treeEditing";
 import type {
-  ChainSegment,
   ContainerNode,
   FieldCell,
+  RowCells,
   VoiceCell,
+  VoiceGroup,
   VoiceLine,
   VoiceRow,
-  VoiceStep,
 } from "../utils/voices";
 import { FieldValue } from "./FieldRows";
 import { NamedId, Status } from "./RowContent";
@@ -48,8 +47,8 @@ const NAMED_CELLS: Partial<Record<FieldCell, () => string>> = {
 /** The classes of the cell that the arrows reached, while the list has keyboard focus. */
 const ACTIVE_CELL_CLASSES = "rounded-sm group-focus-visible/audio-list:bg-surface-veil";
 
-/** Returns the name that a container takes on the chain line. */
-function containerLabel(container: ContainerNode, weighted: boolean): string {
+/** Returns the name of the kind of a container, as a header names it. */
+export function containerLabel(container: ContainerNode, weighted: boolean): string {
   switch (container.kind) {
     case "random":
       if (container.mode === "sequence") return m.audio_voices_sequence_label();
@@ -64,150 +63,170 @@ function containerLabel(container: ContainerNode, weighted: boolean): string {
   }
 }
 
-/** Returns the name of one step of a voice's path. */
-function stepLabel(step: VoiceStep): string {
-  if (step.branch === "default") return m.audio_voices_switch_default_label();
-  if (step.branch === "other") return m.audio_voices_switch_other_label();
+/** Returns the name of the switch state of `group`, or null for a header outside a switch. */
+function stateLabel(group: VoiceGroup): string | null {
+  const state = group.state?.state;
+  if (state === undefined) return null;
+  if (state.kind === "default") return m.audio_voices_switch_default_label();
 
-  return containerLabel(step.container, false);
+  return m.audio_voices_switch_state_label({ index: String(state.child + 1) });
 }
 
-/** Returns the text before a voice's media that names the path to it. */
-export function prefixText(prefix: readonly VoiceStep[]): string {
-  return prefix.map(stepLabel).join(" / ");
+/** The text of a header's name cell: the muted wrapper names and the header's own name. */
+export interface GroupText {
+  /** The names of the containers that the header folds, joined, or null if it folds none. */
+  readonly wrappers: string | null;
+  readonly name: string;
+}
+
+/**
+ * Returns the text of the header of `group`.
+ *
+ * A header of a Play action that plays a sound is named after the sound. A header of a switch state
+ * names the state, then the kind of its container unless the container is the switch. `stem` is
+ * the stem that the header draws before its kind, or null. Per "Group headers" in docs/ux/AUDIO.md.
+ */
+export function groupText(
+  group: VoiceGroup,
+  names: NodeNames,
+  stem: string | null,
+  weighted: boolean,
+): GroupText {
+  const wrappers =
+    group.wrappers.length === 0
+      ? null
+      : group.wrappers.map((wrapper) => containerLabel(wrapper, false)).join(" / ");
+  const { container } = group;
+  if (container === null) {
+    const target = group.play.node;
+    return { wrappers, name: target === null ? "" : nodeName(names, target) };
+  }
+
+  const kind = containerLabel(container, weighted);
+  const own = stem === null ? kind : m.audio_node_derived_label({ stem, role: kind });
+  const state = stateLabel(group);
+  if (state === null) return { wrappers, name: own };
+  if (container === group.state?.switch) return { wrappers, name: state };
+
+  return { wrappers, name: m.audio_voices_state_header_label({ state, name: own }) };
+}
+
+/**
+ * Returns the stem that each header of `rows` draws before its kind.
+ *
+ * A header draws the stem of its container's derived name unless the nearest header above it, or
+ * else its event, has the same stem.
+ */
+export function headerStems(
+  rows: readonly VoiceRow[],
+  names: NodeNames,
+): Map<string, string | null> {
+  const inherited = new Map<string, string | null>();
+  const shown = new Map<string, string | null>();
+  for (const row of rows) {
+    if (row.kind === "event") {
+      inherited.set(row.key, row.event.name === null ? null : eventStem(row.event.name));
+      continue;
+    }
+    if (row.kind !== "group") continue;
+
+    const above = row.parent === null ? null : (inherited.get(row.parent) ?? null);
+    const container = row.group.container;
+    const own = container === null ? null : (names.stems.get(container.id) ?? null);
+    shown.set(row.key, own !== null && own.toLowerCase() !== above?.toLowerCase() ? own : null);
+    inherited.set(row.key, own ?? above);
+  }
+  return shown;
 }
 
 /** The characters that the play button takes in the name cell of a voice row. */
 const PLAY_COLS = 3;
 
-/** Returns the width of the name column over the field and voice rows of `rows`. */
+/** The characters that the voice count of a header takes, such as `12 voices`. */
+const COUNT_COLS = 10;
+
+/** Returns the width of the name column over the header and voice rows of `rows`. */
 export function voiceNameColumns(rows: readonly VoiceRow[], names: NodeNames): number {
+  const stems = headerStems(rows, names);
   const widths: number[] = [];
   for (const row of rows) {
-    if (row.kind === "field") widths.push(rowNameCols(row.depth, row.field.name, []));
+    if (row.kind === "group") {
+      const text = groupText(row.group, names, stems.get(row.key) ?? null, row.weighted);
+      widths.push(rowNameCols(row.depth, text.name, [text.wrappers ?? ""]) + COUNT_COLS);
+    }
     if (row.kind !== "voice") continue;
 
     const { node } = row.line.voice;
     const media = node.kind === "sound" && node.media !== null ? fileName(node.media.path) : "";
     const parts = [nodeName(names, node), objectLabel(node.id), media];
-    widths.push(rowNameCols(row.depth, prefixText(row.prefix), parts) + PLAY_COLS);
+    widths.push(rowNameCols(row.depth, "", parts) + PLAY_COLS);
   }
 
   return nameColumnCols(widths);
 }
 
-interface ChainLineProps {
-  readonly segments: readonly ChainSegment[];
-  /** Returns `true` if the fields of the object `id` are open. */
-  readonly isOpen: (id: number) => boolean;
-  /** Opens or closes the fields of the object `id`. */
-  readonly onToggle: (id: number) => void;
-  /** The index of the press that the arrows reached, or null while the row is not selected. */
-  readonly active: number | null;
-}
-
-/**
- * The line between an event and its voices: the Play action, the containers of the run and the
- * voice count.
- *
- * The Play and each container are a press that opens the object's fields under the line. A
- * container names the stem of its derived name before its role, unless the container before it
- * names the same stem.
- */
-export function ChainLine({ segments, isOpen, onToggle, active }: ChainLineProps) {
-  const names = useNodeNames();
-  const stems = runStems(
-    segments.map((segment) => (segment.kind === "container" ? segment.container.id : null)),
-    names,
-  );
-
-  return (
-    <span className="flex min-w-0 items-center gap-0.5">
-      {segments.map((segment, at) => (
-        <Fragment key={at}>
-          {at > 0 && (
-            <CaretRightIcon
-              aria-hidden
-              weight="bold"
-              className="size-3 shrink-0 text-surface-500"
-            />
-          )}
-          <Segment
-            segment={segment}
-            stem={stems[at] ?? null}
-            isOpen={isOpen}
-            onToggle={onToggle}
-            active={active === at}
-          />
-        </Fragment>
-      ))}
-    </span>
-  );
-}
-
-interface SegmentProps {
-  readonly segment: ChainSegment;
-  /** The stem that the segment draws before its role, or null. */
-  readonly stem: string | null;
-  readonly isOpen: (id: number) => boolean;
-  readonly onToggle: (id: number) => void;
+interface GroupNameProps {
+  readonly group: VoiceGroup;
+  readonly text: GroupText;
+  /** The guides and the caret before the name. */
+  readonly lead: ReactNode;
+  /** `true` if the arrows reached the name cell. */
   readonly active: boolean;
 }
 
-function Segment({ segment, stem, isOpen, onToggle, active }: SegmentProps) {
+/**
+ * The name cell of a header row: the muted names of the containers it folds, its own name, the
+ * voice count, and the delay of the header of a Play action.
+ *
+ * The tooltip gives the name and the ID of the header's container.
+ */
+export function GroupName({ group, text, lead, active }: GroupNameProps) {
   const names = useNodeNames();
-  if (segment.kind === "count") {
-    return (
-      <span className="shrink-0 px-1 text-meta text-surface-400">
-        {m.audio_voices_count_label({ count: segment.count })}
-      </span>
-    );
-  }
-
-  const id = segment.kind === "play" ? segment.action.id : segment.container.id;
-  const label =
-    segment.kind === "play"
-      ? (segment.action.label ?? objectLabel(segment.action.id))
-      : containerLabel(segment.container, segment.weighted);
-  const name =
-    segment.kind === "play"
-      ? (names.actions.get(id) ?? segment.action.label ?? "")
-      : nodeName(names, segment.container);
-  const title = m.audio_node_named_label({ name, id: String(id) });
-  const delay = segment.kind === "play" && segment.delay > 0 ? segment.delay : null;
+  const owner = group.container ?? group.play.node;
+  const delay = group.actionHeader && group.play.delay > 0 ? group.play.delay : null;
+  const title =
+    owner === null
+      ? null
+      : m.audio_node_named_label({
+          name: nodeName(names, owner),
+          id: String(owner.id),
+        });
+  const name = <span className="truncate font-medium text-surface-200">{text.name}</span>;
 
   return (
-    <Tooltip content={title}>
-      <Button
-        variant="ghost"
-        size="xs"
-        tabIndex={-1}
-        aria-pressed={isOpen(id)}
+    <span
+      className={twMerge(
+        "flex min-w-0 shrink-0 items-center gap-1.5 self-stretch",
+        NAME_COLUMN_CLASSES,
+      )}
+    >
+      {lead}
+      <span
         className={twMerge(
-          "h-5 shrink-0 px-1 text-row font-normal text-surface-200 aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300",
+          "flex min-w-0 items-baseline gap-1.5 px-0.5",
           active && ACTIVE_CELL_CLASSES,
         )}
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggle(id);
-        }}
-        onDoubleClick={(event) => event.stopPropagation()}
       >
-        {stem !== null && m.audio_node_derived_label({ stem, role: label })}
-        {stem === null && label}
+        {text.wrappers !== null && (
+          <span className="shrink-0 text-meta text-surface-400">{`${text.wrappers} /`}</span>
+        )}
+        {title === null && name}
+        {title !== null && <Tooltip content={title}>{name}</Tooltip>}
+        <span className="shrink-0 text-meta text-surface-400">
+          {m.audio_voices_count_label({ count: group.count })}
+        </span>
         {delay !== null && (
-          <span className="text-meta text-surface-400">
+          <span className="shrink-0 text-meta text-surface-400">
             {m.audio_voices_delay_label({ ms: String(delay) })}
           </span>
         )}
-      </Button>
-    </Tooltip>
+      </span>
+    </span>
   );
 }
 
 interface VoiceNameProps {
   readonly line: VoiceLine;
-  readonly prefix: readonly VoiceStep[];
   /** The guides, the caret and the play button before the name. */
   readonly lead: ReactNode;
   /** `true` if the arrows reached the name cell. */
@@ -221,21 +240,12 @@ interface VoiceNameProps {
 }
 
 /**
- * The name cell of a voice row: the path prefix, the file name of the media and its source ID.
+ * The name cell of a voice row: the sound's name and ID, and the file name of its media.
  *
  * A voice whose media is missing, or that does not play, is greyed and shows the reason.
  */
-export function VoiceName({
-  line,
-  prefix,
-  lead,
-  active,
-  picker,
-  onSwap,
-  column = true,
-}: VoiceNameProps) {
+export function VoiceName({ line, lead, active, picker, onSwap, column = true }: VoiceNameProps) {
   const { node } = line.voice;
-  const prefixed = prefix.length > 0 ? prefixText(prefix) : null;
 
   return (
     <span
@@ -259,9 +269,6 @@ export function VoiceName({
             onSwap();
           }}
         >
-          {prefixed !== null && (
-            <span className="shrink-0 text-meta text-surface-400">{prefixed}</span>
-          )}
           <VoiceLabel node={node} />
         </span>
       )}
@@ -305,7 +312,7 @@ function VoiceLabel({ node }: { node: VoiceLine["voice"]["node"] }) {
 }
 
 interface VoiceCellsProps {
-  readonly line: VoiceLine;
+  readonly cells: RowCells;
   readonly editing: TreeEditing | null;
   /** The cell whose entry is open, or null. */
   readonly entering: FieldCell | null;
@@ -318,12 +325,12 @@ interface VoiceCellsProps {
 }
 
 /**
- * The field cells of a voice row, each a knob and its value, in the columns of its list.
+ * The field cells of a voice or header row, each a knob and its value, in the columns of its event.
  *
- * A column that the voice has no value for stays empty, so the cells of a list line up.
+ * A column that the row has no value for stays empty, so the cells of an event line up.
  */
 export function VoiceCells({
-  line,
+  cells: line,
   editing,
   entering,
   onEntering,
@@ -462,24 +469,5 @@ export function MediaPicker({
         <Combobox.Empty>{m.audio_voices_media_empty()}</Combobox.Empty>
       </Combobox.Content>
     </Combobox.Root>
-  );
-}
-
-/** The press of the add row, which opens the child picker of the chain's last container. */
-export function AddVariation({ onAdd }: { onAdd: () => void }) {
-  return (
-    <Button
-      variant="ghost"
-      size="xs"
-      tabIndex={-1}
-      left={<PlusIcon weight="bold" />}
-      className="h-5 px-1 text-row font-normal text-surface-300"
-      onClick={(event) => {
-        event.stopPropagation();
-        onAdd();
-      }}
-    >
-      {m.audio_voices_add_action()}
-    </Button>
   );
 }

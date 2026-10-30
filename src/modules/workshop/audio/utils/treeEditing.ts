@@ -108,26 +108,32 @@ export function voiceTarget(row: VoiceRow): NodeTarget | null {
   if (row.kind === "event") {
     return { object: row.event.id, parent: null, parentKind: null, kind: "event", ancestors: [] };
   }
-  if (row.kind === "chain") {
-    const { action } = row.chain;
+  if (row.kind === "group" && row.group.container === null) {
     return {
-      object: action.id,
+      object: row.group.play.id,
       parent: row.eventId,
       parentKind: "event",
       kind: "action",
       ancestors: [row.eventId],
     };
   }
-  if (row.kind !== "voice" || row.line.voice.node.kind !== "sound") return null;
 
-  const { voice, chain } = row.line;
-  const above = voiceParent(voice);
-  const path = voice.path.map((step) => step.container.id);
+  const placed =
+    row.kind === "voice" && row.line.voice.node.kind === "sound"
+      ? { object: row.line.voice.node.id, kind: "sound" as const, at: row.line.voice }
+      : row.kind === "group" && row.group.container !== null
+        ? { object: row.group.container.id, kind: "container" as const, at: row.group }
+        : null;
+  if (placed === null) return null;
+
+  const { at } = placed;
+  const above = voiceParent(at);
+  const path = at.path.map((step) => step.container.id);
   return {
-    object: voice.node.id,
-    parent: above?.id ?? chain.action.id,
+    object: placed.object,
+    parent: above?.id ?? at.play.id,
     parentKind: above === null ? "action" : "container",
-    kind: "sound",
-    ancestors: [row.eventId, chain.action.id, ...path],
+    kind: placed.kind,
+    ancestors: [row.eventId, at.play.id, ...path],
   };
 }
