@@ -135,8 +135,9 @@ pressing the playing row stops it. The player stops when the file changes on dis
 the document closes. The play state of the row is the pressed state of its button, and a live
 region announces the source ID that plays.
 
-The player plays every media at a volume of 0.2. The webview applies none of the game mixer gain,
-so shipped media at full volume is much louder than in a match. The player is a channel of the
+The player plays every media at a volume of 0.2, as its file holds it, with no property of a bank.
+The webview applies none of the game mixer gain, so shipped media at full volume is much louder
+than in a match. The player is a channel of the
 app's one Web Audio player, which the event tree and every viewport share.
 
 ### Keyboard
@@ -309,11 +310,12 @@ the first child. The press does not read a switch or a state that the game sets,
 avoid a repeat or shuffle the playlist.
 
 An event plays the picks of all its Play actions, and each pick starts after the `DelayTime` of
-its action. The random range of a delay is not read. A press on an action or a node row starts at
-once. A seek on the waveform moves every voice of the press to the playhead without its delay. A
-press stops what the press before it started, so a second press on a random container plays
-another variation. A sound whose media is missing and an object that does not play give nothing
-to play and show no play button. Every media plays at the volume of the media table's player.
+its action. The random range of a delay is not read. A press on an action or a node row does not
+wait the `DelayTime` of the action. A seek on the waveform moves every voice of the press to the
+playhead without its delay. A press stops what the press before it started, so a second press on
+a random container plays another variation. A sound whose media is missing and an object that does
+not play give nothing to play and show no play button. Every voice plays at the volume of the
+media table's player, with the properties of its path, per "Playback of properties".
 
 ### Keyboard
 
@@ -468,8 +470,9 @@ The Voices view sends the edits of "Editing" to the same document, with the same
 the same marks. A knob turns and an entry opens as "Knob" describes.
 
 - When an edit of a cell of a voice row lands, the voice plays once at the volume of the player. An
-  edit of a header's cell plays the event once. Playback applies no property of the bank, so the
-  replay plays the media as its file contains it.
+  edit of a header's cell plays the event once. The replay plays with the edited properties, per
+  "Playback of properties". An edit of an object that a playing voice reads does not replay, as
+  the voice follows the edit.
 - A double click or F2 on the media cell opens the media picker in place of the name. It lists the
   media of the bank set that the sound can read: the media of the banks for a sound of a bank's
   media index, and the media of the packages for a streamed sound. A prefetched sound takes no
@@ -822,6 +825,51 @@ the tab then opens the layer file of the bank. A save refuses, and writes no fil
 changed on disk since it was opened or last saved, and the edits stay in the document until the
 bank is reopened.
 
+## Playback of properties
+
+Every player plays a voice with the properties along its path in the play tree: the sound, each
+container above it, and the Play action. One Web Audio graph per voice carries them: the source,
+a high-pass filter, a low-pass filter and a gain. The media table plays each media as its file
+holds it.
+
+| Property               | How the levels combine                                        | Web Audio                                             |
+| ---------------------- | ------------------------------------------------------------- | ----------------------------------------------------- |
+| `volume`, `makeUpGain` | Add, in dB                                                    | The gain: the player's volume times `10^(dB/20)`      |
+| `pitch`                | Adds, in cents                                                | The `detune` of the source                            |
+| `lpf`                  | Adds, then clamps to 0-100                                    | A low-pass biquad. At 0 the voice has none            |
+| `hpf`                  | Adds, then clamps to 0-100                                    | A high-pass biquad. At 0 the voice has none           |
+| `delay`                | Every `InitialDelay` and the Play `DelayTime` add, in seconds | The start time of the source                          |
+| `loopCount`            | The sound's own                                               | The plays of the media. 0 loops until the voice stops |
+
+Wwise adds the relative properties of an object to those of its parent and every object above it,
+per "Understanding property and behavior inheritance" in the
+[Wwise Help](https://www.audiokinetic.com/library/edge/?source=Help&id=understanding_property_and_behavior_inheritance).
+The manager assumes that `MakeUpGain` and `InitialDelay` add as `Volume` and `Pitch` do.
+
+Wwise does not publish how `LPF` and `HPF` map to a frequency. The preview maps `LPF` on a log
+scale from a 20 kHz cutoff at 0 to 50 Hz at 100, and `HPF` from 20 Hz at 0 to 8 kHz at 100, as
+many octaves as `LPF` spans. This is an approximation, and the field card of each filter says so.
+
+- A press on an event plays each pick under its Play action. A press on a voice, a header or a node
+  row applies the object and the containers above it, and not the `DelayTime` of the action.
+- A loop count of N plays the media N times, and 0 loops it until the press stops. A persistent
+  VFX sound loops until it stops, whatever its loop count.
+- While a voice plays, a turn of a knob eases its gain, its detune and its filter cutoffs to the
+  new value, with a time constant of 20 ms, and the voice does not restart. A knob of a header
+  reaches every voice under the header. With several rows picked, the turn reaches the voices of
+  the turned object, and the others follow when the edit lands. A delay and a loop count apply
+  from the next press.
+- An unsaved edit applies the same way, because every read of the tree applies the edits.
+- The waveform strip draws the media as its file holds it. Its playhead moves at the playback rate
+  of the detune, so a voice at +1200 cents moves it twice as fast.
+- The gain of a voice clamps to 1, so no voice plays louder than its media at full scale, whatever
+  its make-up gain. The sum of every voice passes a limiter before the output, a
+  `DynamicsCompressorNode` at -1 dB with a ratio of 20, a 1 ms attack and a 100 ms release. The
+  clamp keeps one boosted voice at full scale, and the limiter holds the sum of many.
+- The viewports resolve their events through the sound lookup, whose answer carries no
+  properties. They play the same graph with the `DelayTime` of each Play action and no other
+  property.
+
 ## Waveform
 
 The media table and the event tree each have a waveform strip under them: a play and pause
@@ -879,7 +927,8 @@ volume, which defaults to 0.2. Both are remembered, and the Project editor card 
 lists them in its Viewport group.
 
 The playback approximates the game's mix. It applies no bus, no RTPC, no attenuation and no 3D
-position, and the switch's tooltip says so. The tooltip also counts the event names of the view
+position, and the switch's tooltip says so. It applies no property of a node but the delay of a
+Play action, per "Playback of properties". The tooltip also counts the event names of the view
 that resolve to no event or to no media, so a missing sound reads apart from a muted one.
 
 ### Firing
