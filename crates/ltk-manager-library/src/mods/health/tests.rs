@@ -487,9 +487,9 @@ fn a_mod_whose_findings_are_all_informative_reads_healthy() {
 fn a_brief_carries_the_alternatives_of_its_findings_through_the_store() {
     let alternative = problems::FixAlternative {
         id: problems::AlternativeId::new("convert"),
-        title: "Convert to version 145".to_owned(),
         experimental: true,
-        fix: problems::FixPreview::note("Rewritten at version 145"),
+        caveats: Vec::new(),
+        fix: problems::FixPreview::value("134", "145"),
     };
     let mut report = problems::Report::default();
     report.problem(

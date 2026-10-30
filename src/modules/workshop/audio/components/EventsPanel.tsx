@@ -78,7 +78,7 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
   openEvents.forEach((event, index) => {
     const query = trees[index];
     if (query?.data) {
-      treeStates.set(event.id, { kind: "ready", tree: query.data });
+      treeStates.set(event.id, { kind: "ready", tree: query.data.tree });
     } else if (query?.error) {
       treeStates.set(event.id, { kind: "failed", message: errorSummary(query.error) });
     }
@@ -98,7 +98,7 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
     if (!isPlayable(row)) return;
 
     if (row.kind === "event") {
-      const tree = await queryClient.fetchQuery(
+      const { tree } = await queryClient.fetchQuery(
         audioQueries.event(sandbox, asset, version, row.event.id),
       );
       player.play(row.key, eventSounds(tree, random));
@@ -281,7 +281,7 @@ function EventSiteItems({ event }: { event: AudioEvent }) {
 }
 
 /**
- * Opens the document of the file that holds `media`, on its Media tab with the row selected.
+ * Opens the document of the file that contains `media`, on its Media tab with the row selected.
  *
  * Rendered only inside a project, which owns the editor tabs.
  */

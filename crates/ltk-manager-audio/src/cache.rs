@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 
 use crate::decode::Decoded;
 
-/// Decoded media by the asset that holds them and their source ID, bounded by a byte budget.
+/// Decoded media by the asset that contains them and their source ID, bounded by a byte budget.
 ///
 /// When the decoded bytes exceed the budget, the least recently used media are dropped. A clone
 /// shares the cache.
@@ -32,7 +32,7 @@ impl Default for SoundCache {
 }
 
 impl SoundCache {
-    /// Returns an empty cache that holds at most `budget` decoded bytes.
+    /// Returns an empty cache that contains at most `budget` decoded bytes.
     #[must_use]
     pub fn new(budget: usize) -> Self {
         Self {
@@ -45,7 +45,7 @@ impl SoundCache {
     }
 
     /// Returns the decoded media `source` of `asset`, and decodes it with `decode` if the cache
-    /// does not hold it.
+    /// does not contain it.
     ///
     /// `decode` runs with the cache unlocked. A media larger than the budget is returned and not
     /// kept.
@@ -106,5 +106,5 @@ impl SoundCache {
     }
 }
 
-/// The decoded bytes that [`SoundCache::default`] holds: 64 MiB.
+/// The decoded bytes that [`SoundCache::default`] contains: 64 MiB.
 const DEFAULT_BUDGET: usize = 64 * 1024 * 1024;

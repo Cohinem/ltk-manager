@@ -285,3 +285,45 @@ fn bank_references_of_loose_fixture_name_no_unit() {
     assert!(references.units.is_empty());
     assert!(references.lists.is_empty());
 }
+
+/// An index with one bank unit named `name`, declared by the bin `bin`.
+fn index_with_unit(bin: &str, name: &str) -> ltk_manager_audio::AudioIndex {
+    let mut builder = ltk_manager_audio::AudioIndex::builder();
+    builder.add_bin(
+        bin,
+        ltk_manager_audio::BinAudio {
+            units: vec![ltk_manager_audio::BankUnit {
+                name: name.to_owned(),
+                ..ltk_manager_audio::BankUnit::default()
+            }
+            .into()],
+            ..ltk_manager_audio::BinAudio::default()
+        },
+    );
+    builder.build()
+}
+
+const SYSTEM: &str = "Characters/Ahri/Skins/Skin7/Particles/Ahri_Skin07_Q";
+
+#[test]
+fn skin_units_read_units_of_skin_named_by_system_path() {
+    let game = index_with_unit("data/characters/ahri/skins/skin7.bin", "Ahri_Skin07_SFX");
+    let other = index_with_unit("data/characters/ahri/skins/skin8.bin", "Ahri_Skin08_SFX");
+
+    let units = sounds::skin_units(&[SYSTEM.to_owned()], &[&other, &game]);
+
+    let names: Vec<&str> = units.iter().map(|unit| unit.name.as_str()).collect();
+    assert_eq!(names, ["Ahri_Skin07_SFX"]);
+}
+
+#[test]
+fn skin_units_take_units_of_first_index_that_declares_skin() {
+    const SKIN: &str = "data/characters/ahri/skins/skin7.bin";
+    let project = index_with_unit(SKIN, "Ahri_Skin07_Project");
+    let game = index_with_unit(SKIN, "Ahri_Skin07_SFX");
+
+    let units = sounds::skin_units(&[SYSTEM.to_owned()], &[&project, &game]);
+
+    let names: Vec<&str> = units.iter().map(|unit| unit.name.as_str()).collect();
+    assert_eq!(names, ["Ahri_Skin07_Project"]);
+}

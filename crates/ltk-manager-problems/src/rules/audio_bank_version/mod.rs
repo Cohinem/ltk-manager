@@ -5,7 +5,7 @@
 //! whatever it carries. An older version, down to a floor, loads only if it
 //! carries nothing beyond its media index and its media blob - so a legacy
 //! media bank loads, and a legacy bank carrying the objects that hold events
-//! and sounds does not. `ltk_wwise` holds that gate as `Bank::check`, and the
+//! and sounds does not. `ltk_wwise` implements that gate as `Bank::check`, and the
 //! rule reads every bank through it.
 //!
 //! A rejected bank is dropped **silently**. Nothing is written to the log and
@@ -55,8 +55,8 @@ use std::io::Cursor;
 use crate::bank_units::BankUnits;
 use crate::game::GameContent;
 use crate::{
-    AlternativeId, Applied, Detail, FileHandle, FixAlternative, FixError, FixPreview, FixRun, Head,
-    Pass, Problem, ProblemSeverity, Rule, RuleId, RuleMeta, Site, Weight,
+    AlternativeCaveat, AlternativeId, Applied, Detail, FileHandle, FixAlternative, FixError,
+    FixPreview, FixRun, Head, Pass, Problem, ProblemSeverity, Rule, RuleId, RuleMeta, Site, Weight,
 };
 use ltk_manager_assets::file_kind::WorkshopFileKind;
 use ltk_manager_audio::ltk_wwise::bank::{BankVersion, Rejection};
@@ -195,8 +195,14 @@ impl Rule for AudioBankVersion {
                     run.write(layer, path, &converted, 1, 0)?;
                     Ok(true)
                 }
-                Err(why) => {
-                    tracing::info!("Converting nothing at {layer}/{path}: {why}");
+                Err(Unconverted::Accepted) => {
+                    tracing::debug!(
+                        "Skipped the conversion of {layer}/{path}, because the client accepts the bank"
+                    );
+                    Ok(false)
+                }
+                Err(Unconverted::Refused(why)) => {
+                    tracing::info!("Skipped the conversion of {layer}/{path}: {why}");
                     Ok(false)
                 }
             }
@@ -208,14 +214,25 @@ impl Rule for AudioBankVersion {
 ///
 /// # Errors
 ///
-/// Fails if the bank does not read, if the client accepts it, or if [`converted`] fails.
-fn conversion_of(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let bank = Bank::from_reader(&mut Cursor::new(bytes)).map_err(|error| error.to_string())?;
+/// Fails with [`Unconverted::Accepted`] if the client accepts the bank, and with
+/// [`Unconverted::Refused`] if the bank does not read or if [`converted`] fails.
+fn conversion_of(bytes: &[u8]) -> Result<Vec<u8>, Unconverted> {
+    let bank = Bank::from_reader(&mut Cursor::new(bytes))
+        .map_err(|error| Unconverted::Refused(error.to_string()))?;
     if bank.header().version >= BankVersion::CURRENT || bank.check().is_ok() {
-        return Err(String::from("the client accepts the bank"));
+        return Err(Unconverted::Accepted);
     }
 
-    converted(&bank)
+    converted(&bank).map_err(Unconverted::Refused)
+}
+
+/// Why a bank on disk is not converted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Unconverted {
+    /// The client accepts the bank, so it needs no conversion.
+    Accepted,
+    /// The bank does not read, or the conversion fails, with the reason.
+    Refused(String),
 }
 
 /// What would answer for this bank once it is gone, or why nothing would.
@@ -270,7 +287,7 @@ impl Removed {
 
 /// Reads what the client refuses about one bank, or `None` for one it loads.
 ///
-/// `head` holds the bank's version. A bank below `BankVersion::CURRENT` is read
+/// `head` contains the bank's version. A bank below `BankVersion::CURRENT` is read
 /// whole, under the [`Weight::Whole`] the subscription declares.
 ///
 /// # Errors
@@ -347,7 +364,7 @@ fn converted(bank: &Bank) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-/// Whether `bank` holds an Attenuation object, whose version 145 flag has no legacy value.
+/// Whether `bank` contains an Attenuation object, whose version 145 flag has no legacy value.
 fn holds_attenuation(bank: &Bank) -> bool {
     bank.hierarchy()
         .is_some_and(|hierarchy| hierarchy.of_kind(ObjectKind::ATTENUATION).next().is_some())
@@ -381,7 +398,7 @@ enum Rejected {
 struct Conversion {
     /// The version of the bank before the conversion.
     version: BankVersion,
-    /// Whether the bank holds an Attenuation object.
+    /// Whether the bank contains an Attenuation object.
     attenuation: bool,
 }
 
@@ -390,22 +407,15 @@ impl Conversion {
     ///
     /// The lost attenuation flag is section 11 of `docs/design/wwise-audio.md` in `ltk_wwise`.
     fn alternative(self) -> FixAlternative {
-        let mut note = String::from("Rewritten at version 145. The events keep their IDs.");
-        if self.attenuation {
-            note.push_str(
-                " One attenuation flag of version 145 has no value in this bank and is written as zero.",
-            );
-        }
-
         FixAlternative {
             id: AlternativeId::new(CONVERT),
-            title: String::from("Convert to version 145"),
             experimental: CONVERSION_EXPERIMENTAL,
-            fix: FixPreview {
-                note: Some(note),
-                before: Some(self.version.to_string()),
-                after: Some(BankVersion::CURRENT.to_string()),
-            },
+            caveats: self
+                .attenuation
+                .then_some(AlternativeCaveat::AttenuationFlagZeroed)
+                .into_iter()
+                .collect(),
+            fix: FixPreview::value(self.version.to_string(), BankVersion::CURRENT.to_string()),
         }
     }
 }
@@ -449,7 +459,7 @@ impl Rejected {
         }
     }
 
-    /// Returns why the reader refuses this bank: the rejection's own text, then its effect.
+    /// Returns why the reader refuses this bank: the text of the rejection, then its effect.
     fn sentence(&self) -> String {
         let rejection = match self {
             Self::Refused { rejection, .. } => rejection,

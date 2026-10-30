@@ -1,5 +1,5 @@
 //! The audio index of the installed game, built in the background once per game build, and the
-//! audio index of a project's own bins.
+//! audio index of the bins of a project.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -18,7 +18,7 @@ use crate::error::AppResult;
 use crate::services::game::index::built_game_index;
 use crate::state::SettingsState;
 
-/// The file under the game index cache directory that holds the audio index.
+/// The file under the game index cache directory that contains the audio index.
 const CACHE_FILE: &str = "audio.bin";
 
 /// The slot of the game's audio index, as a response reports it.
@@ -27,9 +27,12 @@ const CACHE_FILE: &str = "audio.bin";
 pub enum AudioIndexStatus {
     /// A build runs on a background thread. Names and bank units of the game are missing.
     Building,
+    /// The index is built, and the names and bank units of the game are in the answer.
     Ready,
-    /// The last build failed. The next read after the game build changes retries it.
+    /// The last build failed. A read after the game build changes or after a refresh of the
+    /// game index retries it.
     Failed {
+        /// The error of the build.
         message: String,
     },
 }
@@ -38,6 +41,18 @@ pub enum AudioIndexStatus {
 #[derive(Debug, Default)]
 pub struct AudioIndexState(Mutex<Slot>);
 
+impl AudioIndexState {
+    /// Drops the index and any failure, so the next read builds the index again.
+    ///
+    /// The slot of an unknown game build matches every read while the build stays unknown, so
+    /// this is the one call that rebuilds it. A build that runs while the slot is dropped is
+    /// discarded when it lands.
+    pub(crate) fn clear(&self) {
+        *self.0.lock() = Slot::Absent;
+    }
+}
+
+/// The audio index of the game, or the build that makes it, keyed by the game build.
 #[derive(Debug, Default)]
 enum Slot {
     #[default]
@@ -55,6 +70,37 @@ enum Slot {
     },
 }
 
+impl Slot {
+    /// Returns the index and the status of the slot for the game build `build`.
+    ///
+    /// Returns `None` if the slot is absent or keyed by another build, so a read of a known
+    /// build never takes an index of an unknown one.
+    fn answer(
+        &self,
+        build: Option<GameBuild>,
+    ) -> Option<(Option<Arc<AudioIndex>>, AudioIndexStatus)> {
+        match self {
+            Self::Ready {
+                build: indexed,
+                index,
+            } if *indexed == build => Some((Some(Arc::clone(index)), AudioIndexStatus::Ready)),
+            Self::Building { build: building } if *building == build => {
+                Some((None, AudioIndexStatus::Building))
+            }
+            Self::Failed {
+                build: failed,
+                message,
+            } if *failed == build => Some((
+                None,
+                AudioIndexStatus::Failed {
+                    message: message.clone(),
+                },
+            )),
+            _ => None,
+        }
+    }
+}
+
 /// Returns the audio index of the installed game, and the slot that it is in.
 ///
 /// Returns `None` while a build runs or after a build failed. If no index matches the installed
@@ -63,26 +109,8 @@ pub(crate) fn game_audio_index(app: &AppHandle) -> (Option<Arc<AudioIndex>>, Aud
     let build = GameBuild::installed(&app.state::<SettingsState>().config());
     let state = app.state::<AudioIndexState>();
     let mut slot = state.0.lock();
-
-    match &*slot {
-        Slot::Ready { build: held, index } if *held == build => {
-            return (Some(Arc::clone(index)), AudioIndexStatus::Ready);
-        }
-        Slot::Building { build: held } if *held == build => {
-            return (None, AudioIndexStatus::Building);
-        }
-        Slot::Failed {
-            build: held,
-            message,
-        } if *held == build => {
-            return (
-                None,
-                AudioIndexStatus::Failed {
-                    message: message.clone(),
-                },
-            );
-        }
-        _ => {}
+    if let Some(answer) = slot.answer(build) {
+        return answer;
     }
 
     *slot = Slot::Building { build };
@@ -93,7 +121,7 @@ pub(crate) fn game_audio_index(app: &AppHandle) -> (Option<Arc<AudioIndex>>, Aud
         let built = load_or_build(&app, build);
         let state = app.state::<AudioIndexState>();
         let mut slot = state.0.lock();
-        if !matches!(&*slot, Slot::Building { build: held } if *held == build) {
+        if !matches!(&*slot, Slot::Building { build: building } if *building == build) {
             return;
         }
         *slot = match built {
@@ -170,16 +198,22 @@ fn load_or_build(app: &AppHandle, build: Option<GameBuild>) -> AppResult<AudioIn
 /// A bin that does not read is skipped and logged.
 pub(crate) fn project_audio_index(project: &str) -> AudioIndex {
     let bins = layer_bins(project).unwrap_or_else(|e| {
-        tracing::warn!(project, "The audio index of a project reads no bins: {e}");
+        tracing::warn!(
+            project,
+            "Failed to list the bins of the project's layers, so the audio index of the project \
+             has no bank units. Check that the project folder can be read: {e}"
+        );
         Vec::new()
     });
 
     let mut builder = AudioIndex::builder();
     for bin in bins {
-        match fs::read(&bin.path).map(|bytes| BinAudio::read(&bytes)) {
-            Ok(Ok(audio)) => builder.add_bin(chunk_path(&bin.file), audio),
-            Ok(Err(e)) => tracing::debug!(file = %bin.file, "The audio index skips a bin: {e}"),
-            Err(e) => tracing::debug!(file = %bin.file, "The audio index skips a bin: {e}"),
+        let audio = fs::read(&bin.path)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| BinAudio::read(&bytes).map_err(|e| e.to_string()));
+        match audio {
+            Ok(audio) => builder.add_bin(chunk_path(&bin.file), audio),
+            Err(e) => tracing::debug!(file = %bin.file, "Skipped a bin in the audio index: {e}"),
         }
     }
     builder.build()
@@ -189,3 +223,6 @@ pub(crate) fn project_audio_index(project: &str) -> AudioIndex {
 pub(crate) fn chunk_path(file: &str) -> &str {
     file.split_once('/').map_or(file, |(_, chunk)| chunk)
 }
+
+#[cfg(test)]
+mod tests;

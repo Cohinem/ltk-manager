@@ -9,7 +9,7 @@ import { useOpenDocumentAs, useRevealRow } from "../../state";
 /**
  * Returns a function that opens the object tab of `row` and reveals its row.
  *
- * The object tab opens the way a References row opens it. A row whose bin no store holds opens
+ * The object tab opens the way a References row opens it. A row whose bin no store contains opens
  * nothing.
  */
 export function useOpenSiteRow(): (row: SiteRow) => void {

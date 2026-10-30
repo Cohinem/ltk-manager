@@ -14,8 +14,9 @@ use crate::index::{AudioIndex, AudioIndexBuilder, media_sources};
 /// One named chunk of the installed game.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GameFile {
-    /// The `DATA/FINAL`-relative name of the archive that holds the chunk.
+    /// The `DATA/FINAL`-relative name of the archive that contains the chunk.
     pub wad: String,
+    /// The path hash of the chunk.
     pub path_hash: u64,
     /// The game path of the chunk.
     pub path: String,

@@ -4,10 +4,10 @@ import {
   api,
   type AppError,
   type AssetRef,
+  type AudioEventResponse,
   type AudioEventsResponse,
   type BankReferencesResponse,
   type BinDocumentId,
-  type EventTree,
   type MediaRow,
   type ResolvedSounds,
   type SandboxRef,
@@ -22,8 +22,9 @@ export const audioKeys = {
   all: ["audio"] as const,
   media: (asset: AssetRef, version: number) =>
     [...audioKeys.all, "media", assetKey(asset), version] as const,
+  eventBanks: () => [...audioKeys.all, "events"] as const,
   events: (sandbox: SandboxRef, asset: AssetRef, version: number) =>
-    [...audioKeys.all, "events", sandboxKey(sandbox), assetKey(asset), version] as const,
+    [...audioKeys.eventBanks(), sandboxKey(sandbox), assetKey(asset), version] as const,
   event: (sandbox: SandboxRef, asset: AssetRef, version: number, event: number) =>
     [...audioKeys.events(sandbox, asset, version), event] as const,
   references: () => [...audioKeys.all, "references"] as const,
@@ -53,12 +54,14 @@ export const audioQueries = {
       retry: false,
       refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
+  /* Polls while the game's audio index builds, so the media of the game's units arrive. */
   event: (sandbox: SandboxRef, asset: AssetRef, version: number, event: number) =>
-    queryOptions<EventTree, AppError>({
+    queryOptions<AudioEventResponse, AppError>({
       queryKey: audioKeys.event(sandbox, asset, version, event),
       queryFn: queryFnWithArgs(api.readAudioEvent, sandbox, asset, event),
       staleTime: Infinity,
       retry: false,
+      refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
   /* Polls while the game's audio index builds, so the game's units arrive when it lands. A
      layer file write invalidates every answer, since a project bin may declare a unit. */
@@ -70,7 +73,7 @@ export const audioQueries = {
       retry: false,
       refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
-  /* Asked once per view for every name its cues hold. A layer file write invalidates every
+  /* Asked once per view for every name its cues contain. A layer file write invalidates every
      answer, and the answer polls while the game's audio index builds. */
   sounds: (document: BinDocumentId, names: readonly string[], bankPaths: readonly string[] = []) =>
     queryOptions<ResolvedSounds, AppError>({

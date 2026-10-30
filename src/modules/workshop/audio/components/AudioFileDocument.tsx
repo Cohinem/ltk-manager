@@ -39,7 +39,7 @@ import { MediaWaveform } from "./Waveform";
 
 interface AudioFileDocumentProps {
   readonly asset: AssetRef;
-  /** The file name, which the document resolved. A reference may hold a hash. */
+  /** The file name, which the document resolved. A reference may contain a hash. */
   readonly name: string;
 }
 

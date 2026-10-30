@@ -1,6 +1,9 @@
 //! The event bank viewer's model: the events of one opened bank, each with its play tree.
 //!
 //! "Event tree" in `docs/ux/AUDIO.md`.
+//!
+//! An ID crosses IPC as a `u32`, because the `ltk_wwise` ID types implement neither `Serialize`
+//! nor `specta::Type`, and a serde adapter splits a specta type into two phases.
 
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -10,7 +13,9 @@ use ltk_wwise::hierarchy::{ObjectKind, StreamType};
 use ltk_wwise::{ObjectId, SourceId};
 use serde::Serialize;
 
-use crate::bank_set::{BANK_EVENTS, BankContent, BankSet, BankUnit, CONTEXTUAL_ACTION_DATA};
+use crate::bank_set::{
+    BANK_EVENTS, BankContent, BankSet, BankUnit, CONTEXTUAL_ACTION_DATA, localized, shipped,
+};
 use crate::bin_audio::{Audience, SiteStep};
 use crate::contextual::{ContextualMatch, contextual_names};
 use crate::files::{AudioFile, AudioFiles, ReadSeek};
@@ -24,19 +29,21 @@ use crate::references::{SiteNames, SiteRow, hex, ranked_units, site_row, unit_ro
 pub struct OpenedBank {
     /// The game path of the bank. A file outside the game names itself by its file name.
     pub path: String,
+    /// The bytes of the bank and the asset that contains them.
     pub file: AudioFile<Vec<u8>>,
 }
 
-/// Which files the bank set of an opened event bank holds beside the bank.
+/// Which files the bank set of an opened event bank contains beside the bank.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum BankSetOrigin {
     /// The files of every bank unit that names the bank.
     Units,
-    /// No bank unit names the bank. The set holds the `_audio` bank and package beside it.
+    /// No bank unit lists the bank. The set contains the `_audio` bank and package beside it.
     Siblings,
-    /// No bank unit names the bank, and its name has no `_events` stem. The set holds it alone.
+    /// No bank unit lists the bank, and its name has no `_events` stem. The set contains only
+    /// the bank.
     Alone,
 }
 
@@ -53,8 +60,8 @@ pub struct EventBank {
 impl EventBank {
     /// Opens `opened` with the files that its bank units name.
     ///
-    /// The bank units come from `indexes`, the first index first: the project's own bins, then
-    /// the game. The opened bank is the first file of the set, read from its own bytes. If no
+    /// The bank units come from `indexes`, the first index first: the project's bins, then
+    /// the game. The opened bank is the first file of the set, read from the opened bytes. If no
     /// unit names it, the set falls back to the sibling convention: the same directory, the stem
     /// with `_events` replaced by `_audio`, as a `.bnk` and a `.wpk`. An event takes its name
     /// from the first index that names its ID, and else from the contextual rules of the
@@ -306,21 +313,36 @@ fn media_location(set: &BankSet, site: MediaSite, source: SourceId) -> Option<Me
 }
 
 /// Returns the bank units of the set of the bank at `path`, and where they come from.
+///
+/// A unit names a voice-over bank by its `en_US` path. A bank at another locale also takes the
+/// units that name its `en_US` path, with their paths read under the locale of `path`.
 fn bank_units(path: &str, indexes: &[&AudioIndex]) -> (Vec<BankUnit>, BankSetOrigin) {
     let mut units = vec![BankUnit {
         bank_path: vec![path.to_owned()],
         ..BankUnit::default()
     }];
     let mut listed = HashSet::from([path.to_ascii_lowercase()]);
+    let shipped = shipped(path);
 
     for index in indexes {
-        for indexed in index.units_naming(path) {
+        let named = index.units_naming(path).map(|indexed| (indexed, None));
+        let localized_units = shipped.iter().flat_map(|(shipped, locale)| {
+            index
+                .units_naming(shipped)
+                .map(move |indexed| (indexed, Some(*locale)))
+        });
+
+        for (indexed, locale) in named.chain(localized_units) {
             let bank_path = indexed
                 .unit
                 .bank_path
                 .iter()
-                .filter(|listed_path| listed.insert(listed_path.to_ascii_lowercase()))
-                .cloned()
+                .map(|unit_path| {
+                    locale
+                        .and_then(|locale| localized(unit_path, locale))
+                        .unwrap_or_else(|| unit_path.clone())
+                })
+                .filter(|unit_path| listed.insert(unit_path.to_ascii_lowercase()))
                 .collect();
             units.push(BankUnit {
                 bank_path,
@@ -490,8 +512,8 @@ const MUSIC_KINDS: [ObjectKind; 4] = [
 const EVENTS_SUFFIX: &str = "_events";
 const AUDIO_SUFFIX: &str = "_audio";
 
-/// [`AudioFiles`] that answer the opened bank's path with its own bytes, and every other path
-/// through `rest`.
+/// [`AudioFiles`] that return the bytes of the opened bank for its path, and read every other
+/// path through `rest`.
 struct WithOpened<'a> {
     opened: &'a OpenedBank,
     rest: &'a dyn AudioFiles,
@@ -526,6 +548,7 @@ pub struct AudioEventList {
     pub events: Vec<AudioEvent>,
     /// The files of the bank set, the opened bank first.
     pub files: Vec<SetFile>,
+    /// Where the files of the set beside the opened bank come from.
     pub origin: BankSetOrigin,
 }
 
@@ -534,12 +557,15 @@ pub struct AudioEventList {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct AudioEvent {
+    /// The object ID of the event.
     pub id: u32,
     /// The name that hashes to the ID, or `None` if no index names it.
     pub name: Option<String>,
+    /// The number of actions of the event.
     pub action_count: u32,
     /// The number of sounds under the event's Play actions.
     pub media_count: u32,
+    /// Whether every object and media of the tree resolves.
     pub status: EventStatus,
     /// The contextual rules that play the event.
     pub contexts: Vec<EventContext>,
@@ -558,6 +584,7 @@ pub struct EventContext {
     pub situation: String,
     /// `mRuleName`, such as `Basic 1`.
     pub rule: Option<String>,
+    /// The audience whose event name matched.
     pub audience: Audience,
     /// `true` if another composition of the rule is an event of the bank too.
     pub ambiguous: bool,
@@ -604,15 +631,17 @@ fn context_of(
 pub enum EventStatus {
     /// Every object and every media resolves.
     Resolved,
-    /// A sound names a media that no file of the set holds.
+    /// A sound names a media that no file of the set contains.
     MediaMissing,
-    /// An action or a node names an object that no bank of the set holds.
+    /// An action or a node names an object that no bank of the set contains.
     ObjectMissing,
     /// An object of the tree cannot be decoded.
     DecodeError {
+        /// The ID of the object that does not decode.
         object: u32,
-        /// The game path of the bank that holds the object.
+        /// The game path of the bank that contains the object.
         bank: String,
+        /// The error of the decode.
         message: String,
     },
 }
@@ -622,9 +651,11 @@ pub enum EventStatus {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SetFile {
+    /// The game path of the file, localized for a voice-over file that was read so.
     pub path: String,
-    /// The layer file or game chunk that holds the file, or `None` if no store holds it.
+    /// The layer file or game chunk that contains the file, or `None` if no store contains it.
     pub asset: Option<AssetRef>,
+    /// Whether the file was read.
     pub state: SetFileState,
     /// `true` for the file that the document opened.
     pub opened: bool,
@@ -635,8 +666,11 @@ pub struct SetFile {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SetFileState {
+    /// The file was read as a bank or mounted as a package.
     Found,
+    /// No layer and no game archive contains the path.
     Missing,
+    /// The file does not read, with the error of the read.
     Failed { message: String },
 }
 
@@ -645,8 +679,11 @@ pub enum SetFileState {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct EventTree {
+    /// The object ID of the event.
     pub event: u32,
+    /// The name that hashes to the ID, or `None` if no index names it.
     pub name: Option<String>,
+    /// The actions of the event, in the order that the client runs them.
     pub actions: Vec<EventAction>,
 }
 
@@ -655,8 +692,9 @@ pub struct EventTree {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct EventAction {
+    /// The object ID of the action.
     pub id: u32,
-    /// The class of the action, `0x0400` for Play. `None` if no bank holds the action.
+    /// The class of the action, `0x0400` for Play. `None` if no bank contains the action.
     pub class: Option<u16>,
     /// The name of the class, or `0x` and four hex digits for a class without a name.
     pub label: Option<String>,
@@ -676,11 +714,15 @@ pub struct EventAction {
     rename_all_fields = "camelCase"
 )]
 pub enum EventNode {
+    /// A sound: one media that plays.
     Sound {
+        /// The object ID of the sound.
         id: u32,
+        /// The source ID of the media.
         source: u32,
+        /// Where the media of the sound is stored.
         stream: SoundStream,
-        /// The file that holds the media, or `None` if no file of the set holds it.
+        /// The file that contains the media, or `None` if no file of the set contains it.
         media: Option<MediaLocation>,
     },
     /// A random or sequence container: one child plays.
@@ -698,9 +740,10 @@ pub enum EventNode {
         object_kind: u8,
         /// The kind's name, such as `MusicSegment`.
         kind_name: String,
+        /// `true` for a music object.
         music: bool,
     },
-    /// No bank of the set holds the ID.
+    /// No bank of the set contains the ID.
     Missing { id: u32 },
 }
 
@@ -730,23 +773,28 @@ impl From<StreamType> for SoundStream {
     }
 }
 
-/// The file that holds the media of a sound, and the source ID that a preview URL reads.
+/// The file that contains the media of a sound, and the source ID that a preview URL reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct MediaLocation {
+    /// The layer file or game chunk that contains the media.
     pub asset: AssetRef,
     /// The game path of the file.
     pub path: String,
+    /// The source ID of the media.
     pub source: u32,
+    /// The kind of file that contains the media.
     pub container: MediaContainer,
 }
 
-/// The kind of file that holds a media.
+/// The kind of file that contains a media.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MediaContainer {
+    /// A media bank or an event bank, in its media index.
     Bank,
+    /// A package, in one of its entries.
     Package,
 }

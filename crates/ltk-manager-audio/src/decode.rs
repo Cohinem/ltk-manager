@@ -30,7 +30,9 @@ impl AudioFormat {
 /// One media, decoded into a format that a webview plays.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decoded {
+    /// The decoded file, such as an Ogg Vorbis stream.
     pub bytes: Vec<u8>,
+    /// The format of `bytes`.
     pub format: AudioFormat,
 }
 
@@ -40,6 +42,7 @@ pub struct Decoded {
 pub struct DecodeError {
     /// The source ID of the media.
     pub source_id: SourceId,
+    /// Why the decode failed.
     pub reason: DecodeFailure,
 }
 
@@ -120,7 +123,7 @@ fn validate(ogg: &[u8]) -> ww2ogg::WemResult<()> {
     }
 
     if samples == 0 {
-        return Err(ww2ogg::WemError::codebook("the stream holds no samples"));
+        return Err(ww2ogg::WemError::codebook("the stream contains no samples"));
     }
     Ok(())
 }
@@ -159,7 +162,7 @@ fn pcm_to_wav(media: &[u8]) -> Result<Vec<u8>, &'static str> {
 /// Returns the body of the first chunk `tag` of the RIFF file `riff`.
 ///
 /// Returns `None` if no chunk has the tag. A body that ends after the end of `riff` is cut at the
-/// end of `riff`, because a WEM `data` size can count bytes that a package entry does not hold.
+/// end of `riff`, because a WEM `data` size can count bytes that a package entry does not contain.
 fn riff_chunk<'a>(riff: &'a [u8], tag: &[u8; 4]) -> Option<&'a [u8]> {
     let mut offset = RIFF_HEADER_LEN;
     while let Some((header, rest)) = riff.get(offset..)?.split_first_chunk::<8>() {

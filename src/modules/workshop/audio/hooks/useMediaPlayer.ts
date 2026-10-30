@@ -4,6 +4,7 @@ import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewSoundUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+import { toggleSolo } from "../player/solo";
 import type { SoundChannel } from "../player/soundPlayer";
 import { PREVIEW_VOLUME, useChannelState, useSoundChannel } from "../player/useSoundChannel";
 
@@ -46,15 +47,7 @@ export function useMediaPlayer(asset: AssetRef): MediaPlayer {
   );
 
   const toggle = useCallback(
-    (source: number) => {
-      const key = String(source);
-      const was = channel.state().playing.has(key);
-      channel.stopAll();
-      if (was) return;
-
-      channel.resume();
-      channel.play(key, [url(source)]);
-    },
+    (source: number) => toggleSolo(channel, String(source), [url(source)]),
     [channel, url],
   );
 

@@ -86,7 +86,7 @@ fn unit(name: &str, paths: &[&str], events: &[&str]) -> BankUnit {
     }
 }
 
-/// The skin's own banks play `STEP` from source 11, and the base banks play `CAST` from 22.
+/// The banks of the skin play `STEP` from source 11, and the base banks play `CAST` from 22.
 fn files() -> FakeFiles {
     FakeFiles::default()
         .with(
@@ -134,9 +134,9 @@ fn media_of(resolved: &ResolvedSound) -> Vec<(u32, Option<MediaContainer>)> {
 
 #[test]
 fn resolve_sounds_reads_event_from_own_bank_units() {
-    let own = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
+    let skin_units = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
 
-    let resolved = resolve_sounds(&own, &[STEP.to_owned()], &[], &files(), None);
+    let resolved = resolve_sounds(&skin_units, &[STEP.to_owned()], &[], &files(), None);
 
     assert_eq!(resolved.len(), 1);
     assert_eq!(resolved[0].name, STEP);
@@ -145,11 +145,11 @@ fn resolve_sounds_reads_event_from_own_bank_units() {
 
 #[test]
 fn resolve_sounds_adds_index_units_for_name_own_units_miss() {
-    let own = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
+    let skin_units = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
     let index = base_index();
 
     let resolved = resolve_sounds(
-        &own,
+        &skin_units,
         &[STEP.to_owned(), CAST.to_owned()],
         &[&index],
         &files(),
@@ -162,11 +162,11 @@ fn resolve_sounds_adds_index_units_for_name_own_units_miss() {
 
 #[test]
 fn resolve_sounds_reports_name_no_bank_holds() {
-    let own = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
+    let skin_units = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
     let index = base_index();
 
     let resolved = resolve_sounds(
-        &own,
+        &skin_units,
         &["Play_sfx_Nowhere".to_owned()],
         &[&index],
         &files(),
@@ -178,7 +178,7 @@ fn resolve_sounds_reports_name_no_bank_holds() {
 
 #[test]
 fn resolve_sounds_prefers_own_unit_over_index_unit_of_same_event() {
-    let own = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
+    let skin_units = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
     let mut builder = AudioIndex::builder();
     builder.add_bin(
         "data/characters/ahri/ahri.bin",
@@ -193,7 +193,7 @@ fn resolve_sounds_prefers_own_unit_over_index_unit_of_same_event() {
         bytes_of(&hierarchy_bank(played(STEP, 101, 201, 22))),
     );
 
-    let resolved = resolve_sounds(&own, &[STEP.to_owned()], &[&index], &files, None);
+    let resolved = resolve_sounds(&skin_units, &[STEP.to_owned()], &[&index], &files, None);
 
     assert_eq!(media_of(&resolved[0]), [(11, Some(MediaContainer::Bank))]);
 }

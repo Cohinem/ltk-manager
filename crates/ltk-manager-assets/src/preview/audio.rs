@@ -1,4 +1,4 @@
-//! What a Wwise file holds, as the audio file document reports it.
+//! What a Wwise file contains, as the audio file document reports it.
 //!
 //! The types are data only. `ltk-manager-audio` reads the file and fills them, because the
 //! Wwise reader sits above this crate.
@@ -10,6 +10,7 @@ use serde::Serialize;
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct AudioInfo {
+    /// The kind of Wwise file.
     pub container: AudioContainer,
     /// The size of the file itself.
     pub size_bytes: u64,
@@ -40,7 +41,9 @@ pub enum AudioContainer {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BankFacts {
+    /// The generator version of the bank.
     pub version: u32,
+    /// The `dwBankType` field of the header, zero below version 143.
     pub bank_type: u32,
     /// The `uAlignment` field as written.
     pub alignment: u16,

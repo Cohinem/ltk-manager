@@ -20,7 +20,7 @@ impl EventNames {
         Self::default()
     }
 
-    /// Adds `name` under its ID. Returns `false` if the table holds a name with that ID.
+    /// Adds `name` under its ID. Returns `false` if the table contains a name with that ID.
     pub fn insert(&mut self, name: &str) -> bool {
         let id = ObjectId::from_name(name);
         if self.names.contains_key(&id) {
@@ -48,7 +48,7 @@ impl EventNames {
         self.names.len()
     }
 
-    /// Returns `true` if the table holds no names.
+    /// Returns `true` if the table contains no names.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.names.is_empty()

@@ -12,7 +12,7 @@ use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 use super::*;
 use crate::ProjectFiles;
 use crate::game::FakeContent;
-use crate::{ChosenAlternative, FixAlternative};
+use crate::{AlternativeCaveat, ChosenAlternative, FixAlternative};
 use ltk_manager_assets::test_util::{
     BUILT_BANK_ID, LEGACY_EVENT_BANK, audio_bank_bytes, make_packed_chunk_fantome_zip,
     resolver_naming,
@@ -50,7 +50,7 @@ const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
 
-/// A bank at `version` holding `sections`.
+/// A bank at `version` containing `sections`.
 fn bank(version: BankVersion, sections: Vec<Section>) -> Vec<u8> {
     let mut bank = Bank::new(BankHeader::new(version, BankId(BUILT_BANK_ID)));
     *bank.sections_mut() = sections;
@@ -62,7 +62,7 @@ fn hierarchy() -> Section {
     Section::Hierarchy(Hierarchy::new())
 }
 
-/// A media index holding one media of `len` zero bytes.
+/// A media index containing one media of `len` zero bytes.
 fn media(len: usize) -> Section {
     let mut media = MediaIndex::new();
     media.insert(SourceId(1), vec![0; len]);
@@ -517,7 +517,7 @@ fn a_second_repair_over_a_removed_bank_skips_it() {
 
 const EVENTS_V134: &[u8] = LEGACY_EVENT_BANK;
 
-/// A version 134 event bank holding one music track, a kind `Bank::upgrade` refuses.
+/// A version 134 event bank containing one music track, a kind `Bank::upgrade` refuses.
 fn music_bank() -> Vec<u8> {
     let mut hierarchy = Hierarchy::new();
     hierarchy.push(
@@ -554,17 +554,21 @@ fn a_legacy_event_bank_offers_removal_and_an_experimental_conversion() {
     assert!(conversion.experimental);
 }
 
-/// Story 7: the version 145 attenuation has a flag that the version 134 payload does not
-/// hold, and the conversion writes it as zero.
+/// Story 7: the version 145 attenuation has a flag that the version 134 payload has no value
+/// for, and the conversion writes it as zero.
 #[test]
-fn a_conversion_of_a_bank_holding_an_attenuation_states_the_lost_flag() {
+fn a_conversion_of_a_bank_containing_an_attenuation_states_the_lost_flag() {
     let (_tmp, files) = project_with(EVENTS_V134, &[], Some(FakeContent::empty()));
 
     let problems = found_in(&files);
 
     let conversion = conversion_of(&problems[0]).expect("conversion is offered");
-    let note = conversion.fix.note.as_deref().unwrap_or_default();
-    assert!(note.contains("attenuation"), "{note}");
+    assert_eq!(
+        conversion.caveats,
+        [AlternativeCaveat::AttenuationFlagZeroed]
+    );
+    assert_eq!(conversion.fix.before.as_deref(), Some("134"));
+    assert_eq!(conversion.fix.note, None);
 }
 
 #[test]
@@ -574,11 +578,10 @@ fn a_conversion_of_a_bank_without_an_attenuation_states_no_loss() {
     let problems = found_in(&files);
 
     let conversion = conversion_of(&problems[0]).expect("conversion is offered");
-    let note = conversion.fix.note.as_deref().unwrap_or_default();
-    assert!(!note.contains("attenuation"), "{note}");
+    assert!(conversion.caveats.is_empty(), "{:?}", conversion.caveats);
 }
 
-/// Story 6: a bank the conversion cannot handle says why.
+/// Story 6: the message of a bank that the conversion refuses states the reason.
 #[test]
 fn a_bank_holding_a_music_track_offers_removal_only_and_states_the_refusal() {
     let (_tmp, files) = project_with(&music_bank(), &[], Some(FakeContent::empty()));
@@ -595,7 +598,7 @@ fn a_bank_holding_a_music_track_offers_removal_only_and_states_the_refusal() {
     assert!(message.contains("MusicTrack"), "{message}");
 }
 
-/// Story 5: a bank unit asks for the bank and the game does not hold its path, so removal
+/// Story 5: a bank unit asks for the bank and the game does not contain its path, so removal
 /// refuses and conversion is the only repair.
 #[test]
 fn conversion_is_the_only_repair_where_removal_refuses() {
@@ -707,9 +710,9 @@ fn a_bank_the_client_accepts_is_never_converted() {
     assert_eq!(bank_on_disk(&tmp), accepted);
 }
 
-/// Story 11: an archive-storage mod converts through the held run.
+/// Story 11: an archive-storage mod converts through the in-memory run.
 #[test]
-fn an_archive_converts_through_the_held_run() {
+fn an_archive_converts_through_the_in_memory_run() {
     let archive_dir = tempfile::tempdir().unwrap();
     let archive = archive_dir.path().join("events.fantome");
     make_packed_chunk_fantome_zip(&archive, "Events", BANK_IN_WAD, EVENTS_V134);
@@ -730,7 +733,7 @@ fn an_archive_converts_through_the_held_run() {
         .id
         .clone();
 
-    let (report, held) = crate::apply_alternative_held(
+    let (report, writes) = crate::apply_alternative_held(
         project,
         Vec::new(),
         &run,
@@ -745,7 +748,7 @@ fn an_archive_converts_through_the_held_run() {
     .unwrap();
 
     assert_eq!(report.applied, 1);
-    let converted = read_bank(held.bytes("base", BANK_IN_LAYER).unwrap());
+    let converted = read_bank(writes.bytes("base", BANK_IN_LAYER).unwrap());
     assert_eq!(converted.header().version, BankVersion::CURRENT);
     assert_eq!(converted.check(), Ok(()));
 }

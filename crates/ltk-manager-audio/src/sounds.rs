@@ -1,6 +1,9 @@
 //! Event names resolved into play trees for a viewport: the sounds of a clip or an effect.
 //!
 //! "Viewport sound" in `docs/ux/AUDIO.md`.
+//!
+//! An ID crosses IPC as a `u32`, because the `ltk_wwise` ID types implement neither `Serialize`
+//! nor `specta::Type`, and a serde adapter splits a specta type into two phases.
 
 use std::collections::HashSet;
 
@@ -18,7 +21,9 @@ use crate::names::EventNames;
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedSound {
+    /// The event name, as asked for.
     pub name: String,
+    /// What the name resolves to.
     pub resolution: SoundResolution,
 }
 
@@ -33,33 +38,35 @@ pub struct ResolvedSound {
 pub enum SoundResolution {
     /// The play tree of the event.
     Resolved { tree: EventTree },
-    /// No bank of the set holds an event of the name.
+    /// No bank of the set contains an event of the name.
     NoEvent,
     /// An object of the tree cannot be decoded.
     DecodeError {
+        /// The ID of the object that does not decode.
         object: u32,
-        /// The game path of the bank that holds the object.
+        /// The game path of the bank that contains the object.
         bank: String,
+        /// The error of the decode.
         message: String,
     },
 }
 
 /// Resolves each of `names` into the play tree of its event, in the order given.
 ///
-/// The bank set is `own`, the bank units of the open document. A name that `own` does not
+/// The bank set is `document_units`, the bank units of the open document. A name that they do not
 /// resolve adds the bank units that `indexes` list for it, the first index first, and is looked
-/// up again in the wider set. `own` stays first in that set, so its files win over the files of
+/// up again in the wider set. `document_units` stay first in that set, so its files win over the files of
 /// an index unit for the same event.
 #[must_use]
 pub fn resolve_sounds(
-    own: &[BankUnit],
+    document_units: &[BankUnit],
     names: &[String],
     indexes: &[&AudioIndex],
     files: &dyn AudioFiles,
     locale: Option<&str>,
 ) -> Vec<ResolvedSound> {
     let table: EventNames = names.iter().collect();
-    let set = BankSet::open(own, files, locale);
+    let set = BankSet::open(document_units, files, locale);
     let mut resolved: Vec<ResolvedSound> = names
         .iter()
         .map(|name| resolve(&set, &table, name))
@@ -71,8 +78,8 @@ pub fn resolve_sounds(
         .filter(|(_, sound)| sound.resolution == SoundResolution::NoEvent)
         .map(|(at, _)| at)
         .collect();
-    let mut units = own.to_vec();
-    let mut listed: HashSet<BankUnit> = own.iter().cloned().collect();
+    let mut units = document_units.to_vec();
+    let mut listed: HashSet<BankUnit> = document_units.iter().cloned().collect();
     for &at in &missing {
         for index in indexes {
             for indexed in index.units_listing(&names[at]) {
@@ -82,7 +89,7 @@ pub fn resolve_sounds(
             }
         }
     }
-    if units.len() == own.len() {
+    if units.len() == document_units.len() {
         return resolved;
     }
 

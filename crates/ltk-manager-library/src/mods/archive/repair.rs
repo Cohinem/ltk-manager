@@ -328,7 +328,7 @@ impl ModLibrary {
         let run = project.checked();
         let wanted = repair.wanted(&run);
         let declared = open_fantome(archive)?.read_hashtables()?;
-        let (report, held) = repair.apply_held(
+        let (report, writes) = repair.apply_held(
             project,
             declared,
             &run,
@@ -342,7 +342,7 @@ impl ModLibrary {
         }
 
         let archive_utf8 = archive.try_as_utf8("mod archive")?;
-        let edited = RepairEdit::held(&held, archive_utf8, &report)
+        let edited = RepairEdit::held(&writes, archive_utf8, &report)
             .and_then(|edit| edit.apply(archive_utf8));
         match edited {
             Ok(written) => report_edit(archive_utf8, &written),
@@ -424,7 +424,7 @@ impl ModLibrary {
 pub(in crate::mods) enum Repair<'a> {
     /// Every live fix, as "Repair" and "Repair all" apply.
     Fixes,
-    /// One alternative of one problem, which only its own press applies.
+    /// One alternative of one problem, which only a press of the alternative applies.
     Alternative(problems::ChosenAlternative<'a>),
 }
 
@@ -455,7 +455,7 @@ impl Repair<'_> {
         }
     }
 
-    /// Applies the repair over the files a check read where they lie, holding every write.
+    /// Applies the repair over the files a check read where they lie, and keeps every write in memory.
     #[expect(
         clippy::too_many_arguments,
         reason = "the arguments of `problems::apply_held` and the repair itself"

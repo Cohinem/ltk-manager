@@ -11,7 +11,7 @@
  * The most voices one channel plays at once. The oldest voice stops when a new one passes it.
  *
  * A dense skin fires a footstep and its echo per frame band on every loop, and 32 voices is the
- * default voice limit of the Wwise authoring tool, so the cap holds what the game would mix.
+ * default voice limit of the Wwise authoring tool, so the cap matches the voice count that the game mixes.
  */
 export const VOICE_CAP = 32;
 
@@ -47,9 +47,9 @@ export interface SoundChannel {
   stop(key: string): void;
   /** Stops every voice of the channel. */
   stopAll(): void;
-  /** Holds every voice where it is. A voice that arrives while paused waits for `resume`. */
+  /** Pauses every voice at its position. A voice that arrives while paused waits for `resume`. */
   pause(): void;
-  /** Plays every held voice on from where `pause` held it. */
+  /** Plays every paused voice on from the position where `pause` stopped it. */
   resume(): void;
   /** Sets the channel's gain, from 0 to 1. */
   setVolume(volume: number): void;
@@ -83,7 +83,7 @@ export function decodeMedia(url: string): Promise<AudioBuffer> {
 }
 
 /**
- * Returns the decoded media at `url`, from the cache if it holds it, without adding it.
+ * Returns the decoded media at `url`, from the cache if the cache contains it, without adding it.
  *
  * The waveform column decodes every row it draws, which would evict what plays.
  */
@@ -114,7 +114,8 @@ async function fetchDecoded(
   signal?: AbortSignal,
 ): Promise<AudioBuffer> {
   const response = await fetch(url, { signal });
-  if (!response.ok) throw new Error(`The media at ${url} answered ${response.status}`);
+  if (!response.ok)
+    throw new Error(`Failed to fetch the media at ${url}: status ${response.status}`);
 
   return context.decodeAudioData(await response.arrayBuffer());
 }
@@ -132,7 +133,7 @@ interface Voice {
 
 /** The timing of one voice, as `voiceTime` reads it. */
 export interface VoiceTiming {
-  /** Seconds into the media that the voice started or was held at. */
+  /** Seconds into the media that the voice started or was paused at. */
   readonly offset: number;
   /** The context time the voice started at. */
   readonly startedAt: number;

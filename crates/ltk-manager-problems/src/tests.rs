@@ -247,8 +247,8 @@ fn problem_at(rule: RuleId, path: &str, fix: Option<FixPreview>) -> Problem {
 fn alternative(id: &str) -> FixAlternative {
     FixAlternative {
         id: AlternativeId::new(id),
-        title: "Convert".to_owned(),
         experimental: true,
+        caveats: Vec::new(),
         fix: FixPreview::default(),
     }
 }

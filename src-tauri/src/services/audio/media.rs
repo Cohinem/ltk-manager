@@ -22,7 +22,7 @@ use crate::state::SettingsState;
 pub enum MediaExport {
     /// The decoded media: Ogg Vorbis for Vorbis, WAV for PCM.
     Decoded,
-    /// The WEM bytes as the file holds them.
+    /// The WEM bytes as the file contains them.
     Original,
 }
 
@@ -65,7 +65,7 @@ pub async fn export_audio_media(
     .await
 }
 
-/// Reports what `asset` holds, as an [`AssetInfo::Audio`] for a Wwise file.
+/// Reports what `asset` contains, as an [`AssetInfo::Audio`] for a Wwise file.
 ///
 /// # Errors
 ///
@@ -103,7 +103,7 @@ pub(crate) fn asset_media(
 ///
 /// # Errors
 ///
-/// Fails if the asset cannot be read, holds no media `source`, or the media cannot be decoded.
+/// Fails if the asset cannot be read, contains no media `source`, or the media cannot be decoded.
 pub(crate) fn exported_media(
     asset: &AssetRef,
     source: SourceId,

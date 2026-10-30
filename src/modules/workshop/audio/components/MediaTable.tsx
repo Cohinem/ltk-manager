@@ -27,6 +27,7 @@ import {
   type MediaSortKey,
   nextSort,
 } from "../utils/mediaRows";
+import { movedIndex } from "../utils/rowKeys";
 import { AUDIO_LIST_GROUP, audioRowClasses } from "./audioRow";
 import { MediaThumbnail } from "./WaveformThumbnail";
 
@@ -43,9 +44,6 @@ interface MediaTableProps {
 
 /** The height of a row in px at 100% zoom: `h-6` is six spacing units of 4.5px. */
 const ROW_HEIGHT = 27;
-
-/** The rows a Page Up or a Page Down moves the selection by. */
-const PAGE_ROWS = 10;
 
 /**
  * The media of one audio file, one row per source ID, windowed.
@@ -102,17 +100,8 @@ export function MediaTable({
     if (event.target !== event.currentTarget) return;
 
     const row = rows[selectedIndex];
-    const moves: Record<string, number> = {
-      ArrowDown: selectedIndex + 1,
-      ArrowUp: selectedIndex - 1,
-      PageDown: selectedIndex + PAGE_ROWS,
-      PageUp: selectedIndex - PAGE_ROWS,
-      Home: 0,
-      End: rows.length - 1,
-    };
-
-    const target = moves[event.key];
-    if (target !== undefined) {
+    const target = movedIndex(event.key, selectedIndex, rows.length);
+    if (target !== null) {
       event.preventDefault();
       selectAt(target);
       return;

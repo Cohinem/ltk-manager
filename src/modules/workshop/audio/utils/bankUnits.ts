@@ -1,7 +1,7 @@
-/** What a file of a bank unit holds, from its name. */
+/** What a file of a bank unit contains, from its name. */
 export type UnitFileKind = "eventBank" | "mediaBank" | "package";
 
-/** Returns what the bank unit file at `path` holds: `.wpk`, `_events.bnk` or another `.bnk`. */
+/** Returns what the bank unit file at `path` contains: `.wpk`, `_events.bnk` or another `.bnk`. */
 export function unitFileKind(path: string): UnitFileKind {
   const lower = path.toLowerCase();
   if (lower.endsWith(".wpk")) return "package";

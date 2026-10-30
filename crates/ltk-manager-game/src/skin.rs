@@ -29,8 +29,6 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
-pub use ltk_manager_audio::BankUnit;
-use ltk_manager_audio::{BANK_EVENTS, BANK_PATH, BANK_UNIT_NAME, BANK_VOICE_OVER};
 use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, RowNames, fields_of, hash_hex,
     hex, items, leaf, link, object_at, text, unsigned,
@@ -167,10 +165,6 @@ const EVENT_SKIP_IF_PAST_END: BinHash = named("mSkipIfPastEndFrame");
 const EVENT_CONDITION_TRANSITION: BinHash = named("ConditionClipTransitionType");
 /// The class default of `ConditionClipTransitionType`, which plays the sound from its start.
 const DEFAULT_CONDITION_TRANSITION: u8 = 1;
-/// `SkinCharacterDataProperties.skinAudioProperties`.
-const AUDIO_PROPERTIES: BinHash = named("skinAudioProperties");
-/// `SkinAudioProperties.bankUnits`.
-const BANK_UNITS: BinHash = named("bankUnits");
 const JOINT_SNAP_EVENT: BinHash = named("JointSnapEventData");
 /// `JointSnapEventData.mJointNameToOverride`.
 const EVENT_JOINT: BinHash = named("mJointNameToOverride");
@@ -297,32 +291,6 @@ pub struct SkinModel {
     pub sockets: Vec<Socket>,
     /// `skinMeshProperties.OutlineCategorySubmeshes`, in the order the skin lists them.
     pub outlines: Vec<SkinOutline>,
-    /// `skinAudioProperties.bankUnits`, in the order the skin lists them.
-    pub audio: Vec<BankUnit>,
-}
-
-/// The bank units of `skinAudioProperties` on `skin`, in list order.
-fn bank_units(skin: &Fields) -> Vec<BankUnit> {
-    let strings = |value: Option<&PropertyValueEnum>| -> Vec<String> {
-        items(value)
-            .iter()
-            .filter_map(|item| text(Some(item)).map(str::to_owned))
-            .collect()
-    };
-    let audio = fields_of(skin.get(&AUDIO_PROPERTIES));
-
-    items(audio.and_then(|audio| audio.get(&BANK_UNITS)))
-        .iter()
-        .filter_map(|item| fields_of(Some(item)))
-        .map(|unit| BankUnit {
-            name: text(unit.get(&BANK_UNIT_NAME))
-                .unwrap_or_default()
-                .to_owned(),
-            bank_path: strings(unit.get(&BANK_PATH)),
-            events: strings(unit.get(&BANK_EVENTS)),
-            voice_over: boolean(unit.get(&BANK_VOICE_OVER)).unwrap_or(false),
-        })
-        .collect()
 }
 
 /// One `OutlineCategorySubmeshes` entry: submeshes that the engine draws an outline around.
@@ -727,7 +695,6 @@ pub(crate) fn resolve_skin(
                 material: None,
             })
             .collect(),
-        audio: bank_units(skin),
     })
 }
 

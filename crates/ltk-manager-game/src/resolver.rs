@@ -35,7 +35,8 @@ pub(crate) fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (Bi
 ///
 /// `Characters/Aatrox/Skins/Skin11/Particles/Aatrox_Skin11_Recall` names
 /// `data/characters/aatrox/skins/skin11.bin`.
-pub(crate) fn skin_bin(path: &str) -> Option<String> {
+#[must_use]
+pub fn skin_bin(path: &str) -> Option<String> {
     let mut parts = path.split('/');
     let (root, character, skins, skin) =
         (parts.next()?, parts.next()?, parts.next()?, parts.next()?);

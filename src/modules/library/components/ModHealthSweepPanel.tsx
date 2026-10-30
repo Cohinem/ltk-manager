@@ -31,6 +31,7 @@ import {
   type OfferedAlternative,
   type ProblemSeverity,
   type RuleBrief,
+  type RuleId,
 } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
@@ -45,6 +46,7 @@ import {
   useRepairModAlternative,
   useRepairMods,
 } from "../api";
+import { alternativeCopy } from "../utils/alternativeCopy";
 import {
   alarmOf,
   alarmOver,
@@ -613,6 +615,7 @@ function RuleList({ verdict, name }: { verdict: ModHealthVerdict; name: string }
               key={`${offered.problem}:${offered.alternative.id}`}
               modId={verdict.modId}
               name={name}
+              rule={brief.rule}
               offered={offered}
             />
           ))}
@@ -631,14 +634,17 @@ function RuleList({ verdict, name }: { verdict: ModHealthVerdict; name: string }
 function AlternativeLine({
   modId,
   name,
+  rule,
   offered,
 }: {
   modId: string;
   name: string;
+  rule: RuleId;
   offered: OfferedAlternative;
 }) {
   const repair = useRepairModAlternative();
   const { alternative } = offered;
+  const copy = alternativeCopy(rule, alternative);
 
   return (
     <div data-ui="ModHealthSweepPanel:alternative" className="flex flex-col gap-0.5 pt-0.5">
@@ -652,14 +658,14 @@ function AlternativeLine({
           onClick={() =>
             repair.mutate({ modId, problem: offered.problem, alternative: alternative.id })
           }
-          aria-label={m.library_health_alternative_label({ title: alternative.title, name })}
+          aria-label={m.library_health_alternative_label({ title: copy.title, name })}
           className="ml-auto shrink-0"
         >
           <PlugsIcon className="size-4" weight="duotone" />
-          {alternative.title}
+          {copy.title}
         </Button>
       </div>
-      {alternative.fix.note && <p className="text-surface-500">{alternative.fix.note}</p>}
+      {copy.note && <p className="text-surface-500">{copy.note}</p>}
     </div>
   );
 }

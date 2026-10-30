@@ -308,13 +308,26 @@ impl std::fmt::Display for AlternativeId {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct FixAlternative {
+    /// The id that the frontend keys the title and the note of the repair by, with the rule id.
     pub id: AlternativeId,
-    /// A few words naming the repair, in sentence case.
-    pub title: String,
     /// `true` while the repair is not proven in a match.
     pub experimental: bool,
-    /// What the repair would change.
+    /// The facts that the note of the repair states, beside the note that its id keys.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub caveats: Vec<AlternativeCaveat>,
+    /// The values that the repair would change.
     pub fix: FixPreview,
+}
+
+/// A fact about one alternative fix, which the frontend words in the note of the repair.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum AlternativeCaveat {
+    /// The bank contains an Attenuation object, and the conversion writes the version 145 flag
+    /// that the bank has no value for as zero.
+    AttenuationFlagZeroed,
 }
 
 /// What one problem says, as against where it is.
@@ -333,7 +346,7 @@ pub struct Detail {
     pub message: Option<String>,
     /// What a repair would change. `None` where the rule has no repair.
     pub fix: Option<FixPreview>,
-    /// The repairs offered beside [`fix`](Self::fix), each applied only on its own press.
+    /// The repairs offered beside [`fix`](Self::fix), each applied only when it is pressed.
     pub alternatives: Vec<FixAlternative>,
 }
 
@@ -367,7 +380,7 @@ pub struct Problem {
     pub message: Option<String>,
     /// What a repair would change, drawn before it is applied.
     pub fix: Option<FixPreview>,
-    /// The repairs offered beside `fix`, each applied only on its own press.
+    /// The repairs offered beside `fix`, each applied only when it is pressed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub alternatives: Vec<FixAlternative>,

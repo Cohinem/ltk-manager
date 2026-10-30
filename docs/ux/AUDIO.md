@@ -39,10 +39,10 @@ The head of the document is the file name, its kind, its media count and its siz
   its file name where it has one.
 - A bank and a package list their bank units, as "Bank units" describes.
 
-The head's kebab holds Find references, which opens the References document on the game path
+The head's kebab contains Find references, which opens the References document on the game path
 that the bank units name the file by.
 
-A bank with a hierarchy has two tabs, Media and Events. Events holds the event tree, and it is
+A bank with a hierarchy has two tabs, Media and Events. Events contains the event tree, and it is
 the tab that opens in a bank without media.
 
 ## Bank units
@@ -55,12 +55,12 @@ A unit that several bins declare with the same name, the same paths and the same
 is one row. A base voice-over bank that every skin bin of a champion declares is one row with a
 list of bins, not one row per bin.
 
-A row holds:
+A row contains:
 
 - The unit's `name`, and a Voice-over badge if `voiceOver` is set.
 - Each `bankPath` file as a badge with its kind: event bank, media bank or package. The opened
   file is marked. A found file opens its document on a press. A file that no layer and no game
-  archive holds is greyed and has no press.
+  archive contains is greyed and has no press.
 - A disclosure with the bins that declare the unit. A press on a bin opens the object and
   reveals the `BankUnit` row.
 
@@ -131,9 +131,9 @@ The table is one tab stop. Focus selects the first row if no row is selected.
 
 ### Row actions
 
-The context menu of a row holds Save as `.ogg` (`.wav` for PCM), Save as `.wem` and Copy source
+The context menu of a row contains Save as `.ogg` (`.wav` for PCM), Save as `.wem` and Copy source
 ID. A save asks for its destination in the save dialog and writes through a temporary file.
-`.ogg` and `.wav` write the decoded media, and `.wem` writes the bytes as the file holds them.
+`.ogg` and `.wav` write the decoded media, and `.wem` writes the bytes as the file contains them.
 
 A layer file that changes on disk lists again, and its media play from the new bytes.
 
@@ -170,7 +170,7 @@ The audio index is built on a background thread the first time an event bank ope
 when the game build changes. It is cached beside the game index cache. While it builds, the tab
 shows an info notice and lists the events with the names of the project alone. The list updates
 when the build finishes. The index uses `events` as a name source only, never as a list of what
-a bank holds, because the skin loader reads neither `BankUnit.name` nor `BankUnit.events`.
+a bank contains, because the skin loader reads neither `BankUnit.name` nor `BankUnit.events`.
 
 ### Bank set
 
@@ -181,7 +181,7 @@ then from the audio index. A voice-over unit reads its paths under the client's 
 If no bank unit names the bank, the set falls back to the sibling convention: the same
 directory, the stem with `_events` replaced by `_audio`, as a `.bnk` and a `.wpk`. An info
 notice says so. A bank whose stem has no `_events` suffix is read alone. In a set that bank
-units name, a file that no layer and no game archive holds is listed in a warning notice.
+units name, a file that no layer and no game archive contains is listed in a warning notice.
 
 A project layer's copy of a file comes before the game's, as the client reads them.
 
@@ -192,19 +192,19 @@ A project layer's copy of a file comes before the game's, as the client reads th
 | Event     | The name, the action count and the status                                    |
 | Action    | The class name, such as Play, Stop or SetVolume, and the ID of its target    |
 | Container | The kind and the ID, and the rule of what plays                              |
-| Sound     | The ID, the source ID and the file name of the file that holds the media     |
+| Sound     | The ID, the source ID and the file name of the file that contains the media  |
 | Other     | The object kind and the ID, marked as not playing. Music objects say "music" |
-| Missing   | The ID of an object that no bank of the set holds                            |
+| Missing   | The ID of an object that no bank of the set contains                         |
 
 An action class outside the table of Wwise classes shows as `0x` and four hex digits. A Play
 action expands into the object it plays. An event's tree is read when the event expands or
 plays, so a bank of hundreds of events lists at once.
 
-| Status         | Tone    | When                                                      |
-| -------------- | ------- | --------------------------------------------------------- |
-| Media missing  | Warning | A sound names a media that no file of the set holds       |
-| Object missing | Warning | An action or a target names an object that no bank holds  |
-| Decode error   | Error   | An object does not decode. The row gives its ID and error |
+| Status         | Tone    | When                                                        |
+| -------------- | ------- | ----------------------------------------------------------- |
+| Media missing  | Warning | A sound names a media that no file of the set contains      |
+| Object missing | Warning | An action or a target names an object that no bank contains |
+| Decode error   | Error   | An object does not decode. The row gives its ID and error   |
 
 ### What plays
 
@@ -242,11 +242,11 @@ The tree is one tab stop. Focus selects the first row if no row is selected.
 
 ### Row actions
 
-An event's context menu holds Copy event name, which copies `#` and the ID for an unnamed
-event. Inside a project it also holds Show contextual rule, which opens the `ContextualActionData`
+An event's context menu contains Copy event name, which copies `#` and the ID for an unnamed
+event. Inside a project it also contains Show contextual rule, which opens the `ContextualActionData`
 object at the first rule that plays the event, and Show in bank unit, which opens the bin at the
-`events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu holds Copy object ID. A sound whose media is found also
-holds Show media, which opens the document of the file that holds the media, switches it to the
+`events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu contains Copy object ID. A sound whose media is found also
+contains Show media, which opens the document of the file that contains the media, switches it to the
 Media tab and selects the row of the source ID.
 
 ## Waveform
@@ -260,17 +260,17 @@ and of the media.
 | Media  | The row that plays, else the selected row if it plays                                 |
 | Events | The first media of the press that plays, else the selected sound, else the last press |
 
-The strip plays through the channel of its panel, at the panel's volume, and adds no player of
-its own. The media decodes once, through the cache that playback reads, and the strip draws its
-peaks. A selection decodes after it holds for 150 ms, so a run of arrow keys decodes one media.
+The strip plays through the channel of its panel, at the panel's volume, and adds no player
+of the strip. The media decodes once, through the cache that playback reads, and the strip draws its
+peaks. A selection decodes after it stays unchanged for 150 ms, so a run of arrow keys decodes one media.
 
 - A click on the waveform moves the playhead there. A drag moves it where the drag ends.
-- A seek on a media that plays or holds keeps that state. A seek on a media that does not play
+- A seek on a media that plays or is paused keeps that state. A seek on a media that does not play
   plays it from the playhead.
 - An event plays all of its media at once, and a seek moves each of them to the playhead. A media
   shorter than the playhead ends.
-- Pause holds every voice of the panel, and Play resumes them. Play on a media that does not play
-  plays it from the start. A row of the table or the tree that is held shows as playing, and a
+- Pause stops every voice of the panel in place, and Play resumes them. Play on a media that does not play
+  plays it from the start. A row of the table or the tree that is paused shows as playing, and a
   press on it stops it.
 - The playhead returns to the start when the media ends or stops.
 
@@ -302,7 +302,7 @@ random container. An event row reads its event first. A row that plays no media 
 The skin viewport plays the `SoundEventData` events of the clip it plays. Sound is off by
 default. The speaker switch in the viewport's toolbar turns it on, and its caret opens the
 volume, which defaults to 0.2. Both are remembered, and the Project editor card of the settings
-holds them in its Viewport group.
+lists them in its Viewport group.
 
 The playback approximates the game's mix. It applies no bus, no RTPC, no attenuation and no 3D
 position, and the switch's tooltip says so. The tooltip also counts the event names of the view
@@ -323,17 +323,17 @@ An event fires when forward playback crosses its start frame.
 | `ConditionClipTransitionType` | Read into the clip model. The viewport enters no condition clip past a start    |
 
 A scrub, a restart and a clip switch fire nothing and stop every kill sound. A seek that the
-viewport makes on its own, such as the fold of the clock when an effect model loads, changes
-nothing. Pause holds every sound and play resumes them. The playback speed does not change the
+viewport makes without a press, such as the fold of the clock when an effect model loads, changes
+nothing. Pause stops every sound in place and play resumes them. The playback speed does not change the
 pitch or the rate of a sound. Sound stops when the viewport's tab is hidden or closed.
 
 An edit of a clip event takes effect on the next pass.
 
 ### Resolution
 
-The viewport asks once per view for every event name its cues hold. The bank set is every
+The viewport asks once per view for every event name its cues contain. The bank set is every
 `BankUnit` of the open document, then the bank units that the project's bins and the game's audio
-index register a missing name in. The document's own units come first, and a project layer's copy
+index register a missing name in. A document without a `BankUnit`, such as a VFX bin that a skin links, takes the units of the skin bins that the paths of its objects name. The units of the document come first, and a project layer's copy
 of a file comes before the game's, so a replacement media plays. A voice-over unit reads its paths
 under the client's locale. A layer file write asks again.
 
@@ -351,7 +351,7 @@ each system that a clip's particle event spawns. Both follow the speaker switch,
 the resolution of "Viewport sound". The grid previews of the objects browser play no sound.
 
 A system names its sounds in `soundOnCreateDefault`, `soundPersistentDefault`,
-`voiceOverOnCreateDefault` and `voiceOverPersistentDefault`. An emitter names its own in `Audio`,
+`voiceOverOnCreateDefault` and `voiceOverPersistentDefault`. An emitter names its sounds in `Audio`,
 a `VfxEmitterAudio` with `SoundOnCreate` and `SoundPersistent`. An empty name is no sound.
 
 ### Firing
@@ -375,8 +375,8 @@ A seek, a scrub and a step fire nothing and stop every sound of the run. An edit
 takes effect on the next firing.
 
 In the skin viewport, a clip effect's sounds play when forward playback crosses its particle
-event and stop when the pass leaves the event or a scrub moves the run. Pause holds them with the
-clip's own sounds.
+event and stop when the pass leaves the event or a scrub moves the run. Pause stops them in place with the
+sounds of the clip.
 
 The bank set is the one of "Resolution". A system opened from a skin bin resolves through that
 skin's bank units. A system in a bin without bank units resolves through the audio index.
@@ -397,9 +397,9 @@ reads under the client's locale first. `SpellEventToAudioEventSuffix` is not rea
 | ------------------- | ------------------------------------------------------------------------- |
 | A cast clip event   | Fires when forward playback crosses its start frame, per "Viewport sound" |
 | A kill event        | The sound stops where the cast clip ends                                  |
-| A step's effect     | Fires on the step's own run, per "VFX sound", from the step's start       |
+| A step's effect     | Fires on the run of the step, per "VFX sound", from the step's start      |
 | The end of the cast | Every sound plays to its end                                              |
 
 The cast clip plays once, so `mIsLoop` does not fire an event a second time. A seek, a scrub, Cast
 from the end and Replay fire nothing and stop every sound, and the next forward frame fires from
-the time it starts at. Pause holds every sound and play resumes them.
+the time it starts at. Pause stops every sound in place and play resumes them.

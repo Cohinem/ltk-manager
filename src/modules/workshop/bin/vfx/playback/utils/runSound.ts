@@ -93,11 +93,11 @@ export function createRunSound(output: SoundOutput, scope = ""): RunSound {
  * The children's on-create cues are listed to `MAX_CHILD_DEPTH`, once per child path.
  */
 export function runSoundCues(system: SystemModel): SoundCue[] {
-  const own = cuesOf(system);
+  const root = cuesOf(system);
   const cues: SoundCue[] = [
-    ...own.onCreate,
-    ...own.persistent,
-    ...own.emitters.flatMap((emitter) =>
+    ...root.onCreate,
+    ...root.persistent,
+    ...root.emitters.flatMap((emitter) =>
       [emitter.onCreate, emitter.persistent].filter((cue) => cue !== null),
     ),
   ];

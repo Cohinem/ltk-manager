@@ -36,7 +36,9 @@ pub struct BinAudio {
 /// A list of bank paths without a `BankUnit`, such as `SpellDataResource.AudioBankPaths`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BankList {
+    /// The bank paths, in list order.
     pub paths: Vec<String>,
+    /// The row of the list in its bin.
     pub site: BankSite,
 }
 
@@ -45,6 +47,7 @@ pub struct BankList {
 pub struct ContextualRules {
     /// The path hash of the object.
     pub object: u32,
+    /// The rules of the object, in list order.
     pub rules: Vec<ContextualRule>,
 }
 
@@ -81,7 +84,9 @@ pub enum Audience {
 /// The short event name of one audience of a contextual rule, such as `cast3D`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AudienceName {
+    /// The audience that the name plays for.
     pub audience: Audience,
+    /// The short event name, such as `cast3D`.
     pub name: String,
 }
 
@@ -96,7 +101,7 @@ impl AudienceName {
     }
 }
 
-/// The fields of `ContextualActionPlayAudio` that hold a short event name, by audience.
+/// The fields of `ContextualActionPlayAudio` that contain a short event name, by audience.
 const AUDIENCE_FIELDS: [(Audience, BinHash); 4] = [
     (Audience::Owner, named("mSelfEventName")),
     (Audience::Ally, named("mAllyEventName")),
@@ -118,7 +123,7 @@ pub enum SiteStep {
 /// Where a bank unit, a bank list or a rule sits in its bin.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BankSite {
-    /// The path hash of the object that holds it.
+    /// The path hash of the object that contains it.
     pub object: u32,
     /// The class hash of that object.
     pub class: u32,
@@ -156,7 +161,7 @@ pub(crate) fn hash_path(steps: &[SiteStep]) -> String {
     path
 }
 
-/// The audio fields of the object that holds a bank unit.
+/// The audio fields of the object that contains a bank unit.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HolderAudio {
     /// The path hash of the `ContextualActionData` object that `mContextualActionData` links.
@@ -168,8 +173,11 @@ pub struct HolderAudio {
 /// One `BankUnit` with its site and the audio fields of its holder.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SitedUnit {
+    /// The unit as written.
     pub unit: BankUnit,
+    /// The row of the unit in its bin.
     pub site: BankSite,
+    /// The audio fields of the object that declares the unit.
     pub holder: HolderAudio,
 }
 

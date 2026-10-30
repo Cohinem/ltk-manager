@@ -74,7 +74,7 @@ export const eventThumbnailQuery = (
     queryKey: [...audioKeys.event(sandbox, asset, version, event), "thumbnail"] as const,
     queryFn: ({ signal }) =>
       thumbnailDecodes.run(async () => {
-        const tree = await queryClient.fetchQuery(
+        const { tree } = await queryClient.fetchQuery(
           audioQueries.event(sandbox, asset, version, event),
         );
         const media = firstEventMedia(tree);

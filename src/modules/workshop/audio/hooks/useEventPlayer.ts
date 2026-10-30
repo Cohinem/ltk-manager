@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 
 import type { MediaLocation } from "@/lib/tauri";
 
+import { playSolo } from "../player/solo";
 import type { SoundChannel } from "../player/soundPlayer";
 import {
   mediaUrl,
@@ -43,9 +44,7 @@ export function useEventPlayer(): EventPlayer {
   const play = useCallback(
     (key: string, sounds: readonly MediaLocation[]) => {
       const urls = sounds.map(mediaUrl);
-      channel.stopAll();
-      channel.resume();
-      channel.play(key, urls);
+      playSolo(channel, key, urls);
 
       if (urls.length > 0) setPlayed({ key, urls });
     },

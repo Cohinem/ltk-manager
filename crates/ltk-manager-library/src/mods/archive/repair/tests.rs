@@ -130,7 +130,7 @@ fn archived_bank(storage: &Path, slug: &str) -> Vec<u8> {
         .unwrap()
 }
 
-/// Stories 3 and 11: "Repair" never converts a bank, and the conversion's own press
+/// Stories 3 and 11: "Repair" never converts a bank, and the press of the conversion
 /// converts it inside an archive-storage mod.
 #[test]
 fn an_alternative_converts_a_bank_that_a_repair_leaves_alone() {

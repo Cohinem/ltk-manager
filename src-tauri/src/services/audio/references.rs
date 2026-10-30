@@ -23,7 +23,9 @@ use crate::services::shared::off_thread;
 pub struct BankReferencesResponse {
     /// The game path that the units name the file by.
     pub path: String,
+    /// The bank units that name the file, grouped.
     pub units: Vec<BankUnitGroup>,
+    /// The `AudioBankPaths` and `BankPaths` rows that list the file.
     pub lists: Vec<SiteRow>,
     /// Off `ready`, the units and lists of the game are missing.
     pub index: AudioIndexStatus,

@@ -1,3 +1,4 @@
+export * from "./alternativeCopy";
 export * from "./categories";
 export * from "./dnd";
 export * from "./filterIcons";

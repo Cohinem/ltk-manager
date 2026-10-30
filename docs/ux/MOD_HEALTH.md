@@ -4,7 +4,7 @@
 
 | Date       | Change                                                      |
 | ---------- | ----------------------------------------------------------- |
-| 2026-10-29 | A finding offers an alternative repair on its own press     |
+| 2026-10-29 | A finding offers an alternative repair on a separate press  |
 | 2026-10-12 | A missing linked object is a rule, in place of the badge    |
 | 2026-10-06 | A page's own actions follow the items in the status bar     |
 | 2026-09-12 | An unbidden panel is told from one the reader opened        |
@@ -673,7 +673,7 @@ that could work.
 ### An alternative repair
 
 A finding can offer a repair beside its fix, called an alternative. Repair, Repair all and the
-launch ask apply the fixes only, so an alternative is applied only by its own press.
+launch ask apply the fixes only, so an alternative is applied only by a press of the alternative.
 
 | What the line draws | Where it comes from                                            |
 | ------------------- | -------------------------------------------------------------- |
@@ -688,7 +688,7 @@ reads `unrepairable`, because the verdict counts fixes, and the line is still dr
 `audio/bank-version` is the one rule that offers an alternative. It converts a rejected legacy
 event bank to version 145 with `Bank::upgrade`, and removal stays its fix. The conversion is
 offered only where a dry run reads back and passes the client's check, and it is the only repair
-of a bank that a bank unit asks for and the game does not hold. It stays experimental until the
+of a bank that a bank unit asks for and the game does not contain. It stays experimental until the
 upgrade check of the in-game audio checks (#954) passes.
 
 ## Launching with something broken

@@ -154,7 +154,7 @@ describe("BankUnits", () => {
     });
   });
 
-  it("gives a declaration whose bin no store holds no press", async () => {
+  it("gives a declaration whose bin no store contains no press", async () => {
     renderUnits();
 
     await userEvent.click(await screen.findByRole("button", { name: /Declared in 2 bins/ }));

@@ -595,32 +595,27 @@ pub fn apply(
     exclusions: Option<&dyn PathResolver>,
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<FixReport> {
-    let mut fix_run = FixRun::open(
-        project_root,
-        migration_tables(),
+    let inputs = RunInputs {
+        config,
         exclusions,
-        config.clone(),
         game,
-    );
-    let failed = fix_each(&mut fix_run, run, Choice::Fixes(problems));
-    let mut report = fix_run
-        .finish()
-        .map_err(|error| AppError::Other(error.to_string()))?;
-    report.failed = failed;
-    Ok(report)
+    };
+    apply_on_disk(project_root, run, Choice::Fixes(problems), inputs)
 }
 
-/// One alternative of one problem, as a press names it.
+/// One alternative of one problem, as a press applies it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChosenAlternative<'a> {
+    /// The problem that offers the alternative.
     pub problem: &'a ProblemId,
+    /// The alternative of [`problem`](Self::problem) to apply.
     pub alternative: &'a AlternativeId,
 }
 
 /// Applies one alternative of one problem, as [`apply`] applies fixes.
 ///
-/// A problem that `run` does not hold, that comes from a dormant rule, or that does not
-/// offer the alternative is not applied, and the report counts nothing.
+/// A problem that `run` does not report, that comes from a dormant rule, or that does not offer
+/// the alternative is not applied, and the report counts nothing.
 ///
 /// # Errors
 ///
@@ -634,23 +629,16 @@ pub fn apply_alternative(
     exclusions: Option<&dyn PathResolver>,
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<FixReport> {
-    let mut fix_run = FixRun::open(
-        project_root,
-        migration_tables(),
+    let inputs = RunInputs {
+        config,
         exclusions,
-        config.clone(),
         game,
-    );
-    let failed = fix_each(&mut fix_run, run, Choice::Alternative(chosen));
-    let mut report = fix_run
-        .finish()
-        .map_err(|error| AppError::Other(error.to_string()))?;
-    report.failed = failed;
-    Ok(report)
+    };
+    apply_on_disk(project_root, run, Choice::Alternative(chosen), inputs)
 }
 
-/// [`apply_alternative`] over the files a check read where they lie, with every write held
-/// for the edit that puts it back, as [`apply_held`] holds them.
+/// [`apply_alternative`] over the files that a check read in place, with every write kept in
+/// memory for the edit that writes it back, as [`apply_held`] does.
 ///
 /// # Errors
 ///
@@ -665,18 +653,12 @@ pub fn apply_alternative_held(
     exclusions: Option<&dyn PathResolver>,
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<(FixReport, HeldWrites)> {
-    let mut fix_run = FixRun::held(
-        project,
-        declared,
-        migration_tables(),
+    let inputs = RunInputs {
+        config,
         exclusions,
-        config.clone(),
         game,
-    );
-    let failed = fix_each(&mut fix_run, run, Choice::Alternative(chosen));
-    let (mut report, held) = fix_run.finish_held()?;
-    report.failed = failed;
-    Ok((report, held))
+    };
+    apply_in_memory(project, declared, run, Choice::Alternative(chosen), inputs)
 }
 
 /// [`apply`] over the files a check read where they lie, with every write held
@@ -698,18 +680,65 @@ pub fn apply_held(
     exclusions: Option<&dyn PathResolver>,
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<(FixReport, HeldWrites)> {
+    let inputs = RunInputs {
+        config,
+        exclusions,
+        game,
+    };
+    apply_in_memory(project, declared, run, Choice::Fixes(problems), inputs)
+}
+
+/// The settings, the exclusions and the install that a fix run reads beside the project.
+struct RunInputs<'a> {
+    config: &'a Config,
+    exclusions: Option<&'a dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
+}
+
+/// Applies `choice` to the project at `project_root`, and writes to disk.
+fn apply_on_disk(
+    project_root: &Path,
+    run: &Run,
+    choice: Choice<'_>,
+    inputs: RunInputs<'_>,
+) -> AppResult<FixReport> {
+    let mut fix_run = FixRun::open(
+        project_root,
+        migration_tables(),
+        inputs.exclusions,
+        inputs.config.clone(),
+        inputs.game,
+    );
+    let failed = fix_each(&mut fix_run, run, choice);
+
+    let mut report = fix_run
+        .finish()
+        .map_err(|error| AppError::Other(error.to_string()))?;
+    report.failed = failed;
+    Ok(report)
+}
+
+/// Applies `choice` to the files of `project`, and returns the writes with the report.
+fn apply_in_memory(
+    project: ProjectFiles,
+    declared: Vec<(HashtableEntry, Hashtable)>,
+    run: &Run,
+    choice: Choice<'_>,
+    inputs: RunInputs<'_>,
+) -> AppResult<(FixReport, HeldWrites)> {
     let mut fix_run = FixRun::held(
         project,
         declared,
         migration_tables(),
-        exclusions,
-        config.clone(),
-        game,
+        inputs.exclusions,
+        inputs.config.clone(),
+        inputs.game,
     );
-    let failed = fix_each(&mut fix_run, run, Choice::Fixes(problems));
-    let (mut report, held) = fix_run.finish_held()?;
+    let failed = fix_each(&mut fix_run, run, choice);
+
+    let (mut report, writes) = fix_run.finish_held()?;
     report.failed = failed;
-    Ok((report, held))
+    Ok((report, writes))
 }
 
 /// The migration tables a run applies, by name.

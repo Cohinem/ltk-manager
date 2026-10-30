@@ -353,7 +353,7 @@ export function createDriver(
     phase = reached;
 
     const now = originAt(rig.motion, reached, rig.height);
-    /* A path stands in for a missile's own game object, whose travel is its local `Y`,
+    /* A path replaces the game object of a missile, whose travel is its local `Y`,
        where a unit's system is the look-at yaw of question 11. */
     orientInto(reached);
     const placed: SystemStep = {
@@ -372,7 +372,7 @@ export function createDriver(
     stepEmitters(pool, system, placed, rng, states);
     origin = now;
     /* shortcut: a child steps on its parent's steps, where the client steps each child
-       system on its own `stepping`; upgrade if a child's flags are found to differ. */
+       system on its `stepping`; upgrade if a child's flags are found to differ. */
     children.step(driver, system, step.dt, step.now);
     lanes.tally(pool, reached);
     keep(step.now);

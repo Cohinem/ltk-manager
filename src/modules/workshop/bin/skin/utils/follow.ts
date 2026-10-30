@@ -46,7 +46,7 @@ export function followClock(
  * `clock`'s time, and returns the events that the driver's forward play reported.
  *
  * Returns null if the cue has not fired this pass, which stands the driver back at zero once.
- * The run's own time is the pass's time past the cue. A jump of the clock replays to it as
+ * The time of the run is the pass's time past the cue. A jump of the clock replays to it as
  * [`followClock`] replays one and returns no event. Forward play across the cue, and a pass that
  * wraps under a cue at zero, start the run over and step it, so the driver reports the start.
  */

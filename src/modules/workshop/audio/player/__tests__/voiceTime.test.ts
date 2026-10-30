@@ -9,7 +9,7 @@ describe("voiceTime", () => {
     ).toBe(2.5);
   });
 
-  it("returns the offset of a held voice", () => {
+  it("returns the offset of a paused voice", () => {
     expect(
       voiceTime({ offset: 1.25, startedAt: 10, running: false, repeat: "once", duration: 5 }, 30),
     ).toBe(1.25);

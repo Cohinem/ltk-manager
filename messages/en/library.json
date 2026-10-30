@@ -406,5 +406,8 @@
   "library_view_grid_label": "Grid view",
   "library_view_options_label": "View options",
   "library_view_table_label": "Table view",
-  "library_view_tags_label": "Tags"
+  "library_view_tags_label": "Tags",
+  "rule.audio/bank-version.convert.attenuation.description": "Rewritten at version 145. The events keep their IDs. One attenuation flag of version 145 has no value in this bank and is written as zero.",
+  "rule.audio/bank-version.convert.description": "Rewritten at version 145. The events keep their IDs.",
+  "rule.audio/bank-version.convert.title": "Convert to version 145"
 }

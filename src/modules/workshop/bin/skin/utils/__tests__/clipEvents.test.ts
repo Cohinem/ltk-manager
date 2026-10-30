@@ -176,7 +176,7 @@ describe("soundCues", () => {
     ]);
   });
 
-  it("places a sequencer's own events over the whole pass and skips an event naming no sound", () => {
+  it("places the events of a sequencer over the whole pass and skips an event naming no sound", () => {
     const owner = {
       ...clip("Combo", [event("Hit", STEP, 4), event("Silent", { ...STEP, name: "" }, 0)]),
       ownEvents: true,

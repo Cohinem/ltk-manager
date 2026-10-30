@@ -337,8 +337,8 @@ describe("ModHealthSweepPanel", () => {
     ).toBeInTheDocument();
   });
 
-  /* Story: a conversion is offered on its finding and applied only by its own press. */
-  it("offers a finding's alternative as its own press with the experimental chip", async () => {
+  /* Story: a conversion is offered on its finding and applied only by a press of it. */
+  it("offers a finding's alternative as a separate press with the experimental chip", async () => {
     const user = userEvent.setup();
     const brief: RuleBrief = {
       rule: "audio/bank-version",
@@ -353,9 +353,8 @@ describe("ModHealthSweepPanel", () => {
           file: "ashe_sfx_events.bnk",
           alternative: {
             id: "convert",
-            title: "Convert to version 145",
             experimental: true,
-            fix: { note: "Rewritten at version 145.", before: "134", after: "145" },
+            fix: { before: "134", after: "145" },
           },
         },
       ],
@@ -371,7 +370,9 @@ describe("ModHealthSweepPanel", () => {
 
     expect(screen.getByText("ashe_sfx_events.bnk")).toBeInTheDocument();
     expect(screen.getByText("Experimental")).toBeInTheDocument();
-    expect(screen.getByText("Rewritten at version 145.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Rewritten at version 145. The events keep their IDs."),
+    ).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Convert to version 145 in Old Ashe Rework" }),

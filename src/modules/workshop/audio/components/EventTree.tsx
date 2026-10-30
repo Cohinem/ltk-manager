@@ -25,6 +25,7 @@ import { IndentRails } from "../../shared/components/TreeRowParts";
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import { childrenOf, type EventRow, eventLabel, objectLabel } from "../utils/eventTree";
+import { movedIndex, treeStep } from "../utils/rowKeys";
 import { AUDIO_LIST_GROUP, audioRowClasses } from "./audioRow";
 
 interface EventTreeProps {
@@ -46,9 +47,6 @@ interface EventTreeProps {
 
 /** The height of a row in px at 100% zoom: `h-6` is six spacing units of 4.5px. */
 const ROW_HEIGHT = 27;
-
-/** The rows a Page Up or a Page Down moves the selection by. */
-const PAGE_ROWS = 10;
 
 /**
  * The events of an event bank, each expanding into its actions and the objects under them,
@@ -97,16 +95,8 @@ export function EventTree({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
-    const moves: Record<string, number> = {
-      ArrowDown: selectedIndex + 1,
-      ArrowUp: selectedIndex - 1,
-      PageDown: selectedIndex + PAGE_ROWS,
-      PageUp: selectedIndex - PAGE_ROWS,
-      Home: 0,
-      End: rows.length - 1,
-    };
-    const target = moves[event.key];
-    if (target !== undefined) {
+    const target = movedIndex(event.key, selectedIndex, rows.length);
+    if (target !== null) {
       event.preventDefault();
       selectAt(target);
       return;
@@ -115,17 +105,11 @@ export function EventTree({
     const row = rows[selectedIndex];
     if (row === undefined) return;
 
-    if (event.key === "ArrowRight") {
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
-      if (row.expandable && !expanded.has(row.key)) onExpand(row.key, true);
-      else if (row.expandable) selectAt(selectedIndex + 1);
-      return;
-    }
-
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      if (row.expandable && expanded.has(row.key)) onExpand(row.key, false);
-      else if (row.parent !== null) selectAt(rows.findIndex((each) => each.key === row.parent));
+      const step = treeStep(event.key, rows, selectedIndex, expanded);
+      if (step?.kind === "expand") onExpand(step.key, step.open);
+      if (step?.kind === "select") selectAt(step.index);
       return;
     }
 

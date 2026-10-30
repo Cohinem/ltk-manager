@@ -46,6 +46,7 @@ pub fn packaged_sources() -> Vec<SourceId> {
 #[derive(Debug, Default)]
 pub struct FakeFiles {
     files: HashMap<String, Vec<u8>>,
+    failing: HashSet<String>,
 }
 
 impl FakeFiles {
@@ -60,6 +61,19 @@ impl FakeFiles {
         self.with(path, fixture(name))
     }
 
+    /// Makes a read of the game path `path` fail with an I/O error.
+    pub fn failing(mut self, path: &str) -> Self {
+        self.failing.insert(path.to_lowercase());
+        self
+    }
+
+    fn check(&self, path: &str) -> io::Result<()> {
+        if self.failing.contains(&path.to_lowercase()) {
+            return Err(io::Error::other(format!("failed to read {path}")));
+        }
+        Ok(())
+    }
+
     fn asset(path: &str) -> AssetRef {
         AssetRef::File {
             path: path.to_lowercase(),
@@ -69,6 +83,7 @@ impl FakeFiles {
 
 impl AudioFiles for FakeFiles {
     fn read(&self, path: &str) -> io::Result<Option<AudioFile<Vec<u8>>>> {
+        self.check(path)?;
         Ok(self.files.get(&path.to_lowercase()).map(|bytes| AudioFile {
             asset: Self::asset(path),
             contents: bytes.clone(),
@@ -76,6 +91,7 @@ impl AudioFiles for FakeFiles {
     }
 
     fn open(&self, path: &str) -> io::Result<Option<AudioFile<Box<dyn ReadSeek>>>> {
+        self.check(path)?;
         Ok(self.files.get(&path.to_lowercase()).map(|bytes| AudioFile {
             asset: Self::asset(path),
             contents: Box::new(Cursor::new(bytes.clone())) as Box<dyn ReadSeek>,

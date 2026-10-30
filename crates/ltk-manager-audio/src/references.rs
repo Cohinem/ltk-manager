@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 use ltk_manager_assets::preview::AssetRef;
 use serde::Serialize;
 
-use crate::bank_set::CONTEXTUAL_ACTION_DATA;
+use crate::bank_set::{CONTEXTUAL_ACTION_DATA, shipped};
 use crate::bin_audio::{BankSite, SiteStep, hash_path, json_string};
 use crate::events::{SetFile, SetFileState};
 use crate::index::{AudioIndex, IndexedUnit};
@@ -34,7 +34,7 @@ pub trait SiteNames {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SiteRow {
-    /// The bin, the project layer first. `None` if no layer and no archive holds it.
+    /// The bin, the project layer first. `None` if no layer and no archive contains it.
     pub asset: Option<AssetRef>,
     /// The game path of the bin.
     pub bin: String,
@@ -77,7 +77,9 @@ pub struct BankDeclaration {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BankUnitGroup {
+    /// The `name` of the units.
     pub name: String,
+    /// The `voiceOver` flag of the units.
     pub voice_over: bool,
     /// The `bankPath` files, in the unit's order. The opened file is marked.
     pub files: Vec<SetFile>,
@@ -106,10 +108,18 @@ impl BankReferences {
     /// rest in index order.
     #[must_use]
     pub fn of(path: &str, indexes: &[&AudioIndex], names: &dyn SiteNames) -> Self {
+        let shipped = shipped(path);
+        let opened = |file: &str| {
+            file.eq_ignore_ascii_case(path)
+                || shipped
+                    .as_ref()
+                    .is_some_and(|(shipped, _)| file.eq_ignore_ascii_case(shipped))
+        };
+
         let mut groups: Vec<(GroupKey, Vec<&IndexedUnit>)> = Vec::new();
         for indexed in ranked_units(path, indexes) {
             let key = GroupKey::of(indexed);
-            match groups.iter_mut().find(|(held, _)| *held == key) {
+            match groups.iter_mut().find(|(grouped, _)| *grouped == key) {
                 Some((_, declarations)) => declarations.push(indexed),
                 None => groups.push((key, vec![indexed])),
             }
@@ -135,7 +145,7 @@ impl BankReferences {
                                     None => SetFileState::Missing,
                                 },
                                 asset,
-                                opened: file.eq_ignore_ascii_case(path),
+                                opened: opened(file),
                             }
                         })
                         .collect(),
@@ -197,14 +207,21 @@ impl GroupKey {
 
 /// Returns the bank units of `indexes` that name `path`, ranked as [`BankReferences::of`]
 /// ranks the declarations of a group.
-pub(crate) fn ranked_units<'a>(path: &'a str, indexes: &[&'a AudioIndex]) -> Vec<&'a IndexedUnit> {
+///
+/// A bank at a locale other than `en_US` also takes the units that name its `en_US` path.
+pub(crate) fn ranked_units<'a>(path: &str, indexes: &[&'a AudioIndex]) -> Vec<&'a IndexedUnit> {
     let bank_skin = bank_skin(path);
+    let shipped = shipped(path);
     let mut units: Vec<(usize, u8, &IndexedUnit)> = indexes
         .iter()
         .enumerate()
         .flat_map(|(position, index)| {
+            let localized = shipped
+                .iter()
+                .flat_map(|(shipped, _)| index.units_naming(shipped));
             index
                 .units_naming(path)
+                .chain(localized)
                 .map(move |indexed| (position, rank(&indexed.bin, bank_skin), indexed))
         })
         .collect();
@@ -248,7 +265,7 @@ fn skin_number(segment: &str) -> Option<u32> {
 
 const SKIN_PREFIX: &str = "skin";
 
-/// Returns the row of the bank unit `indexed`, with `extra` steps after the unit's own.
+/// Returns the row of the bank unit `indexed`, with `extra` steps after the steps of the unit.
 pub(crate) fn unit_row(
     indexed: &IndexedUnit,
     extra: Option<&[SiteStep]>,
