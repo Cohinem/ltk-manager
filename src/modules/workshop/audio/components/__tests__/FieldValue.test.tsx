@@ -84,6 +84,8 @@ function renderField(name: string, edit: (edit: BankEdit) => Promise<boolean>) {
     properties: PROPERTIES,
     edited: new Set(),
     edit,
+    importWem: () => Promise.resolve(false),
+    locked: () => false,
   };
   render(<Harness field={field} editing={editing} />);
 }

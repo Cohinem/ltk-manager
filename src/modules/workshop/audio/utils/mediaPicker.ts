@@ -30,28 +30,29 @@ function containerOf(stream: SoundStream): MediaContainer | null {
  * Returns the media of `files` that a sound of `stream` can play, each source ID once.
  *
  * A sound of a bank's media index takes the media of the banks, and a streamed sound the media of
- * the packages. A prefetched sound takes none, as its media is in two files. A source ID that two
- * files hold comes from the first of them.
+ * the packages. A prefetched sound takes none, as its media is in two files. A new sound, whose
+ * `stream` is null, takes the media of both. A source ID that two files hold comes from the first
+ * of them.
  */
 export function mediaCandidates(
   files: readonly SetFileMedia[],
-  stream: SoundStream,
+  stream: SoundStream | null,
 ): MediaCandidate[] {
-  const container = containerOf(stream);
+  const container = stream === null ? "any" : containerOf(stream);
   if (container === null) return [];
 
   const seen = new Set<number>();
   const candidates: MediaCandidate[] = [];
   for (const { file, media } of files) {
     const held: MediaContainer = unitFileKind(file.path) === "package" ? "package" : "bank";
-    if (file.asset === null || held !== container) continue;
+    if (file.asset === null || (container !== "any" && held !== container)) continue;
 
     for (const row of media) {
       if (seen.has(row.sourceId)) continue;
 
       seen.add(row.sourceId);
       candidates.push({
-        media: { asset: file.asset, path: file.path, source: row.sourceId, container },
+        media: { asset: file.asset, path: file.path, source: row.sourceId, container: held },
         name: fileName(file.path),
       });
     }

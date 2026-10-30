@@ -13,14 +13,17 @@ import {
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
+import type { MediaLocation, SetFile } from "@/lib/tauri";
 import { measureRow, twMerge } from "@/utils";
 
 import { nameColumnStyle, RowAction } from "../../shared/components/PropertyRowParts";
 import { createGuideStore, GuideStoreContext } from "../../shared/state/treeGuides";
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
+import type { TreePicks } from "../hooks/useTreePicks";
 import type { EventRow } from "../utils/eventTree";
 import { movedIndex, treeStep } from "../utils/rowKeys";
+import { pickMode } from "../utils/rowSelection";
 import {
   childIds,
   containerOf,
@@ -29,7 +32,9 @@ import {
   takesChild,
   type TreeEditing,
 } from "../utils/treeEditing";
+import { AddNodeLine } from "./AddNodeLine";
 import { AUDIO_LIST_GROUP } from "./audioRow";
+import type { NodeActions } from "./EventMenu";
 import {
   EditedMark,
   guideBlocks,
@@ -40,30 +45,39 @@ import {
   RowFrame,
   rowId,
 } from "./EventRowParts";
-import { ChildrenValue, FieldNameCell, fieldName, FieldValue, NodePicker } from "./FieldRows";
+import { ChildrenValue, FieldNameCell, fieldName, FieldValue } from "./FieldRows";
+import { nodeKey } from "./nodeKeys";
 import { RowContent } from "./RowContent";
 
 interface EventTreeProps {
   readonly rows: readonly EventRow[];
   readonly expanded: ReadonlySet<string>;
   readonly onExpand: (key: string, open: boolean) => void;
+  /** The key of the row that the keyboard is on. */
   readonly selected: string | null;
-  readonly onSelect: (key: string) => void;
+  /** The picked rows, which the node actions take. */
+  readonly picks: TreePicks;
   readonly player: EventPlayer;
-  /** Plays a new pick of `row`, and stops what played before. */
+  /** Plays a new pick of `row`, or of every picked row, and stops what played before. */
   readonly onPlay: (row: EventRow) => void;
-  /** Copies the name of an event row, or the ID of any other row. */
-  readonly onCopy: (row: EventRow) => void;
+  /** Copies the names and IDs of the picked rows. */
+  readonly onCopy: () => void;
+  /** The node actions on the picked rows, or null for a tree that takes no edit. */
+  readonly actions: NodeActions | null;
   /** The context menu items of `row`. */
   readonly menu: (row: EventRow) => ReactNode;
   /** The waveform column of `row`. */
   readonly thumbnail: (row: EventRow) => ReactNode;
   /** The open document that the rows edit, or null for a tree that takes no edit. */
   readonly editing?: TreeEditing | null;
-  /** The key of the container row whose child picker is open. */
+  /** The files of the bank set, whose media a new sound plays. */
+  readonly files: readonly SetFile[];
+  /** The key of the add row whose menu is open. */
   readonly adding?: string | null;
-  /** Opens the child picker of a container row, or closes it with null. */
+  /** Opens the menu of an add row, or closes it with null. */
   readonly onAdding?: (key: string | null) => void;
+  /** Plays `media` under the row `key`, and stops what played before. */
+  readonly onPreview: (key: string, media: MediaLocation) => void;
 }
 
 /** The height of a row in px at 100% zoom: `min-h-6` is six spacing units of 4.5px. */
@@ -74,24 +88,27 @@ const ROW_HEIGHT = 27;
  * under them, windowed.
  *
  * An action and a node are each one row, and their fields are child rows that read like a bin's
- * properties: a name and the value in one column. One tab stop with
- * `aria-activedescendant`. The keyboard map is "Event tree" and "Editing" in docs/ux/AUDIO.md, and
- * the menu key opens the context menu of the selected row.
+ * properties: a name and the value in one column. An event and a container end in an add row.
+ * One tab stop with `aria-activedescendant`. The keyboard map is "Event tree", "Editing" and
+ * "Selection" in docs/ux/AUDIO.md, and the menu key opens the context menu of the selected row.
  */
 export function EventTree({
   rows,
   expanded,
   onExpand,
   selected,
-  onSelect,
+  picks,
   player,
   onPlay,
   onCopy,
+  actions,
   menu,
   thumbnail,
   editing = null,
+  files,
   adding = null,
   onAdding,
+  onPreview,
 }: EventTreeProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const byKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
@@ -106,11 +123,6 @@ export function EventTree({
       const active = document.activeElement;
       if (active === null || active === document.body) scroller.current?.focus();
     });
-  }
-
-  function closePicker() {
-    onAdding?.(null);
-    returnFocus();
   }
 
   const [menuRow, setMenuRow] = useState<EventRow | null>(null);
@@ -131,11 +143,11 @@ export function EventTree({
   const selectedRow = rows[selectedIndex];
   useEffect(() => guides.set({ active: selectedRow?.parent ?? null }), [guides, selectedRow]);
 
-  function selectAt(index: number) {
+  function selectAt(index: number, range = false) {
     const row = rows[Math.max(0, Math.min(rows.length - 1, index))];
     if (row === undefined) return;
 
-    onSelect(row.key);
+    picks.pick(row.key, range ? "range" : "only");
     virtualizer.scrollToIndex(rows.indexOf(row), { align: "auto" });
   }
 
@@ -143,12 +155,14 @@ export function EventTree({
     return row.parent === null ? undefined : byKey.get(row.parent);
   }
 
-  /** Returns the key of the container whose picker `row` opens, or null if it opens none. */
-  function pickerOf(row: EventRow): string | null {
-    const container = row.kind === "children" ? parentOf(row) : row;
-    if (container?.kind !== "node" || !takesChild(container.node)) return null;
-
-    return isEditable(editing, container.node.id) ? container.key : null;
+  /** Returns `true` if the children row `row` belongs to a container that takes a new child. */
+  function addsTo(row: EventRow): boolean {
+    const container = parentOf(row);
+    return (
+      container?.kind === "node" &&
+      takesChild(container.node) &&
+      isEditable(editing, container.node.id)
+    );
   }
 
   /** Applies the edit key of `event` to `row`. Returns `true` if the key was an edit key. */
@@ -159,30 +173,19 @@ export function EventTree({
         if (editing !== null && row.field.editable) setEntering(row.key);
         return true;
       }
-
-      const container = row.kind === "children" ? pickerOf(row) : null;
-      if (container !== null) {
-        onAdding?.(container);
+      if ((row.kind === "children" && addsTo(row)) || row.kind === "add") {
+        actions?.add?.();
         return true;
       }
       if (event.key === "F2") return true;
     }
     if (editing === null) return false;
 
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-      const container = pickerOf(row);
-      if (container !== null) onAdding?.(container);
-      return true;
-    }
+    if (nodeKey(event, actions)) return true;
 
     const container = containerOf(parentOf(row));
     const child = rowObject(row);
     const removable = container !== null && child !== null && isEditable(editing, container.id);
-    if (event.key === "Delete" && removable) {
-      void editing.edit({ kind: "delete", object: child, parent: container.id });
-      return true;
-    }
-
     const moving = event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown");
     if (moving && removable && container.kind === "random") {
       const at = container.playlist.findIndex(
@@ -205,10 +208,16 @@ export function EventTree({
       return;
     }
 
-    const target = movedIndex(event.key, selectedIndex, rows.length);
+    const target = event.altKey ? null : movedIndex(event.key, selectedIndex, rows.length);
     if (target !== null) {
       event.preventDefault();
-      selectAt(target);
+      selectAt(target, event.shiftKey);
+      return;
+    }
+
+    if (event.key === "a" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      picks.pickAll();
       return;
     }
 
@@ -229,15 +238,16 @@ export function EventTree({
       return;
     }
 
-    if (event.key === "Escape" && player.playing !== null) {
+    if (event.key === "Escape") {
       event.preventDefault();
-      player.stop();
+      if (player.playing !== null) player.stop();
+      else picks.pick(row.key, "only");
       return;
     }
 
     if (event.key === "c" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      onCopy(row);
+      onCopy();
     }
   }
 
@@ -246,10 +256,11 @@ export function EventTree({
     const frame = {
       row,
       open,
-      selected: row.key === selected,
+      selected: row.key === selected || picks.picked.has(row.key),
       playing: player.playing === row.key,
       blocks: guideBlocks(row, byKey),
-      onSelect: () => onSelect(row.key),
+      onSelect: (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) =>
+        picks.pick(row.key, pickMode(event)),
       onExpand: (next: boolean) => onExpand(row.key, next),
       onHover: () => guides.set({ hover: row.parent }),
     };
@@ -275,26 +286,44 @@ export function EventTree({
     }
 
     if (row.kind === "children") {
-      const container = pickerOf(row);
-      const picking = editing !== null && adding !== null && adding === row.parent;
       return (
         <RowFrame {...frame}>
           <FieldNameCell name={fieldName(row)} lead={<Lead {...frame} expandable />} />
-          {!picking && (
-            <ChildrenValue
-              count={row.count}
-              onAdd={container === null ? undefined : () => onAdding?.(container)}
-            />
-          )}
-          {picking && (
-            <NodePicker
-              revision={editing.revision}
-              exclude={new Set([row.node.id, ...childIds(row.node)])}
-              onPick={(child) => {
-                void editing.edit({ kind: "addChild", container: row.node.id, child });
-                closePicker();
-              }}
-              onClose={closePicker}
+          <ChildrenValue
+            count={row.count}
+            onAdd={
+              addsTo(row)
+                ? () => {
+                    picks.pick(row.key, "only");
+                    onAdding?.(`${row.key}:add`);
+                    onExpand(row.key, true);
+                  }
+                : undefined
+            }
+          />
+        </RowFrame>
+      );
+    }
+
+    if (row.kind === "add") {
+      const owner = parentOf(row);
+      const exclude =
+        owner?.kind === "children"
+          ? new Set([owner.node.id, ...childIds(owner.node)])
+          : new Set<number>();
+      return (
+        <RowFrame {...frame}>
+          <Lead {...frame} expandable={false} />
+          {editing !== null && (
+            <AddNodeLine
+              into={row.into}
+              editing={editing}
+              files={files}
+              exclude={exclude}
+              opening={adding === row.key}
+              onOpening={(next) => onAdding?.(next ? row.key : null)}
+              onPreview={(media) => onPreview(row.key, media)}
+              onLeave={returnFocus}
             />
           )}
         </RowFrame>
@@ -312,7 +341,7 @@ export function EventTree({
           playable={isPlayable(row)}
           playing={frame.playing}
           onToggle={() => {
-            onSelect(row.key);
+            if (!picks.picked.has(row.key)) picks.pick(row.key, "only");
             if (player.playing === row.key) player.stop();
             else onPlay(row);
           }}
@@ -343,6 +372,7 @@ export function EventTree({
           role="tree"
           tabIndex={0}
           aria-label={m.audio_events_tree_label()}
+          aria-multiselectable
           aria-activedescendant={selected === null ? undefined : rowId(selected)}
           onKeyDown={handleKeyDown}
           onFocus={(event) => {
@@ -372,7 +402,7 @@ export function EventTree({
                   className="absolute top-0 left-0 w-full"
                   style={{ transform: `translateY(${item.start}px)` }}
                   onContextMenu={() => {
-                    onSelect(row.key);
+                    if (!picks.picked.has(row.key)) picks.pick(row.key, "only");
                     setMenuRow(row);
                   }}
                 >

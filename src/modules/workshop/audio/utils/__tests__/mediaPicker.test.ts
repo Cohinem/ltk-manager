@@ -44,6 +44,16 @@ describe("mediaCandidates", () => {
     ]);
   });
 
+  it("offers a new sound the media of every file, each source ID once", () => {
+    const candidates = mediaCandidates(SET, null);
+
+    expect(candidates.map((each) => [each.media.source, each.media.container])).toEqual([
+      [11, "bank"],
+      [12, "bank"],
+      [21, "package"],
+    ]);
+  });
+
   it("offers a prefetched sound nothing, as its media is in two files", () => {
     expect(mediaCandidates(SET, "prefetch")).toEqual([]);
   });

@@ -89,7 +89,7 @@ export function FieldValue({
   const [draft, setDraft] = useState<{ value: number; over: number } | null>(null);
   if (draft !== null && draft.over !== field.value) setDraft(null);
 
-  const editable = editing !== null && field.editable;
+  const editable = editing !== null && field.editable && !editing.locked(field.target);
   const range = knobRange(field.name);
   const label = FIELD_LABELS[field.name]();
   const shown = { ...field, value: draft?.value ?? field.value };

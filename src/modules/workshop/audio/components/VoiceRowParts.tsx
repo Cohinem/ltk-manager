@@ -5,7 +5,7 @@ import { Fragment, type ReactNode, useState } from "react";
 import { Button, Combobox, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { assetVersion, useAssetVersions } from "@/lib/assetVersions";
-import type { SetFile } from "@/lib/tauri";
+import type { SetFile, SoundStream } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { NAME_COLUMN_CLASSES } from "../../shared/components/PropertyRowParts";
@@ -349,7 +349,10 @@ export function VoiceCells({
 
 interface MediaPickerProps {
   readonly files: readonly SetFile[];
-  readonly line: VoiceLine;
+  /** The stream type of the sound, whose files the picker lists, or null for a new sound. */
+  readonly stream: SoundStream | null;
+  /** The source ID that the sound plays, which the picker leaves out, or null. */
+  readonly current: number | null;
   /** Plays a candidate before it is chosen. */
   readonly onPreview: (candidate: MediaCandidate) => void;
   readonly onPick: (candidate: MediaCandidate) => void;
@@ -367,7 +370,14 @@ function candidateLabel(candidate: MediaCandidate): string {
  *
  * A highlighted candidate plays. Enter picks the highlighted one and Escape closes the picker.
  */
-export function MediaPicker({ files, line, onPreview, onPick, onClose }: MediaPickerProps) {
+export function MediaPicker({
+  files,
+  stream,
+  current,
+  onPreview,
+  onPick,
+  onClose,
+}: MediaPickerProps) {
   const versions = useAssetVersions();
   const found = files.flatMap((file) =>
     file.asset !== null && file.state.kind === "found" ? [{ file, asset: file.asset }] : [],
@@ -375,12 +385,9 @@ export function MediaPicker({ files, line, onPreview, onPick, onClose }: MediaPi
   const reads = useQueries({
     queries: found.map(({ asset }) => audioQueries.media(asset, assetVersion(versions, asset))),
   });
-  const node = line.voice.node;
-  const stream = node.kind === "sound" ? node.stream : "other";
-  const current = node.kind === "sound" ? node.source : -1;
   const [query, setQuery] = useState("");
   const held = found.map(({ file }, at) => ({ file, media: reads[at]?.data ?? [] }));
-  const matches = matchingMedia(mediaCandidates(held, stream), query, current);
+  const matches = matchingMedia(mediaCandidates(held, stream), query, current ?? -1);
 
   return (
     <Combobox.Root<MediaCandidate>

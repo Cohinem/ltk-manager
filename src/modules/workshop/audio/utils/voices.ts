@@ -4,6 +4,7 @@ import type {
   EventNode,
   EventTree,
   MediaLocation,
+  NodeParent,
   ObjectProperties,
 } from "@/lib/tauri";
 
@@ -312,7 +313,12 @@ export type VoiceRow =
       readonly prefix: readonly VoiceStep[];
     })
   | (RowBase & { readonly kind: "others"; readonly count: number })
-  | (RowBase & { readonly kind: "add"; readonly container: ContainerNode })
+  /** The add row of a container, or of an event. `exclude` is what a moved node may not be. */
+  | (RowBase & {
+      readonly kind: "add";
+      readonly into: NodeParent;
+      readonly exclude: ReadonlySet<number>;
+    })
   | (RowBase & { readonly kind: "empty" })
   | (RowBase & { readonly kind: "loading" })
   | (RowBase & { readonly kind: "failed"; readonly message: string });
@@ -352,7 +358,7 @@ export function othersKey(chain: string): string {
 export interface VoiceRowOptions {
   /** The properties of the objects of the trees, by object ID. */
   readonly properties: ReadonlyMap<number, ObjectProperties>;
-  /** `true` if the bank takes edits, which draws the add row. */
+  /** `true` if the bank takes edits, which draws the add rows. */
   readonly editable: boolean;
 }
 
@@ -362,8 +368,9 @@ export interface VoiceRowOptions {
  *
  * An expanded event draws the chain line of each Play action, the fields of the objects whose
  * segment is open, the voices of the default branches, the fold of the other branches, and the
- * add row of a chain that ends in a random container or an actor-mixer. An event that plays one
- * sound alone draws it on its own row and does not expand. Per "Voices" in docs/ux/AUDIO.md.
+ * add row of a chain that ends in a container that takes a child. An expanded event of an
+ * editable bank ends in its own add row. An event that plays one sound alone draws it on its own
+ * row and does not expand. Per "Voices" in docs/ux/AUDIO.md.
  */
 export function voiceRows(
   events: readonly AudioEvent[],
@@ -408,10 +415,19 @@ export function voiceRows(
 
     if (chains === null || chains.length === 0) {
       rows.push({ kind: "empty", key: `${key}:empty`, ...leaf(key, 1, eventId) });
-      continue;
+    } else {
+      for (const chain of chains) pushChain(chain, eventId);
     }
 
-    for (const chain of chains) pushChain(chain, eventId);
+    if (editable) {
+      rows.push({
+        kind: "add",
+        key: `${key}:add`,
+        ...leaf(key, 1, eventId),
+        into: { kind: "event", event: eventId },
+        exclude: new Set(),
+      });
+    }
   }
 
   function lineOf(voice: Voice, chain: VoiceChain, list: readonly Voice[]): VoiceLine {
@@ -471,7 +487,8 @@ export function voiceRows(
         kind: "add",
         key: `${chain.key}:add`,
         ...leaf(chain.key, 2, eventId),
-        container: last,
+        into: { kind: "container", container: last.id },
+        exclude: new Set([last.id, ...last.children.map((child) => child.id)]),
       });
     }
 

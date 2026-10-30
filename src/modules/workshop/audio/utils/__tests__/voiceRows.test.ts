@@ -224,7 +224,7 @@ describe("movedCell", () => {
 describe("voiceRows", () => {
   const RANDOM = random(7, [sound(1), sound(2)]);
 
-  it("draws the chain line, the voices and the add row under an expanded event", () => {
+  it("draws the chain line, the voices and the add rows under an expanded event", () => {
     const rows = voiceRows([audioEvent(100)], new Set(["e100"]), ready(play(RANDOM)), {
       properties: new Map([WEIGHTED]),
       editable: true,
@@ -236,6 +236,7 @@ describe("voiceRows", () => {
       ["e100/0.0.0", "voice", 2, "e100/0"],
       ["e100/0.0.1", "voice", 2, "e100/0"],
       ["e100/0:add", "add", 2, "e100/0"],
+      ["e100:add", "add", 1, "e100"],
     ]);
   });
 
@@ -274,8 +275,12 @@ describe("voiceRows", () => {
     expect(shape(closed).slice(2)).toEqual([
       ["e100/0.0.0", "voice", 2, "e100/0"],
       ["e100/0:others", "others", 2, "e100/0"],
+      ["e100:add", "add", 1, "e100"],
     ]);
-    expect(shape(open).slice(4)).toEqual([["e100/0.0.1", "voice", 3, "e100/0:others"]]);
+    expect(shape(open).slice(4)).toEqual([
+      ["e100/0.0.1", "voice", 3, "e100/0:others"],
+      ["e100:add", "add", 1, "e100"],
+    ]);
   });
 
   it("draws an event of one sound as one row that does not expand", () => {
@@ -299,6 +304,7 @@ describe("voiceRows", () => {
     expect(shape(rows)).toEqual([
       ["e100", "event", 0, null],
       ["e100:empty", "empty", 1, "e100"],
+      ["e100:add", "add", 1, "e100"],
     ]);
   });
 });
