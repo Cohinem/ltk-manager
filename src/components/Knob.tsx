@@ -1,21 +1,28 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type SyntheticEvent,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 import { twMerge } from "@/utils";
 
+import { parseNumberText } from "./entryOutcome";
 import { focusRing } from "./focus";
 import {
   continueGesture,
   draggedValue,
   gestureCommit,
+  isResetPress,
   type KnobGesture,
   keyedValue,
+  knobKeyAction,
   wheeledValue,
 } from "./knobValue";
+import { Popover } from "./Popover";
+import { useValueEntry, ValueEntry } from "./ValueEntry";
 
 export type { KnobRange } from "./knobValue";
 
@@ -26,16 +33,24 @@ export interface KnobProps {
   max: number;
   /** The change of one arrow key. Shift moves a tenth of it. */
   step?: number;
-  /** The value that a double click resets to, and where the value arc starts. Defaults to `min`. */
+  /** The value that a reset goes to, and where the value arc starts. Defaults to `min`. */
   defaultValue?: number;
   /** Takes every value a gesture passes through. */
   onChange: (value: number) => void;
-  /** Takes the value at the end of a drag, a key run or a wheel run, once per gesture. */
-  onCommit?: (value: number) => void;
-  /** The unit that `aria-valuetext` reads after the value, such as `dB`. */
+  /**
+   * Takes the value at the end of a drag, a key run, a wheel run, a reset or an entry, once per
+   * gesture. A promise that resolves `false` reopens a typed entry with its text marked.
+   */
+  onCommit?: (value: number) => void | Promise<boolean>;
+  /** The unit after the value, such as `dB`, which `aria-valuetext` reads and an entry shows. */
   unit?: string;
-  /** Returns the text of a value for `aria-valuetext`. Defaults to the number. */
+  /** Returns the text of a value for `aria-valuetext` and the entry. Defaults to the number. */
   format?: (value: number) => string;
+  /** Returns the value that typed text holds. Defaults to a number with `unit` after it or not. */
+  parse?: (text: string) => number | null;
+  /** `true` while the value entry is open. Absent, the knob holds it. */
+  entryOpen?: boolean;
+  onEntryOpenChange?: (open: boolean) => void;
   disabled?: boolean;
   "aria-label": string;
   className?: string;
@@ -55,8 +70,10 @@ const RADIUS = 9;
  * A bounded number turned by a vertical drag, the wheel or the keys, as a dial.
  *
  * It follows the slider contract: `role="slider"`, the arrows step, the Page keys move a tenth of
- * the range, Home and End go to the bounds and Shift steps finer. A double click resets to
- * `defaultValue`. Each drag, key run and wheel run calls `onCommit` once at its end, so one
+ * the range, Home and End go to the bounds and Shift steps finer. Alt+click, Delete and Backspace
+ * reset to `defaultValue`. A double click, F2 or Enter opens a value entry under the knob,
+ * prefilled and selected: Enter and a press outside commit, Escape cancels. A typed value outside
+ * the range is kept. Each drag, key run, wheel run, reset and entry calls `onCommit` once, so one
  * gesture is one undo step for a caller that writes on commit. The value arc grows from
  * `defaultValue`, so a bipolar range reads its sign.
  */
@@ -70,6 +87,9 @@ export function Knob({
   onCommit,
   unit,
   format = String,
+  parse,
+  entryOpen,
+  onEntryOpenChange,
   disabled = false,
   "aria-label": ariaLabel,
   className,
@@ -83,6 +103,23 @@ export function Knob({
   latest.current = { value, onChange, onCommit, range, disabled };
 
   useEffect(() => () => window.clearTimeout(idle.current), []);
+
+  const [ownEntryOpen, setOwnEntryOpen] = useState(false);
+  const entry = useValueEntry({
+    open: !disabled && (entryOpen ?? ownEntryOpen),
+    onOpenChange: (open) => {
+      setOwnEntryOpen(open);
+      onEntryOpenChange?.(open);
+    },
+    initialText: () => format(value),
+    parse: parse ?? ((text) => parseNumberText(text, unit)),
+    onCommit: (typed) => {
+      if (typed === value) return;
+
+      onChange(typed);
+      return onCommit?.(typed);
+    },
+  });
 
   function move(next: number) {
     gesture.current = continueGesture(gesture.current, latest.current.value, next);
@@ -121,6 +158,15 @@ export function Knob({
   }, []);
 
   function keys(event: ReactKeyboardEvent<HTMLSpanElement>) {
+    const action = knobKeyAction(event.key, event);
+    if (action !== null) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (action === "reset") reset();
+      if (action === "entry") entry.open();
+      return;
+    }
+
     const next = keyedValue(value, event.key, range, event.shiftKey);
     if (next === null) return;
 
@@ -136,6 +182,11 @@ export function Knob({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.focus();
+    if (isResetPress(event)) {
+      reset();
+      return;
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { startY: event.clientY, startValue: value };
   }
@@ -168,65 +219,101 @@ export function Knob({
   const valueText = unit === undefined ? format(value) : `${format(value)} ${unit}`;
 
   return (
-    <span
-      ref={root}
-      role="slider"
-      tabIndex={disabled ? -1 : 0}
-      aria-label={ariaLabel}
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={value}
-      aria-valuetext={valueText}
-      aria-disabled={disabled || undefined}
-      aria-orientation="vertical"
-      data-ui="Knob"
-      className={twMerge(
-        "inline-flex size-5 shrink-0 touch-none items-center justify-center rounded-full",
-        focusRing,
-        disabled ? "pointer-events-none opacity-50" : "cursor-ns-resize",
-        className,
-      )}
-      onKeyDown={disabled ? undefined : keys}
-      onKeyUp={disabled ? undefined : endAfterIdle}
-      onBlur={end}
-      onPointerDown={disabled ? undefined : pointerDown}
-      onPointerMove={pointerMove}
-      onPointerUp={pointerUp}
-      onPointerCancel={pointerUp}
-      onClick={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => {
-        event.stopPropagation();
-        if (!disabled) reset();
-      }}
-    >
-      <svg viewBox="0 0 24 24" className="size-full" aria-hidden>
-        {/* DS-VEIL: the track has no surface of its own, so it draws from the veil. */}
-        <path
-          d={arcPath(-HALF_SWEEP, HALF_SWEEP)}
-          className="fill-none stroke-surface-veil-strong"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-        />
-        {shown !== origin && (
+    <>
+      <span
+        ref={root}
+        role="slider"
+        tabIndex={disabled ? -1 : 0}
+        aria-label={ariaLabel}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        aria-valuetext={valueText}
+        aria-disabled={disabled || undefined}
+        aria-orientation="vertical"
+        data-ui="Knob"
+        className={twMerge(
+          "inline-flex size-5 shrink-0 touch-none items-center justify-center rounded-full",
+          focusRing,
+          disabled ? "pointer-events-none opacity-50" : "cursor-ns-resize",
+          className,
+        )}
+        onKeyDown={disabled ? undefined : keys}
+        onKeyUp={disabled ? undefined : endAfterIdle}
+        onBlur={end}
+        onPointerDown={disabled ? undefined : pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={pointerUp}
+        onPointerCancel={pointerUp}
+        onClick={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          if (!disabled) entry.open();
+        }}
+      >
+        <svg viewBox="0 0 24 24" className="size-full" aria-hidden>
+          {/* DS-VEIL: the track has no surface of its own, so it draws from the veil. */}
           <path
-            d={arcPath(angleOf(origin, min, max), angleOf(shown, min, max))}
-            className="fill-none stroke-accent-500"
+            d={arcPath(-HALF_SWEEP, HALF_SWEEP)}
+            className="fill-none stroke-surface-veil-strong"
             strokeWidth={2.5}
             strokeLinecap="round"
           />
-        )}
-        <line
-          x1={pointAt(angleOf(shown, min, max), 2).x}
-          y1={pointAt(angleOf(shown, min, max), 2).y}
-          x2={pointAt(angleOf(shown, min, max), RADIUS - 2).x}
-          y2={pointAt(angleOf(shown, min, max), RADIUS - 2).y}
-          className="stroke-surface-200"
-          strokeWidth={2}
-          strokeLinecap="round"
-        />
-      </svg>
-    </span>
+          {shown !== origin && (
+            <path
+              d={arcPath(angleOf(origin, min, max), angleOf(shown, min, max))}
+              className="fill-none stroke-accent-500"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+            />
+          )}
+          <line
+            x1={pointAt(angleOf(shown, min, max), 2).x}
+            y1={pointAt(angleOf(shown, min, max), 2).y}
+            x2={pointAt(angleOf(shown, min, max), RADIUS - 2).x}
+            y2={pointAt(angleOf(shown, min, max), RADIUS - 2).y}
+            className="stroke-surface-200"
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+      {entry.entry !== null && (
+        <Popover.Root
+          open
+          onOpenChange={(open, details) => {
+            if (!open) entry.close(details.reason === "escape-key" ? "escape" : "outside");
+          }}
+        >
+          <Popover.Content
+            anchor={root}
+            initialFocus={false}
+            side="bottom"
+            align="center"
+            className="flex items-center gap-1 p-1"
+            onClick={stopAtPopup}
+            onDoubleClick={stopAtPopup}
+            onPointerDown={stopAtPopup}
+          >
+            <ValueEntry
+              entry={entry.entry}
+              aria-label={ariaLabel}
+              onTextChange={entry.setText}
+              onClose={entry.close}
+            />
+            {unit !== undefined && (
+              <span className="shrink-0 pr-1 text-surface-400 select-none">{unit}</span>
+            )}
+          </Popover.Content>
+        </Popover.Root>
+      )}
+    </>
   );
+}
+
+/* The entry is a control of its own, so a press in it is not the row's. */
+function stopAtPopup(event: SyntheticEvent) {
+  event.stopPropagation();
 }
 
 /** Returns the angle of `value` in degrees from the top, clockwise, over the sweep. */

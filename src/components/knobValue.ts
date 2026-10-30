@@ -80,6 +80,44 @@ export function wheeledValue(
   return snapped(value - Math.sign(deltaY) * step, range, step);
 }
 
+/** Returns `true` if a press resets the knob to its default: the primary button with Alt held. */
+export function isResetPress(press: {
+  readonly button: number;
+  readonly altKey: boolean;
+}): boolean {
+  return press.button === 0 && press.altKey;
+}
+
+/** A key on a knob that is not a step: a reset to the default, or the opening of the entry. */
+export type KnobKeyAction = "reset" | "entry";
+
+interface Chord {
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+}
+
+/**
+ * Returns what `key` does on a focused knob other than a step.
+ *
+ * Delete and Backspace reset, and F2 and Enter open the value entry. Returns null for a key held
+ * with Alt, Ctrl or Meta and for any other key.
+ */
+export function knobKeyAction(key: string, chord: Chord): KnobKeyAction | null {
+  if (chord.altKey || chord.ctrlKey || chord.metaKey) return null;
+
+  switch (key) {
+    case "Delete":
+    case "Backspace":
+      return "reset";
+    case "F2":
+    case "Enter":
+      return "entry";
+    default:
+      return null;
+  }
+}
+
 /** One drag, key run or wheel run: the value it started at and the value it reached. */
 export interface KnobGesture {
   readonly from: number;

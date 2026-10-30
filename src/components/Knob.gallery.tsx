@@ -7,11 +7,13 @@ function Demo({
   min,
   max,
   initial,
+  unit,
   disabled,
 }: {
   min: number;
   max: number;
   initial: number;
+  unit?: string;
   disabled?: boolean;
 }) {
   const [value, setValue] = useState(initial);
@@ -23,11 +25,12 @@ function Demo({
         min={min}
         max={max}
         defaultValue={0}
+        unit={unit}
         onChange={setValue}
         disabled={disabled}
         aria-label="Volume"
       />
-      {value}
+      {unit === undefined ? value : `${value} ${unit}`}
     </span>
   );
 }
@@ -36,7 +39,7 @@ const entry: GalleryEntry = {
   name: "Knob",
   family: "fields",
   cases: [
-    { name: "Bipolar", render: () => <Demo min={-96} max={12} initial={-12} /> },
+    { name: "Bipolar", render: () => <Demo min={-96} max={12} initial={-12} unit="dB" /> },
     { name: "Unipolar", render: () => <Demo min={0} max={100} initial={40} /> },
     { name: "Disabled", render: () => <Demo min={0} max={100} initial={40} disabled /> },
   ],

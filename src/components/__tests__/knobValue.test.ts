@@ -4,7 +4,9 @@ import {
   continueGesture,
   draggedValue,
   gestureCommit,
+  isResetPress,
   keyedValue,
+  knobKeyAction,
   wheeledValue,
 } from "../knobValue";
 
@@ -78,6 +80,36 @@ describe("gestureCommit", () => {
 
   it("commits nothing without a gesture", () => {
     expect(gestureCommit(null)).toBeNull();
+  });
+});
+
+describe("isResetPress", () => {
+  it("resets on a primary press with Alt held", () => {
+    expect(isResetPress({ button: 0, altKey: true })).toBe(true);
+  });
+
+  it("leaves a plain press and an Alt press of another button to the drag", () => {
+    expect(isResetPress({ button: 0, altKey: false })).toBe(false);
+    expect(isResetPress({ button: 2, altKey: true })).toBe(false);
+  });
+});
+
+describe("knobKeyAction", () => {
+  const plain = { altKey: false, ctrlKey: false, metaKey: false };
+
+  it("resets on Delete and Backspace", () => {
+    expect(knobKeyAction("Delete", plain)).toBe("reset");
+    expect(knobKeyAction("Backspace", plain)).toBe("reset");
+  });
+
+  it("opens the value entry on F2 and Enter", () => {
+    expect(knobKeyAction("F2", plain)).toBe("entry");
+    expect(knobKeyAction("Enter", plain)).toBe("entry");
+  });
+
+  it("returns null for a chord and for a key that steps", () => {
+    expect(knobKeyAction("Enter", { ...plain, ctrlKey: true })).toBeNull();
+    expect(knobKeyAction("ArrowUp", plain)).toBeNull();
   });
 });
 

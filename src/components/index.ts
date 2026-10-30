@@ -78,3 +78,4 @@ export * from "./TogglePill";
 export * from "./tone";
 export * from "./Toolbar";
 export * from "./Tooltip";
+export * from "./ValueEntry";
