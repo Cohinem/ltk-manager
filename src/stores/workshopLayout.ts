@@ -233,6 +233,8 @@ interface WorkshopLayoutStore extends PreviewDisplay {
    * the switch above the list takes them off it.
    */
   forwardLookingMeta: boolean;
+  /** The inspector pane beside the Voices view of an event bank is shown. */
+  audioInspector: boolean;
   /** The shared geometry and artwork preferences of the explorers. */
   explorerView: ExplorerView;
   explorerTileSize: ExplorerTileSize;
@@ -265,6 +267,7 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setSearchGame: (searchGame: boolean) => void;
   setSearchObjects: (searchObjects: boolean) => void;
   setForwardLookingMeta: (forwardLookingMeta: boolean) => void;
+  setAudioInspector: (audioInspector: boolean) => void;
   setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
 
@@ -360,6 +363,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       showLayerStats: true,
       wadSort: "name",
       previewCheckered: true,
+      audioInspector: false,
       explorerView: "tree",
       explorerTileSize: 128,
       explorerRowHeight: 24,
@@ -402,13 +406,14 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setSearchGame: (searchGame) => set({ searchGame }),
       setSearchObjects: (searchObjects) => set({ searchObjects }),
       setForwardLookingMeta: (forwardLookingMeta) => set({ forwardLookingMeta }),
+      setAudioInspector: (audioInspector) => set({ audioInspector }),
       setPreviewDisplay: (display) => set(display),
     }),
     {
       name: "ltk-workshop-layout",
-      version: 10,
+      version: 11,
       partialize: ({ previewTargetHandle: _session, ...kept }) => kept,
-      migrate: (persisted) => {
+      migrate: (persisted, version) => {
         const state = {
           ...keepUnversioned<
             WorkshopLayoutStore & {
@@ -445,6 +450,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
           state.previewWireOverlay = true;
         }
         if (state.previewTargetHandle) state.previewTargetHandle = false;
+        if (version < 11) state.audioInspector = false;
         return state;
       },
     },
@@ -529,6 +535,8 @@ export const useSetSearchObjects = () => useWorkshopLayoutStore((s) => s.setSear
 export const useForwardLookingMeta = () => useWorkshopLayoutStore((s) => s.forwardLookingMeta);
 export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);
+export const useAudioInspector = () => useWorkshopLayoutStore((s) => s.audioInspector);
+export const useSetAudioInspector = () => useWorkshopLayoutStore((s) => s.setAudioInspector);
 export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
 export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);

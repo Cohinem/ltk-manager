@@ -1,3 +1,4 @@
+import { SidebarSimpleIcon } from "@phosphor-icons/react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -5,7 +6,10 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import {
   AlertBox,
   Code,
+  ContextMenu,
   EmptyState,
+  IconButton,
+  Inline,
   LoadingState,
   SearchField,
   SegmentedControl,
@@ -27,6 +31,7 @@ import {
   type NodeParent,
   type ObjectProperties,
 } from "@/lib/tauri";
+import { useAudioInspector, useSetAudioInspector } from "@/stores";
 
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { audioQueries } from "../api/queries";
@@ -81,6 +86,7 @@ import { EventTree } from "./EventTree";
 import { NewEventEntry, type Naming } from "./NewEventEntry";
 import { NoticeBand } from "./NoticeBand";
 import { SoundTargetPicker } from "./SoundTargetPicker";
+import { VoiceInspector } from "./VoiceInspector";
 import { VoiceList } from "./VoiceList";
 import { EventWaveform } from "./Waveform";
 import { EventRowThumbnail, VoiceRowThumbnail } from "./WaveformThumbnail";
@@ -121,6 +127,8 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
   const confirm = useConfirm();
   const [view, setView] = useState<EventsView>("voices");
   const voices = view === "voices";
+  const inspecting = useAudioInspector();
+  const setInspecting = useSetAudioInspector();
 
   const imported = bank.state?.imported;
   const names = useMemo(
@@ -455,6 +463,17 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
           </>
         )
       }
+      panes={
+        voices && (
+          <IconButton
+            icon={<SidebarSimpleIcon weight="bold" mirrored />}
+            label={m.audio_inspector_toggle_action()}
+            tooltip={m.audio_inspector_toggle_action()}
+            pressed={inspecting}
+            onClick={() => setInspecting(!inspecting)}
+          />
+        )
+      }
     />
   );
 
@@ -495,51 +514,72 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
           <EmptyState size="sm" title={m.audio_events_filtered_empty()} />
         )}
         {listed.length > 0 && voices && (
-          <VoiceList
-            rows={voiceList}
-            onExpand={expand}
-            selected={selected}
-            picks={picks}
-            player={player}
-            onPlay={playVoiceRow}
-            onReplay={(row) => void replay(row)}
-            onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
-            onCopy={copyPicks}
-            actions={actions}
-            adding={adding}
-            onAdding={setAdding}
-            editing={editing}
-            files={files}
-            onStructure={() => setView("structure")}
-            menu={(row) => {
-              const shown = structureRow(row);
-              if (shown === null) return null;
+          <Inline fill align="stretch">
+            <VoiceList
+              rows={voiceList}
+              onExpand={expand}
+              selected={selected}
+              picks={picks}
+              player={player}
+              onPlay={playVoiceRow}
+              onReplay={(row) => void replay(row)}
+              onPreview={(key, media) => player.play(key, [{ media, delay: 0 }])}
+              onCopy={copyPicks}
+              actions={actions}
+              adding={adding}
+              onAdding={setAdding}
+              editing={editing}
+              files={files}
+              onStructure={() => setView("structure")}
+              menu={(row) => {
+                const shown = structureRow(row);
+                if (shown === null) return null;
 
-              return (
-                <EventMenu
-                  row={shown.row}
-                  actions={actions}
-                  count={picks.targets.length}
-                  onCopy={copyPicks}
-                />
-              );
-            }}
-            thumbnail={(row) => (
-              <>
-                <VoiceRowThumbnail
-                  asset={asset}
-                  version={version}
-                  row={row}
-                  playing={player.playing === row.key}
-                />
-                {row.kind === "event" && isProbed(row.event, expanded) && (
-                  <TreeProbe
-                    query={audioQueries.event(sandbox, asset, version, row.event.id, revision)}
+                return (
+                  <>
+                    <EventMenu
+                      row={shown.row}
+                      actions={actions}
+                      count={picks.targets.length}
+                      onCopy={copyPicks}
+                    />
+                    {row.kind === "group" && !inspecting && (
+                      <ContextMenu.Item
+                        icon={<SidebarSimpleIcon mirrored />}
+                        onClick={() => setInspecting(true)}
+                      >
+                        {m.audio_inspector_show_action()}
+                      </ContextMenu.Item>
+                    )}
+                  </>
+                );
+              }}
+              thumbnail={(row) => (
+                <>
+                  <VoiceRowThumbnail
+                    asset={asset}
+                    version={version}
+                    row={row}
+                    playing={player.playing === row.key}
                   />
-                )}
-              </>
+                  {row.kind === "event" && isProbed(row.event, expanded) && (
+                    <TreeProbe
+                      query={audioQueries.event(sandbox, asset, version, row.event.id, revision)}
+                    />
+                  )}
+                </>
+              )}
+            />
+            {inspecting && (
+              <VoiceInspector
+                subjects={inspected(voiceList, selected, picks.picked)}
+                byKey={new Map(voiceList.map((row) => [row.key, row]))}
+                properties={shownProperties}
+                editing={editing}
+                onReplay={(row) => void replay(row)}
+              />
             )}
-          />
+          </Inline>
         )}
         {listed.length > 0 && !voices && (
           <EventTree
@@ -587,6 +627,25 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
       </Stack>
     </NodeNamesContext>
   );
+}
+
+/**
+ * Returns the rows that the inspector shows: the picked voice and header rows in draw order if
+ * there are several, else the selected row.
+ */
+function inspected(
+  rows: readonly VoiceRow[],
+  selected: string | null,
+  picked: ReadonlySet<string>,
+): VoiceRow[] {
+  if (picked.size > 1) {
+    return rows.filter(
+      (row) => picked.has(row.key) && (row.kind === "voice" || row.kind === "group"),
+    );
+  }
+
+  const row = rows.find((each) => each.key === selected);
+  return row === undefined ? [] : [row];
 }
 
 /** Returns `true` if the row of `event` may draw its one sound inline, once its tree is read. */

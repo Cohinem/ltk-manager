@@ -70,6 +70,8 @@ interface AudioPanelToolsProps {
   readonly selection?: ReactNode;
   /** The action that adds a row, such as `+ New event`. */
   readonly create?: ReactNode;
+  /** The switches of the panes beside the panel, such as the inspector. */
+  readonly panes?: ReactNode;
 }
 
 /**
@@ -77,7 +79,14 @@ interface AudioPanelToolsProps {
  *
  * Draws nothing while the document is not on screen, because the toolbar has no slot then.
  */
-export function AudioPanelTools({ mode, filter, count, selection, create }: AudioPanelToolsProps) {
+export function AudioPanelTools({
+  mode,
+  filter,
+  count,
+  selection,
+  create,
+  panes,
+}: AudioPanelToolsProps) {
   const slot = use(AudioToolsSlotContext);
   const narrow = useNarrowToolbar();
   if (slot === null) return null;
@@ -89,6 +98,7 @@ export function AudioPanelTools({ mode, filter, count, selection, create }: Audi
       {count !== undefined && !narrow && <Count>{count}</Count>}
       {selection}
       {create}
+      {panes}
     </>,
     slot,
   );
