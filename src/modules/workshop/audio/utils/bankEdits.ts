@@ -3,8 +3,10 @@ import type { BankNode, NodeProperty } from "@/lib/tauri";
 /** The value that an object without the property plays with, as the backend removes it. */
 export const PROPERTY_DEFAULTS: Readonly<Record<NodeProperty, number>> = {
   volume: 0,
+  makeUpGain: 0,
   pitch: 0,
   lpf: 0,
+  hpf: 0,
   delay: 0,
   loopCount: 1,
 };

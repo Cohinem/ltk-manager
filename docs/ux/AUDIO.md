@@ -6,18 +6,18 @@ and of `ltk_wwise`.
 
 ## Changes
 
-| Date       | Change                                          |
-| ---------- | ----------------------------------------------- |
-| 2026-10-30 | Add event bank editing                          |
-| 2026-10-30 | Pick by playlist, default switch and delay      |
-| 2026-10-29 | Add ability sound                               |
-| 2026-10-29 | Add bank units and contextual event names       |
-| 2026-10-29 | Add the waveform column                         |
-| 2026-10-29 | Add the waveform                                |
-| 2026-10-29 | Add VFX sound                                   |
-| 2026-10-29 | Add viewport sound                              |
-| 2026-10-29 | Add the event tree                              |
-| 2026-10-29 | Add the audio file document and its media table |
+| Date       | Change                                     |
+| ---------- | ------------------------------------------ |
+| 2026-10-30 | Edit fields as rows, add the knob          |
+| 2026-10-30 | Add event bank editing                     |
+| 2026-10-30 | Pick by playlist, default switch and delay |
+| 2026-10-29 | Add ability sound                          |
+| 2026-10-29 | Add bank units and contextual event names  |
+| 2026-10-29 | Add the waveform column                    |
+| 2026-10-29 | Add the waveform                           |
+| 2026-10-29 | Add VFX sound                              |
+| 2026-10-29 | Add viewport sound                         |
+| 2026-10-29 | Add the event tree                         |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -194,14 +194,37 @@ A project layer's copy of a file comes before the game's, as the client reads th
 | Event     | The name, the action count and the status                                    |
 | Action    | The class name, such as Play, Stop or SetVolume, the ID of its target, delay |
 | Container | The kind and the ID, and the rule of what plays                              |
-| Sound     | The ID, the source ID and the file name of the file that contains the media  |
+| Sound     | The ID and the file name of the file that contains the media                 |
 | Other     | The object kind and the ID, marked as not playing. Music objects say "music" |
 | Missing   | The ID of an object that no bank of the set contains                         |
+| Field     | One field of the action or the node above it: a name, a kind and the value   |
+| Children  | The children of the container above it, and their count                      |
 
 An action class outside the table of Wwise classes shows as `0x` and four hex digits. An action
-with a delay shows it in milliseconds. A Play action expands into the object it plays. An
-event's tree is read when the event expands or plays, so a bank of hundreds of events lists at
-once.
+with a delay shows it in milliseconds. An event's tree is read when the event expands or plays, so
+a bank of hundreds of events lists at once.
+
+An action and a node are each one line. An expanded action lists its fields, then the object that
+it plays. An expanded sound or container lists its fields, and a container then lists a
+`children` row, which expands into its children. A field row reads like a property row of a bin,
+per "The property row" in docs/ux/BIN_EDITOR.md: the name, the kind of the value in the bank in
+ritobin's words, and the value, with the values of all field rows in one column.
+
+```
+v > Play_sfx_Rumble_Death3D_cast            1 action
+    v > Play  #500572873
+          target     u32   [ 500572873 ]
+          delay      i32   [ 0 ] s
+        v > Random #500572873  one child plays, picked by weight
+              volume     f32   (o) [ 0 ] dB
+              pitch      f32   (o) [ 0 ] cents
+              lpf        f32   (o) [ 0 ]
+              children   list[u32]   1 child
+            v > Sound #546979792  Rumble_Base_SFX_audio.wem
+                  source     u32   [ 4047148852 ]
+                  loopCount  i32   [ 1 ]
+                  weight     u32   (o) [ 50 ]
+```
 
 | Status         | Tone    | When                                                        |
 | -------------- | ------- | ----------------------------------------------------------- |
@@ -272,27 +295,54 @@ of the set is edited in the document of that bank.
 
 ### What an edit changes
 
-| Row                           | Plates and keys                                                           |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| Play action                   | Target, the object ID it plays. Delay                                     |
-| Sound                         | Source, the source ID of its media. Volume, Pitch, LPF, Delay, Loop Count |
-| Container                     | Volume, Pitch, LPF, Delay                                                 |
-| Child of a random container   | Weight, and its place in the playlist                                     |
-| Random container, actor-mixer | Add child                                                                 |
-| Child of any container        | Remove from container                                                     |
+A field row takes its edit in place, in the value editor of a bin's leaf: the value in a box
+that commits on Enter or blur, with its unit after it. An action of another class than Play and
+an object outside the opened bank list their fields read-only.
 
-| Property   | Wwise property                        | Unit                                    | Default |
-| ---------- | ------------------------------------- | --------------------------------------- | ------- |
-| Volume     | `Volume`                              | dB                                      | 0       |
-| Pitch      | `Pitch`                               | cents                                   | 0       |
-| LPF        | `LPF`                                 | 0 to 100                                | 0       |
-| Delay      | `InitialDelay`, `DelayTime` of a Play | seconds                                 | 0       |
-| Loop Count | `Loop` of a sound                     | plays, 0 loops forever                  | 1       |
-| Weight     | the playlist item's weight            | Wwise's weight, stored as 1000 times it | 50      |
+| Row                           | Field rows and keys                                                        |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| Play action                   | `target`, the object ID it plays. `delay`                                  |
+| Sound                         | `source`, the source ID of its media, and the properties of the next table |
+| Container                     | The properties of the next table but `loopCount`, then `children`          |
+| Child of a random container   | `weight`, and its place in the playlist                                    |
+| Random container, actor-mixer | Add child, on the `children` row                                           |
+| Child of any container        | Remove from container                                                      |
 
-A value at its default removes the property from the object, as Wwise writes it. An empty plate
-sets the default. The shipped banks mostly carry `MakeUpGain` and not `Volume`, and the editor
-does not show `MakeUpGain` or any other property.
+| Field        | Wwise property                        | Unit                                    | Default |
+| ------------ | ------------------------------------- | --------------------------------------- | ------- |
+| `volume`     | `Volume`                              | dB                                      | 0       |
+| `makeUpGain` | `MakeUpGain`                          | dB                                      | 0       |
+| `pitch`      | `Pitch`                               | cents                                   | 0       |
+| `lpf`        | `LPF`                                 | 0 to 100                                | 0       |
+| `hpf`        | `HPF`                                 | 0 to 100                                | 0       |
+| `delay`      | `InitialDelay`, `DelayTime` of a Play | seconds                                 | 0       |
+| `loopCount`  | `Loop` of a sound                     | plays, 0 loops forever                  | 1       |
+| `weight`     | the playlist item's weight            | Wwise's weight, stored as 1000 times it | 50      |
+
+A value at its default removes the property from the object, as Wwise writes it. An empty field
+sets the default. Other properties of an object are not listed.
+
+### Knob
+
+A bounded field draws a knob between its kind and its value box. The box stays editable, and F2
+focuses it.
+
+| Field                  | Knob span           | Source                                          |
+| ---------------------- | ------------------- | ----------------------------------------------- |
+| `volume`, `makeUpGain` | -96 to 24 dB        | The manager's own. `ltk_wwise` gives no range   |
+| `pitch`                | -2400 to 2400 cents | `docs/design/wwise-audio.md` of `ltk_wwise`     |
+| `lpf`, `hpf`           | 0 to 100            | The property table of `ltk_wwise`               |
+| `weight`               | 0 to 100            | The manager's own. Neither source gives a range |
+
+A vertical drag turns the knob, the full span over 200 pixels, and the wheel steps it while the
+pointer is over it. Up and Right step up, Down and Left step down, Page Up and Page Down move a
+tenth of the span, and Home and End go to its ends. Shift moves a tenth as far. A double click
+resets the field to 0. The value arc starts at 0, so a cut and a boost read apart.
+
+A drag is one edit, sent when the button is released. A run of keys or wheel steps is one edit,
+sent 400 ms after the last step or when the knob loses focus. Each is one undo step. A typed value
+outside the span is kept, and the knob points at the nearer end. Enter and Escape on the knob
+return focus to the tree.
 
 A weight edit also makes the container's random pick read the weights, which bit 0 of its flags
 turns on. The other items then pick by the weights they carry.
@@ -315,22 +365,25 @@ An edit is refused with the reason in a toast, and the bank is unchanged:
   for a streamed sound. A prefetched sound takes no source edit, because its media is in two files
 - A value outside the range of its property
 
-A plate keeps the text of a refused value, marked, until Escape drops it.
+A field keeps the text of a refused value, marked, until Escape drops it.
 
 ### Keyboard
 
-| Key              | Action                                                        |
-| ---------------- | ------------------------------------------------------------- |
-| F2               | Focus the first plate of the selected row                     |
-| Enter, Escape    | Commit or drop a plate's text, and return focus to the tree   |
-| Tab              | Move between the plates of the row                            |
-| Delete           | Remove the selected child from its container                  |
-| Alt+Up, Alt+Down | Move the selected child of a random container in its playlist |
-| Ctrl+Enter       | Open the child picker of a random container or an actor-mixer |
+| Key              | Action                                                                  |
+| ---------------- | ----------------------------------------------------------------------- |
+| F2               | Focus the value of the selected field row                               |
+| Enter            | Focus the value of the selected field row. Play any other row           |
+| Enter, Escape    | Commit or drop a field's text, and return focus to the tree             |
+| Tab              | Move to the next value field                                            |
+| Delete           | Remove the selected child from its container                            |
+| Alt+Up, Alt+Down | Move the selected child of a random container in its playlist           |
+| Ctrl+Enter       | Open the child picker of a random container, an actor-mixer or its list |
 
-The child picker is a field in the container's row. It lists the sounds and containers of the
-bank set by kind and ID, filtered as the text is typed. Enter adds the highlighted one and Escape
-closes the picker.
+The child picker is a field in the container's `children` row, and opening it expands the
+container and the row. It lists the sounds and containers of the bank set by kind and ID,
+filtered as the text is typed. Enter adds the highlighted one and Escape closes the picker. A
+child row and the `children` row also show their action on hover: Remove from container, and Add
+child.
 
 ### Marks and saving
 

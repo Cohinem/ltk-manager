@@ -5,7 +5,10 @@ import type {
   EventPlaylistItem,
   EventTree,
   MediaLocation,
+  ObjectProperties,
 } from "@/lib/tauri";
+
+import { type NodeField, nodeFields } from "./nodeFields";
 
 /** The fetch state of one event's tree, as the rows read it. */
 export type TreeState =
@@ -23,11 +26,16 @@ interface RowBase {
   readonly expandable: boolean;
 }
 
-/** One row of the event tree: an event, an action, a node, or the state of a fetch. */
+/**
+ * One row of the event tree: an event, an action, a node, a field of an action or a node, the
+ * children of a container, or the state of a fetch.
+ */
 export type EventRow =
   | (RowBase & { readonly kind: "event"; readonly event: AudioEvent })
   | (RowBase & { readonly kind: "action"; readonly action: EventAction })
   | (RowBase & { readonly kind: "node"; readonly node: EventNode })
+  | (RowBase & { readonly kind: "field"; readonly field: NodeField })
+  | (RowBase & { readonly kind: "children"; readonly node: EventNode; readonly count: number })
   | (RowBase & { readonly kind: "loading" })
   | (RowBase & { readonly kind: "failed"; readonly message: string });
 
@@ -65,27 +73,74 @@ export function shownChildOrder(node: EventNode): number[] {
   return [...listed, ...natural.filter((index) => !shown.has(index))];
 }
 
+/** Returns the key of the field row `name` under the row `owner`. */
+export function fieldKey(owner: string, name: string): string {
+  return `${owner}:${name}`;
+}
+
+/** The name of the row that holds the children of a container. */
+const CHILDREN = "children";
+
 /**
  * Flattens `events` into the rows the tree draws, with the children of every key in `expanded`.
  *
  * An expanded event draws the rows of its tree from `trees`, or one loading or failed row while
- * the fetch has not answered.
+ * the fetch has not answered. An expanded action or node draws its fields from `properties`
+ * first. A container then draws a children row, which expands into its children. Per "Rows" in
+ * docs/ux/AUDIO.md.
  */
 export function eventRows(
   events: readonly AudioEvent[],
   expanded: ReadonlySet<string>,
   trees: ReadonlyMap<number, TreeState>,
+  properties: ReadonlyMap<number, ObjectProperties> = new Map(),
 ): EventRow[] {
   const rows: EventRow[] = [];
 
-  function pushNode(node: EventNode, key: string, parent: string, depth: number) {
+  function pushFields(fields: readonly NodeField[], owner: string, depth: number) {
+    for (const field of fields) {
+      rows.push({
+        kind: "field",
+        key: fieldKey(owner, field.name),
+        depth,
+        parent: owner,
+        expandable: false,
+        field,
+      });
+    }
+  }
+
+  function pushNode(
+    node: EventNode,
+    key: string,
+    parent: string,
+    depth: number,
+    container: EventNode | null,
+  ) {
+    const fields = nodeFields({ kind: "node", node }, properties, container);
     const children = childrenOf(node);
-    rows.push({ kind: "node", key, depth, parent, expandable: children.length > 0, node });
+    const expandable = fields.length > 0 || children.length > 0;
+    rows.push({ kind: "node", key, depth, parent, expandable, node });
     if (!expanded.has(key)) return;
+
+    pushFields(fields, key, depth + 1);
+    if (children.length === 0) return;
+
+    const listKey = fieldKey(key, CHILDREN);
+    rows.push({
+      kind: "children",
+      key: listKey,
+      depth: depth + 1,
+      parent: key,
+      expandable: true,
+      node,
+      count: children.length,
+    });
+    if (!expanded.has(listKey)) return;
 
     for (const index of shownChildOrder(node)) {
       const child = children[index];
-      if (child !== undefined) pushNode(child, `${key}.${index}`, key, depth + 1);
+      if (child !== undefined) pushNode(child, `${key}.${index}`, listKey, depth + 2, node);
     }
   }
 
@@ -119,17 +174,19 @@ export function eventRows(
 
     state.tree.actions.forEach((action, index) => {
       const actionKey = `${key}/${index}`;
+      const fields = nodeFields({ kind: "action", action }, properties, null);
       rows.push({
         kind: "action",
         key: actionKey,
         depth: 1,
         parent: key,
-        expandable: action.node !== null,
+        expandable: fields.length > 0 || action.node !== null,
         action,
       });
-      if (action.node !== null && expanded.has(actionKey)) {
-        pushNode(action.node, `${actionKey}.0`, actionKey, 2);
-      }
+      if (!expanded.has(actionKey)) return;
+
+      pushFields(fields, actionKey, 2);
+      if (action.node !== null) pushNode(action.node, `${actionKey}.0`, actionKey, 2, null);
     });
   }
   return rows;

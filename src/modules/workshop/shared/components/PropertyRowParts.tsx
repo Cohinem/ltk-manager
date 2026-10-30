@@ -123,7 +123,8 @@ interface NumberCellProps {
   text: string;
   /** The unit after the box, or null for a number without one. */
   unit: string | null;
-  step?: number | "integer";
+  /** Arrow and button steps, or null for a box that does not step, such as an ID. */
+  step?: number | "integer" | null;
   "aria-label"?: string;
   invalid?: boolean;
   /** Focus the box as it draws. */
@@ -151,7 +152,7 @@ export function NumberCell({
   const box = (
     <Readout
       value={text}
-      step={step}
+      step={step ?? undefined}
       aria-label={ariaLabel}
       className={SCALAR_WIDTH}
       invalid={invalid}

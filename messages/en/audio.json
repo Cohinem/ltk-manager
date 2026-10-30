@@ -15,11 +15,24 @@
   "audio_edit_add_child_action": "Add child",
   "audio_edit_add_child_empty": "No sound or container matches",
   "audio_edit_add_child_label": "Child to add",
+  "audio_edit_children_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} child",
+        "countPlural=other": "{count} children"
+      }
+    }
+  ],
   "audio_edit_delay_label": "Delay",
   "audio_edit_edited_label": "Edited",
+  "audio_edit_hpf_label": "HPF",
+  "audio_edit_knob_label": "{field} knob",
   "audio_edit_legacy_description": "This bank is version {version}, and only a version 145 bank takes edits. Convert it with the Convert repair of its Problems entry, then edit the converted bank.",
   "audio_edit_loop_label": "Loop Count",
   "audio_edit_lpf_label": "LPF",
+  "audio_edit_make_up_gain_label": "Make-Up Gain",
   "audio_edit_node_option": "{kind} #{id}",
   "audio_edit_open_failed_title": "The event bank did not open for edits",
   "audio_edit_pitch_label": "Pitch",

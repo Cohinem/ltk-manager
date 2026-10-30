@@ -17,6 +17,8 @@ import {
   wheeledValue,
 } from "./knobValue";
 
+export type { KnobRange } from "./knobValue";
+
 export interface KnobProps {
   /** The value the knob points at. Held by the caller. */
   value: number;

@@ -30,8 +30,8 @@ pub(crate) const USES_WEIGHTS: u8 = 1;
 /// The milliseconds of a second, the unit of a Play action's `DelayTime`.
 const MILLIS_PER_SECOND: f32 = 1000.0;
 
-/// The highest value of the low-pass filter.
-const LPF_MAX: f32 = 100.0;
+/// The highest value of the low-pass and the high-pass filters.
+const FILTER_MAX: f32 = 100.0;
 
 /// A property of a sound, a container or a Play action that an edit sets.
 ///
@@ -46,6 +46,10 @@ pub enum NodeProperty {
     Pitch,
     /// `LPF`, the low-pass filter from 0 to 100.
     Lpf,
+    /// `HPF`, the high-pass filter from 0 to 100.
+    Hpf,
+    /// `MakeUpGain`, in decibels.
+    MakeUpGain,
     /// The delay in seconds: `InitialDelay` of a node, `DelayTime` of a Play action.
     Delay,
     /// `Loop` of a sound: the number of plays, where zero loops forever.
@@ -56,14 +60,23 @@ impl NodeProperty {
     /// The properties that a sound takes.
     pub(crate) const SOUND: &[Self] = &[
         Self::Volume,
+        Self::MakeUpGain,
         Self::Pitch,
         Self::Lpf,
+        Self::Hpf,
         Self::Delay,
         Self::LoopCount,
     ];
 
     /// The properties that a container takes.
-    pub(crate) const CONTAINER: &[Self] = &[Self::Volume, Self::Pitch, Self::Lpf, Self::Delay];
+    pub(crate) const CONTAINER: &[Self] = &[
+        Self::Volume,
+        Self::MakeUpGain,
+        Self::Pitch,
+        Self::Lpf,
+        Self::Hpf,
+        Self::Delay,
+    ];
 
     /// The properties that a Play action takes.
     pub(crate) const PLAY: &[Self] = &[Self::Delay];
@@ -72,7 +85,9 @@ impl NodeProperty {
     fn default_value(self) -> f32 {
         match self {
             Self::LoopCount => 1.0,
-            Self::Volume | Self::Pitch | Self::Lpf | Self::Delay => 0.0,
+            Self::Volume | Self::MakeUpGain | Self::Pitch | Self::Lpf | Self::Hpf | Self::Delay => {
+                0.0
+            }
         }
     }
 
@@ -82,6 +97,8 @@ impl NodeProperty {
             Self::Volume => PropertyId::VOLUME,
             Self::Pitch => PropertyId::PITCH,
             Self::Lpf => PropertyId::LPF,
+            Self::Hpf => PropertyId::HPF,
+            Self::MakeUpGain => PropertyId::MAKE_UP_GAIN,
             Self::Delay => PropertyId::INITIAL_DELAY,
             Self::LoopCount => PropertyId::LOOP,
         }
@@ -93,7 +110,9 @@ impl NodeProperty {
         let value = match self {
             #[expect(clippy::cast_precision_loss, reason = "a loop count is small")]
             Self::LoopCount => props.i32(id).map(|count| count as f32),
-            Self::Volume | Self::Pitch | Self::Lpf | Self::Delay => props.f32(id),
+            Self::Volume | Self::MakeUpGain | Self::Pitch | Self::Lpf | Self::Hpf | Self::Delay => {
+                props.f32(id)
+            }
         };
         value.unwrap_or(self.default_value())
     }
@@ -652,8 +671,8 @@ fn set_property(
 fn check_value(property: NodeProperty, value: f32) -> Result<(), BankEditError> {
     let valid = value.is_finite()
         && match property {
-            NodeProperty::Volume | NodeProperty::Pitch => true,
-            NodeProperty::Lpf => (0.0..=LPF_MAX).contains(&value),
+            NodeProperty::Volume | NodeProperty::MakeUpGain | NodeProperty::Pitch => true,
+            NodeProperty::Lpf | NodeProperty::Hpf => (0.0..=FILTER_MAX).contains(&value),
             NodeProperty::Delay => value >= 0.0,
             NodeProperty::LoopCount => value >= 0.0 && value.fract() == 0.0,
         };
@@ -678,9 +697,12 @@ fn set_node_prop(props: &mut PropBundle, property: NodeProperty, value: f32) {
             reason = "check_value admits a whole loop count only"
         )]
         NodeProperty::LoopCount => PropValue::from_i32(value as i32),
-        NodeProperty::Volume | NodeProperty::Pitch | NodeProperty::Lpf | NodeProperty::Delay => {
-            PropValue::from_f32(value)
-        }
+        NodeProperty::Volume
+        | NodeProperty::MakeUpGain
+        | NodeProperty::Pitch
+        | NodeProperty::Lpf
+        | NodeProperty::Hpf
+        | NodeProperty::Delay => PropValue::from_f32(value),
     };
     props.set(id, bits);
 }

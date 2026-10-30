@@ -200,6 +200,53 @@ fn property_edit_refuses_out_of_range_value() {
 }
 
 #[test]
+fn property_edit_sets_make_up_gain_and_hpf_of_container() {
+    let mut document = document();
+    edit(
+        &mut document,
+        BankEdit::Property {
+            object: RANDOM,
+            property: NodeProperty::MakeUpGain,
+            value: -4.5,
+        },
+    );
+    edit(
+        &mut document,
+        BankEdit::Property {
+            object: RANDOM,
+            property: NodeProperty::Hpf,
+            value: 20.0,
+        },
+    );
+
+    let Typed::Container(container) = typed(&bank_of(document.bytes()), RANDOM) else {
+        panic!("not a container");
+    };
+    assert_eq!(
+        container.node.props.f32(PropertyId::MAKE_UP_GAIN),
+        Some(-4.5)
+    );
+    assert_eq!(container.node.props.f32(PropertyId::HPF), Some(20.0));
+}
+
+#[test]
+fn property_edit_refuses_hpf_out_of_range() {
+    let mut document = document();
+    let set = set_of(&document);
+
+    let refused = document.edit(
+        &BankEdit::Property {
+            object: SOUND,
+            property: NodeProperty::Hpf,
+            value: -1.0,
+        },
+        &set,
+    );
+
+    assert!(matches!(refused, Err(BankEditError::Value { .. })));
+}
+
+#[test]
 fn property_edit_refuses_loop_count_of_container() {
     let mut document = document();
     let set = set_of(&document);

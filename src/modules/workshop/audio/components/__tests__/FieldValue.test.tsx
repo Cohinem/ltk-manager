@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BankEdit, EventNode, ObjectProperties } from "@/lib/tauri";
 
-import type { EventRow } from "../../utils/eventTree";
-import { RowPlates, type TreeEditing } from "../EventPlates";
+import { nodeFields } from "../../utils/nodeFields";
+import type { TreeEditing } from "../../utils/treeEditing";
+import { FieldValue } from "../FieldRows";
 
 afterEach(cleanup);
 
@@ -26,51 +27,50 @@ const RANDOM: EventNode = {
   playlist: [{ child: 0, weight: 1 }],
 };
 
-const SOUND_PROPERTIES: ObjectProperties = {
-  id: 103,
-  editable: true,
-  values: [
-    { property: "volume", value: -3 },
-    { property: "loopCount", value: 1 },
+const PROPERTIES = new Map<number, ObjectProperties>([
+  [
+    103,
+    {
+      id: 103,
+      editable: true,
+      values: [
+        { property: "volume", value: -3 },
+        { property: "loopCount", value: 1 },
+      ],
+      weights: null,
+    },
   ],
-  weights: null,
-};
+  [
+    414,
+    {
+      id: 414,
+      editable: true,
+      values: [],
+      weights: { weighted: false, items: [{ child: 103, weight: 30_000 }] },
+    },
+  ],
+]);
 
-const RANDOM_PROPERTIES: ObjectProperties = {
-  id: 414,
-  editable: true,
-  values: [],
-  weights: { weighted: false, items: [{ child: 103, weight: 30_000 }] },
-};
+/** Draws the value cell of the field `name` of the sound, which edits through `edit`. */
+function renderField(name: string, edit: (edit: BankEdit) => Promise<boolean>) {
+  const field = nodeFields({ kind: "node", node: SOUND }, PROPERTIES, RANDOM).find(
+    (each) => each.name === name,
+  );
+  if (field === undefined) throw new Error(`No field ${name}`);
 
-function rowOf(node: EventNode, key: string, parent: string | null): EventRow {
-  return { kind: "node", key, depth: 2, parent, expandable: false, node };
-}
-
-function renderPlates(edit: (edit: BankEdit) => Promise<boolean>) {
   const editing: TreeEditing = {
     revision: { id: 1, revision: 0 },
-    properties: new Map([
-      [103, SOUND_PROPERTIES],
-      [414, RANDOM_PROPERTIES],
-    ]),
+    properties: PROPERTIES,
     edited: new Set(),
     edit,
   };
-  render(
-    <RowPlates
-      row={rowOf(SOUND, "e1/0.0.0", "e1/0.0")}
-      parent={rowOf(RANDOM, "e1/0.0", "e1/0")}
-      editing={editing}
-      onLeave={() => {}}
-    />,
-  );
+  render(<FieldValue field={field} editing={editing} onLeave={() => {}} />);
 }
 
-describe("RowPlates", () => {
+describe("FieldValue", () => {
   it("commits the typed volume on Enter", () => {
     const edit = vi.fn(() => Promise.resolve(true));
-    renderPlates(edit);
+    renderField("volume", edit);
     const volume = screen.getByRole("textbox", { name: "Volume" });
     volume.focus();
 
@@ -87,7 +87,7 @@ describe("RowPlates", () => {
 
   it("drops the typed text on Escape without an edit", () => {
     const edit = vi.fn(() => Promise.resolve(true));
-    renderPlates(edit);
+    renderField("volume", edit);
     const volume = screen.getByRole("textbox", { name: "Volume" });
     volume.focus();
 
@@ -100,7 +100,7 @@ describe("RowPlates", () => {
 
   it("marks a text that holds no number without an edit", () => {
     const edit = vi.fn(() => Promise.resolve(true));
-    renderPlates(edit);
+    renderField("loopCount", edit);
     const loop = screen.getByRole("textbox", { name: "Loop Count" });
     loop.focus();
 
@@ -114,7 +114,7 @@ describe("RowPlates", () => {
 
   it("marks a value that the backend refused and keeps its text", async () => {
     const edit = vi.fn(() => Promise.resolve(false));
-    renderPlates(edit);
+    renderField("source", edit);
     const source = screen.getByRole("textbox", { name: "Source" });
     source.focus();
 
@@ -128,7 +128,7 @@ describe("RowPlates", () => {
 
   it("sets the child's playlist weight in Wwise units", () => {
     const edit = vi.fn(() => Promise.resolve(true));
-    renderPlates(edit);
+    renderField("weight", edit);
     const weight = screen.getByRole("textbox", { name: "Weight" });
     expect(weight).toHaveValue("30");
     weight.focus();
@@ -141,6 +141,26 @@ describe("RowPlates", () => {
       container: 414,
       child: 103,
       weight: 75_000,
+    });
+  });
+
+  it("sends one edit at the end of a knob key run", () => {
+    vi.useFakeTimers();
+    const edit = vi.fn(() => Promise.resolve(true));
+    renderField("volume", edit);
+    const knob = screen.getByRole("slider", { name: "Volume knob" });
+
+    fireEvent.keyDown(knob, { key: "ArrowUp" });
+    fireEvent.keyDown(knob, { key: "ArrowUp" });
+    fireEvent.keyUp(knob, { key: "ArrowUp" });
+    vi.runAllTimers();
+    vi.useRealTimers();
+
+    expect(edit).toHaveBeenCalledExactlyOnceWith({
+      kind: "property",
+      object: 103,
+      property: "volume",
+      value: -2,
     });
   });
 });

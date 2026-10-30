@@ -56,7 +56,7 @@ const TREE: EventTree = {
 
 const ROWS = eventRows(
   [event(100, 2), event(200, 0)],
-  new Set(["e100", "e100/0", "e100/0.0"]),
+  new Set(["e100", "e100/0", "e100/0.0", "e100/0.0:children"]),
   new Map([[100, { kind: "ready", tree: TREE }]]),
 );
 

@@ -38,15 +38,23 @@ import {
   eventLabel,
   eventRows,
   eventVoices,
+  fieldKey,
   filterEvents,
   nodeVoices,
   type RandomSource,
   sortEvents,
   type TreeState,
 } from "../utils/eventTree";
+import {
+  containerOf,
+  isEditable,
+  rowObject,
+  takesChild,
+  type TreeEditing,
+} from "../utils/treeEditing";
 import { AudioToolbar } from "./AudioToolbar";
-import { containerOf, rowObject, takesChild, type TreeEditing } from "./EventPlates";
-import { EventTree, isPlayable } from "./EventTree";
+import { isPlayable } from "./EventRowParts";
+import { EventTree } from "./EventTree";
 import { EventWaveform } from "./Waveform";
 import { EventRowThumbnail } from "./WaveformThumbnail";
 
@@ -101,7 +109,7 @@ export function EventsPanel({ asset, documentId = null, random = Math.random }: 
       treeStates.set(event.id, { kind: "failed", message: errorSummary(query.error) });
     }
   });
-  const rows = eventRows(listed, expanded, treeStates);
+  const rows = eventRows(listed, expanded, treeStates, editing?.properties ?? properties(trees));
 
   function expand(key: string, open: boolean) {
     setExpanded((current) => {
@@ -110,6 +118,15 @@ export function EventsPanel({ asset, documentId = null, random = Math.random }: 
       else next.delete(key);
       return next;
     });
+  }
+
+  /* The picker draws in the container's children row, so the row and the container open. */
+  function openPicker(key: string | null) {
+    if (key !== null) {
+      expand(key, true);
+      expand(fieldKey(key, "children"), true);
+    }
+    setAdding(key);
   }
 
   async function play(row: EventRow) {
@@ -179,14 +196,14 @@ export function EventsPanel({ asset, documentId = null, random = Math.random }: 
           onCopy={copyRow}
           editing={editing}
           adding={adding}
-          onAdding={setAdding}
+          onAdding={openPicker}
           menu={(row) => (
             <EventMenu
               row={row}
               parent={row.parent === null ? undefined : rows.find((r) => r.key === row.parent)}
               editing={editing}
               onCopy={copyRow}
-              onAdd={setAdding}
+              onAdd={openPicker}
             />
           )}
           thumbnail={(row) => (
@@ -216,16 +233,21 @@ function useTreeEditing(
   trees: readonly { readonly data?: AudioEventResponse }[],
 ): TreeEditing | null {
   const { state, revision, edit } = bank;
-  const responses = trees.map((tree) => tree.data);
-  const properties = new Map<number, ObjectProperties>();
-  for (const response of responses) {
-    for (const object of response?.properties ?? []) properties.set(object.id, object);
-  }
-
   const edited = useMemo(() => new Set(state?.edited ?? []), [state?.edited]);
   if (state === null || revision === null || !state.editable) return null;
 
-  return { revision, properties, edited, edit };
+  return { revision, properties: properties(trees), edited, edit };
+}
+
+/** Returns the properties of the objects of `trees`, by object ID. */
+function properties(
+  trees: readonly { readonly data?: AudioEventResponse }[],
+): Map<number, ObjectProperties> {
+  const byId = new Map<number, ObjectProperties>();
+  for (const tree of trees) {
+    for (const object of tree.data?.properties ?? []) byId.set(object.id, object);
+  }
+  return byId;
 }
 
 /** Returns what Copy takes from `row`: an event's label, or the ID of an object. */
@@ -305,9 +327,8 @@ function EventMenu({ row, parent, editing, onCopy, onAdd }: EventMenuProps) {
   const media = row.kind === "node" && row.node.kind === "sound" ? row.node.media : null;
   const container = containerOf(parent);
   const child = rowObject(row);
-  const editable = (id: number) => editing?.properties.get(id)?.editable === true;
-  const addable = row.kind === "node" && takesChild(row.node) && editable(row.node.id);
-  const removable = container !== null && child !== null && editable(container.id);
+  const addable = row.kind === "node" && takesChild(row.node) && isEditable(editing, row.node.id);
+  const removable = container !== null && child !== null && isEditable(editing, container.id);
 
   return (
     <>

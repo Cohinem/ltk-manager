@@ -5840,6 +5840,10 @@ export type NodeProperty =
 "pitch" | 
 /**  `LPF`, the low-pass filter from 0 to 100. */
 "lpf" | 
+/**  `HPF`, the high-pass filter from 0 to 100. */
+"hpf" | 
+/**  `MakeUpGain`, in decibels. */
+"makeUpGain" | 
 /**  The delay in seconds: `InitialDelay` of a node, `DelayTime` of a Play action. */
 "delay" | 
 /**  `Loop` of a sound: the number of plays, where zero loops forever. */
