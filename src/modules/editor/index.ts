@@ -1,5 +1,6 @@
 export * from "./components";
 export * from "./layout";
+export * from "./state/documentCommands";
 export * from "./state/documentFinds";
 export * from "./state/documentHistory";
 export * from "./state/documentSaves";
