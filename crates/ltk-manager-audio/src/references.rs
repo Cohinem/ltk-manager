@@ -9,7 +9,7 @@ use ltk_manager_assets::preview::AssetRef;
 use serde::Serialize;
 
 use crate::bank_set::{CONTEXTUAL_ACTION_DATA, shipped};
-use crate::bin_audio::{BankSite, SiteStep, hash_path, json_string};
+use crate::bin_audio::{BankSite, SiteStep, SoundField, hash_path, json_string};
 use crate::events::{SetFile, SetFileState};
 use crate::index::{AudioIndex, IndexedUnit};
 
@@ -314,6 +314,45 @@ pub(crate) fn site_row(
             label: label(steps, names),
         }),
     }
+}
+
+/// A sound field of a bin that an event name can be set in, as a row that a bin edit addresses.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct SoundTarget {
+    /// The row of the field.
+    pub row: SiteRow,
+    /// The hash path of the struct that holds the field (ADR-0027).
+    pub holder: String,
+    /// The field hash, as `0x` and eight hex digits.
+    pub field: String,
+    /// The event name of the field. Empty if the field is missing or empty.
+    pub value: String,
+}
+
+/// Returns the sound fields `fields` of the bin `bin` as rows.
+#[must_use]
+pub fn sound_targets(bin: &str, fields: &[SoundField], names: &dyn SiteNames) -> Vec<SoundTarget> {
+    fields
+        .iter()
+        .map(|field| {
+            let mut steps = field.site.steps.clone();
+            steps.push(SiteStep::Field(field.field));
+            SoundTarget {
+                row: site_row(
+                    bin,
+                    field.site.object,
+                    field.site.class,
+                    Some(&steps),
+                    names,
+                ),
+                holder: field.site.hash_path(),
+                field: hex(field.field),
+                value: field.value.clone(),
+            }
+        })
+        .collect()
 }
 
 /// Returns the readable path of `steps`: each field and each hash key that a table names
