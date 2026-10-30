@@ -371,7 +371,7 @@
   "audio_playing_label": "Playing {source}",
   "audio_read_failure_title": "The file cannot be read",
   "audio_rejection_title": "The client rejects this bank",
-  "audio_replace_action": "Replace media from file...",
+  "audio_replace_action": "Replace audio...",
   "audio_replace_change_channels_label": "channel count",
   "audio_replace_change_codec_label": "codec",
   "audio_replace_change_rate_label": "sample rate",
@@ -397,10 +397,10 @@
       }
     }
   ],
-  "audio_replace_confirm_title": "Replace media",
-  "audio_replace_failed_title": "Media not replaced",
+  "audio_replace_confirm_title": "Replace audio",
+  "audio_replace_failed_title": "Audio not replaced",
   "audio_replace_file_filter_label": "WEM or audio file",
-  "audio_replace_file_title": "Replace media from a file",
+  "audio_replace_file_title": "Replace audio",
   "audio_replace_sound_label": "#{id}",
   "audio_save_decoded_action": "Save as .{extension}",
   "audio_save_original_action": "Save as .wem",
