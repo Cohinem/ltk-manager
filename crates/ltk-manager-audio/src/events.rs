@@ -875,8 +875,13 @@ pub enum NodeRole {
 pub struct EventContext {
     /// The situation's name, such as `SpellCast`, or its hash if no table names it.
     pub situation: String,
+    /// The `mSituations` key of the situation.
+    pub situation_key: u32,
     /// `mRuleName`, such as `Basic 1`.
     pub rule: Option<String>,
+    /// The percent of the rule's one `ContextualConditionChanceToPlay`, or `None` if it has none
+    /// or several.
+    pub chance: Option<u8>,
     /// The audience whose event name matched.
     pub audience: Audience,
     /// `true` if another composition of the rule is an event of the bank too.
@@ -900,7 +905,9 @@ fn context_of(
         situation: names
             .hash_name(rule.situation)
             .unwrap_or_else(|| hex(rule.situation)),
+        situation_key: rule.situation,
         rule: rule.name.clone(),
+        chance: rule.chance,
         audience: found.audience,
         ambiguous: found.ambiguous,
         row: site_row(

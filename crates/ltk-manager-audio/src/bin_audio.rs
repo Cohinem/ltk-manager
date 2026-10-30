@@ -94,6 +94,9 @@ pub struct ContextualRule {
     pub steps: Vec<SiteStep>,
     /// The `mSpell` hash of each `ContextualConditionSpellName` condition.
     pub spells: Vec<u32>,
+    /// The `mPercentChanceToPlay` of the one `ContextualConditionChanceToPlay` condition, or
+    /// `None` if the rule has none or several.
+    pub chance: Option<u8>,
     /// The non-empty event names of `mAudioAction`, in field order.
     pub names: Vec<AudienceName>,
 }
@@ -376,6 +379,7 @@ fn rule_of<'a, V: TreeValue<'a>>(
     }
 
     let mut spells = Vec::new();
+    let mut chances = Vec::new();
     if let Some(conditions) = inner.get(RULE_CONDITIONS)?
         && matches!(
             conditions.kind(),
@@ -387,6 +391,14 @@ fn rule_of<'a, V: TreeValue<'a>>(
             let Some(condition) = item.as_node()? else {
                 continue;
             };
+
+            if condition.class_hash() == CONDITION_CHANCE {
+                chances.push(match leaf(condition.get(CHANCE_PERCENT)?)? {
+                    Some(Leaf::U8(percent)) => percent,
+                    _ => 0,
+                });
+                continue;
+            }
             if condition.class_hash() != CONDITION_SPELL_NAME {
                 continue;
             }
@@ -416,9 +428,19 @@ fn rule_of<'a, V: TreeValue<'a>>(
         name: text(inner.get(RULE_NAME)?)?.filter(|name| !name.is_empty()),
         steps: site_of(node, &[])?.steps,
         spells,
+        chance: match chances.as_slice() {
+            [percent] => Some(*percent),
+            _ => None,
+        },
         names,
     })
 }
+
+/// The class hash of `ContextualConditionChanceToPlay`.
+const CONDITION_CHANCE: BinHash = named("ContextualConditionChanceToPlay");
+
+/// The field hash of `mPercentChanceToPlay` on [`CONDITION_CHANCE`].
+const CHANCE_PERCENT: BinHash = named("mPercentChanceToPlay");
 
 /// Reads the holder fields of the object root `root`. Both are empty on a class without them.
 fn holder_of<'a, V: TreeValue<'a>>(root: V::Node) -> Result<HolderAudio, ltk_meta::Error> {

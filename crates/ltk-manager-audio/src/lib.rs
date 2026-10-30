@@ -23,6 +23,7 @@ mod references;
 mod sound;
 mod sounds;
 mod unit_events;
+mod voice_lines;
 
 /// Re-exported so a consumer names the `ltk_wwise` types of this crate's release.
 pub use ltk_wwise;
@@ -70,3 +71,8 @@ pub use references::{
 pub use sound::{SoundError, media, sound};
 pub use sounds::{ResolvedSound, SoundResolution, resolve_sounds};
 pub use unit_events::{ListEdit, events_list_edits};
+pub use voice_lines::{
+    AudienceLine, AudioAction, CooldownModifications, HashText, LinkingSkin, ResolvedEvent,
+    SITUATIONS, SkinVoice, VoiceCondition, VoiceConditionField, VoiceConditionValue, VoiceLines,
+    VoiceRule, VoiceSituation, linking_skins, rule_template,
+};

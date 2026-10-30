@@ -173,6 +173,8 @@ services! {
         audio_bank_save,
         audio_bank_nodes,
         audio_sound_targets,
+        audio_voice_lines,
+        audio_voice_rule_template,
     }
     preview("preview") {
         // Asset preview

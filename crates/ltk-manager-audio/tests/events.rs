@@ -543,6 +543,7 @@ fn event_bank_names_events_from_contextual_rules_with_their_rule() {
                         SiteStep::Index(0),
                     ],
                     spells: vec![SPELL],
+                    chance: None,
                     names: vec![AudienceName::new(Audience::Owner, "cast3D")],
                 }],
             }],

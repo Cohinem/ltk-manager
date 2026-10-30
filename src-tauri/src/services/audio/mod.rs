@@ -11,6 +11,7 @@ mod linked;
 mod media;
 mod references;
 mod sounds;
+mod voice_lines;
 
 pub use bank::*;
 pub use convert::AudioConvertError;
@@ -19,6 +20,7 @@ pub use index::AudioIndexState;
 pub use media::*;
 pub use references::*;
 pub use sounds::*;
+pub use voice_lines::*;
 
 use std::io::{self, Cursor};
 use std::sync::Arc;

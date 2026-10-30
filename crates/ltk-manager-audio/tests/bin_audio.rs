@@ -267,6 +267,7 @@ fn bin_audio_reads_contextual_rules() {
                     SiteStep::Index(0),
                 ],
                 spells: vec![0x5be1_1000],
+                chance: Some(0),
                 names: vec![
                     AudienceName::new(Audience::Owner, "cast3D"),
                     AudienceName::new(Audience::Ally, "cast3DAlly"),
@@ -284,6 +285,7 @@ fn bin_audio_reads_contextual_rules() {
                     SiteStep::Index(0),
                 ],
                 spells: Vec::new(),
+                chance: None,
                 names: vec![AudienceName::new(Audience::Owner, "Taunt2D")],
             },
         ]

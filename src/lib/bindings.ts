@@ -301,6 +301,31 @@ export type Audience =
 /**  `mSpectatorEventName`. */
 "spectator";
 
+/**  The short name of one audience, and the event it resolves to for the chosen skin. */
+export type AudienceLine = {
+	audience: Audience,
+	/**  The `m*EventName` string. Empty if the action does not write it. */
+	short: string,
+	/**  The first composed name that an event of the skin's banks hashes to. */
+	event: ResolvedEvent | null,
+	/**  The composed names, in [`compose_vo_names`] order. Empty for an empty short name. */
+	candidates: string[],
+};
+
+/**  The audio action of a rule. */
+export type AudioAction = {
+	/**  The class hash, `ContextualActionPlayVO` in every shipped rule. */
+	class: number,
+	/**  `mMaxOccurences`, the plays per unit per game. `0` is no limit. */
+	maxOccurrences: number,
+	/**  `mWaitForAnnouncerQueue`. */
+	waitForAnnouncer: boolean,
+	/**  `mWaitTimeout` in seconds. */
+	waitTimeout: number | null,
+	/**  One line per audience, in field order, empty names included. */
+	lines: AudienceLine[],
+};
+
 /**  Where an open event bank stands after a change. */
 export type AudioBankState = {
 	id: number,
@@ -1552,6 +1577,12 @@ export type ConvertPlacement =
 /**  A copy in the workshop folder becomes the project, and the folder is left alone. */
 "copy";
 
+/**  The fields of `ContextualActionCooldownModifications`. */
+export type CooldownModifications = {
+	ignoreTimer: boolean,
+	dontResetTimer: boolean,
+};
+
 /**  How many problems a run holds at each severity. */
 export type Counts = {
 	fatals: number,
@@ -2295,8 +2326,15 @@ export type EventAction = {
 export type EventContext = {
 	/**  The situation's name, such as `SpellCast`, or its hash if no table names it. */
 	situation: string,
+	/**  The `mSituations` key of the situation. */
+	situationKey: number,
 	/**  `mRuleName`, such as `Basic 1`. */
 	rule: string | null,
+	/**
+	 *  The percent of the rule's one `ContextualConditionChanceToPlay`, or `None` if it has none
+	 *  or several.
+	 */
+	chance: number | null,
 	/**  The audience whose event name matched. */
 	audience: Audience,
 	/**  `true` if another composition of the rule is an event of the bank too. */
@@ -3274,6 +3312,12 @@ export type HashRef = {
 	name: string,
 	/**  The hash, `0x` and eight hex digits. */
 	hash: string,
+};
+
+/**  A hash value and the name a table gives it. */
+export type HashText = {
+	hash: number,
+	name: string | null,
 };
 
 /**  What the shared hashtable cache currently holds. */
@@ -7500,6 +7544,18 @@ export type Reshape =
 /**  The pointer at `path` is null, and every row under it is gone. */
 { kind: "nulled"; entry: string; path: string };
 
+/**  An event of a skin's voice-over bank set. */
+export type ResolvedEvent = {
+	/**  The object ID of the event. */
+	id: number,
+	/**  The composed name that hashes to the ID. */
+	name: string,
+	/**  The game path of the bank that contains the event. */
+	bank: string,
+	/**  The layer file or game chunk of that bank. */
+	asset: AssetRef | null,
+};
+
 /**  One `StaticMaterialPassDef` with its shader's inputs filled in. */
 export type ResolvedPass = {
 	/**
@@ -9997,6 +10053,132 @@ object: VfxObject | null } |
 export type ViewVariant = {
 	slot: string,
 	document: BinDocumentId | null,
+};
+
+/**  One event bank of a skin's voice-over units. */
+export type VoiceBank = {
+	/**  The game path, under the client's locale where the unit is voice-over. */
+	path: string,
+	/**  The layer file or game chunk, or `None` if no store contains the bank. */
+	asset: AssetRef | null,
+};
+
+/**  One condition, or one struct under a condition, with every field it writes. */
+export type VoiceCondition = {
+	/**  The class hash. */
+	class: number,
+	/**  The class name, or `None` if no table names the class. */
+	className: string | null,
+	/**  The hash path of the value, such as `{5ca57000}.1a116faf[0].2aff6c4a[1]`. */
+	path: string,
+	/**  The fields the value writes, in file order. */
+	fields: VoiceConditionField[],
+};
+
+/**  One field of a [`VoiceCondition`]. */
+export type VoiceConditionField = {
+	/**  The field hash. */
+	field: number,
+	/**  The field name, or `None` if no table names the field. */
+	name: string | null,
+	value: VoiceConditionValue,
+};
+
+/**  The value of a [`VoiceConditionField`]. */
+export type VoiceConditionValue = { kind: "bool"; value: boolean } | 
+/**  Any integer kind. Every shipped integer fits an `f64` exactly. */
+{ kind: "integer"; value: number | null } | { kind: "float"; value: number | null } | { kind: "text"; value: string } | { kind: "hash"; hash: HashText } | 
+/**  A list, an unordered list or a set option. */
+{ kind: "list"; items: VoiceConditionValue[] } | 
+/**  A pointer or an embed. `None` for a null pointer. */
+{ kind: "object"; condition: VoiceCondition | null } | 
+/**  A kind that the view draws by its name alone, such as a vector. */
+{ kind: "other"; 
+/**  The kind of the value, as `ltk_meta` names it. */
+shape: string };
+
+/**  The situations of one `ContextualActionData` object, in map order. */
+export type VoiceLines = {
+	/**  `mCooldown`, the shared cooldown of every situation in seconds. */
+	cooldown: number | null,
+	/**  `mHealthPercentThreshold`, or `None` if the object does not write it. */
+	healthThreshold: number | null,
+	situations: VoiceSituation[],
+};
+
+/**  The voice lines of one object, the skins that link it, and the skin that the names resolve as. */
+export type VoiceLinesResponse = {
+	lines: VoiceLines,
+	/**  The skins whose `mContextualActionData` links the object, the project's first. */
+	skins: VoiceSkin[],
+	/**  The bin of the skin that the names resolve as, or `None` if no skin links the object. */
+	skin: string | null,
+	/**  The event banks of that skin's voice-over units, in set order. */
+	banks: VoiceBank[],
+	/**  Off `ready`, the skins of the game are missing from `skins`. */
+	index: AudioIndexStatus,
+};
+
+/**  One `ContextualRule`, with every field at its value or its default. */
+export type VoiceRule = {
+	/**  The hash path of the rule, such as `{5ca57000}.1a116faf[0]`. */
+	path: string,
+	/**  `mRuleName`, or `None` if the rule does not write one. */
+	name: string | null,
+	/**
+	 *  `mConditionRelationship`: `0` passes when every condition passes, any other value when one
+	 *  condition passes.
+	 */
+	relationship: number,
+	/**  `mPriority`, or `None` while the option is unset. */
+	priority: number | null,
+	/**  `StompLowerPriority`. */
+	stompLower: boolean,
+	/**  `CanStompSelf`. */
+	canStompSelf: boolean,
+	/**  `ActiveVoiceOver`. */
+	activeVoiceOver: boolean,
+	/**  `mOverrideCacCooldown`. */
+	overrideCooldown: boolean,
+	/**  The fields of `CooldownModifications`, or `None` while the pointer is null. */
+	cooldownModifications: CooldownModifications | null,
+	/**  `ChanceWeight`. */
+	chanceWeight: number | null,
+	/**  `mConditions`, in list order. */
+	conditions: VoiceCondition[],
+	/**  `mAudioAction`, or `None` while the pointer is null. */
+	audio: AudioAction | null,
+	/**  `mAnimationAction.mHashedAnimationName`, or `None` without an animation action. */
+	animation: HashText | null,
+	/**  `mTriggerEventAction.mHashedSituationTrigger`, or `None` without a trigger action. */
+	trigger: HashText | null,
+};
+
+/**  One entry of `mSituations`: the rules of one situation key. */
+export type VoiceSituation = {
+	/**  The key, the hash of the lowercased situation name. */
+	key: number,
+	/**  The situation name, or `None` if no table names the key. */
+	name: string | null,
+	/**  The hash path of the entry, such as `{5ca57000}`. */
+	path: string,
+	/**  `mChooseRandomValidRule`. */
+	chooseRandom: boolean,
+	/**  `mCoolDownTime` in seconds. */
+	cooldown: number | null,
+	rules: VoiceRule[],
+};
+
+/**  One skin that links the object. */
+export type VoiceSkin = {
+	/**  The game path of the skin bin. */
+	bin: string,
+	/**  The skin object. */
+	row: SiteRow,
+	/**  `skinAudioProperties.tagEventList`. */
+	tags: string[],
+	/**  `true` if a bin of the open project declares the skin. */
+	inProject: boolean,
 };
 
 /**

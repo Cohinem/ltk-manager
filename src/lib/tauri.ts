@@ -291,6 +291,10 @@ export const api = {
   audioBankNodes: audio.audioBankNodes,
   audioSoundTargets: audio.audioSoundTargets,
 
+  // Voice lines
+  audioVoiceLines: audio.audioVoiceLines,
+  audioVoiceRuleTemplate: audio.audioVoiceRuleTemplate,
+
   // Ritobin
   detectRitobinIntegration: preview.detectRitobinIntegration,
   openAssetInRitobin: (asset: AssetRef, name?: string) =>

@@ -334,7 +334,7 @@ const DIDX_RECORD_LEN: usize = 12;
 
 /// The version of the file that [`AudioIndex::to_bytes`] writes. A file of another version is
 /// read as missing.
-const FILE_VERSION: u32 = 2;
+const FILE_VERSION: u32 = 3;
 
 /// The file that [`AudioIndex::from_bytes`] reads.
 #[derive(Deserialize)]
