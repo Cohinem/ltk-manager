@@ -1,16 +1,15 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   AlertBox,
   Code,
   ContextMenu,
-  Count,
   EmptyState,
   LoadingState,
   SearchField,
+  SegmentedControl,
   Stack,
-  TogglePill,
 } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
@@ -30,7 +29,7 @@ import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { useOpenDocumentAs } from "../../state";
 import { audioQueries } from "../api/queries";
-import { type BankDocument, useBankDocument } from "../hooks/useBankDocument";
+import type { BankDocument } from "../hooks/useBankDocument";
 import { useEventPlayer } from "../hooks/useEventPlayer";
 import { useOpenSiteRow } from "../hooks/useOpenSiteRow";
 import { useFocusMedia } from "../state/mediaFocus";
@@ -56,17 +55,18 @@ import {
 } from "../utils/treeEditing";
 import { structureRow, treeSelection, voiceSelection } from "../utils/viewRows";
 import { replayOf, type VoiceRow, voiceRows } from "../utils/voices";
-import { AudioToolbar } from "./AudioToolbar";
+import { AudioPanelTools } from "./AudioToolbar";
 import { isPlayable } from "./EventRowParts";
 import { EventTree } from "./EventTree";
+import { NoticeBand } from "./NoticeBand";
 import { VoiceList } from "./VoiceList";
 import { EventWaveform } from "./Waveform";
 import { EventRowThumbnail, VoiceRowThumbnail } from "./WaveformThumbnail";
 
 interface EventsPanelProps {
   readonly asset: AssetRef;
-  /** The id of the tab, which takes the unsaved dot and the undo keys of the bank's edits. */
-  readonly documentId?: string | null;
+  /** The bank held open for edits by the document, which every read applies. */
+  readonly bank: BankDocument;
   /** The source that a random container picks a child with. */
   readonly random?: RandomSource;
 }
@@ -75,18 +75,16 @@ interface EventsPanelProps {
 type EventsView = "voices" | "structure";
 
 /**
- * The Events tab of an event bank: the filter, the notices about its bank set, and the event
- * tree with one player.
+ * The Events view of an event bank: its tools in the document toolbar, the notices about its
+ * bank set, and the event tree with one player.
  *
- * An event's tree is fetched when the event expands or plays. Inside a project the bank opens
- * as a document, and every read applies its edits. Per "Event tree" and "Editing" in
+ * An event's tree is fetched when the event expands or plays. Per "Event tree" and "Editing" in
  * docs/ux/AUDIO.md.
  */
-export function EventsPanel({ asset, documentId = null, random = Math.random }: EventsPanelProps) {
+export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelProps) {
   const sandbox = useSandbox();
   const version = useAssetVersion(asset);
   const queryClient = useQueryClient();
-  const bank = useBankDocument(asset, documentId, true);
   const revision = bank.revision;
   const events = useQuery(audioQueries.events(sandbox, asset, version, revision));
   const player = useEventPlayer();
@@ -210,28 +208,53 @@ export function EventsPanel({ asset, documentId = null, random = Math.random }: 
   const announcement =
     player.playing === null ? m.audio_stopped_label() : m.audio_event_playing_label();
 
-  if (events.error) {
-    return <EmptyState size="sm" title={m.audio_events_failed_empty()} />;
-  }
-  if (events.data === undefined) return <LoadingState />;
-
-  return (
-    <Stack fill>
-      <AudioToolbar>
+  const tools = (
+    <AudioPanelTools
+      mode={
+        <SegmentedControl
+          size="sm"
+          aria-label={m.audio_events_view_label()}
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "voices", label: m.audio_events_view_voices_label() },
+            { value: "structure", label: m.audio_events_view_structure_label() },
+          ]}
+          className="shrink-0"
+        />
+      }
+      filter={
         <SearchField
           value={filter}
           onChange={setFilter}
           label={m.audio_events_filter_label()}
           clearLabel={m.audio_filter_clear_label()}
         />
-        <Count>{m.audio_events_total_label({ count: events.data.list.events.length })}</Count>
-        <TogglePill
-          size="xs"
-          label={m.audio_voices_structure_action()}
-          active={!voices}
-          onClick={() => setView(voices ? "structure" : "voices")}
-        />
-      </AudioToolbar>
+      }
+      count={events.data && m.audio_events_total_label({ count: events.data.list.events.length })}
+    />
+  );
+
+  if (events.error) {
+    return (
+      <>
+        {tools}
+        <EmptyState size="sm" title={m.audio_events_failed_empty()} />
+      </>
+    );
+  }
+  if (events.data === undefined) {
+    return (
+      <>
+        {tools}
+        <LoadingState />
+      </>
+    );
+  }
+
+  return (
+    <Stack fill>
+      {tools}
       <SetNotices response={events.data} />
       {bank.state !== null && !bank.state.editable && (
         <NoticeBand>
@@ -386,15 +409,6 @@ function copiedText(row: EventRow): { text: string; label: string } | null {
     return { text: String(row.action.id), label: m.audio_object_id_label() };
   if (row.kind === "node") return { text: String(row.node.id), label: m.audio_object_id_label() };
   return null;
-}
-
-/** The padded band of notices between the filter and the event tree. */
-function NoticeBand({ children }: { children: ReactNode }) {
-  return (
-    <div data-ui="EventsPanel:notices" className="shrink-0 p-2">
-      <Stack gap={2}>{children}</Stack>
-    </div>
-  );
 }
 
 /** The notices about the bank set: the game's index, the fallback set and the missing files. */

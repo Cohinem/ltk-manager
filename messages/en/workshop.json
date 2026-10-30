@@ -3005,6 +3005,11 @@
   "workshop_preview_font_sample_placeholder": "Type a sample",
   "workshop_preview_font_unreadable_description": "{name} did not load as a font.",
   "workshop_preview_media_unreadable_description": "{name} did not play.",
+  "workshop_preview_save_copy_action": "Save a copy…",
+  "workshop_preview_save_copy_dialog_title": "Save a copy",
+  "workshop_preview_save_copy_failed_title": "Could not save a copy",
+  "workshop_preview_save_copy_label": "Save a copy of {name}",
+  "workshop_preview_save_copy_saved_title": "Saved a copy",
   "workshop_preview_text_format_action": "Format",
   "workshop_preview_text_format_label": "Indent the JSON",
   "workshop_preview_text_lines_label": [

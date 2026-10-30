@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                     |
 | ---------- | ------------------------------------------ |
+| 2026-10-30 | Replace the document head with a toolbar   |
 | 2026-10-30 | Add the Voices view                        |
 | 2026-10-30 | Edit fields as rows, add the knob          |
 | 2026-10-30 | Add event bank editing                     |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-29 | Add the waveform column                    |
 | 2026-10-29 | Add the waveform                           |
 | 2026-10-29 | Add VFX sound                              |
-| 2026-10-29 | Add viewport sound                         |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -27,7 +27,31 @@ A `.wpk`, a `.bnk` or a `.wem` opens into the audio file document, from a projec
 from the game browser alike. A chunk without a name opens into it when its magic is a package,
 a bank or a RIFF `WAVE` file.
 
-The head of the document is the file name, its kind, its media count and its size. Under it:
+The document draws its controls in one row, the toolbar row of its editor group, and its content
+under it. The tab shows the file name. The toolbar contains, from the left:
+
+```
+[Save][Undo][Redo] | [Media|Events] [Voices|Structure] [Filter events......] 45 events [Unit v] [:]
+```
+
+- Save, Undo and Redo of an event bank that takes edits, per "Editing". Each tooltip shows its
+  key. Save is enabled while the bank holds unsaved edits, and Undo and Redo while the document
+  has a step in their direction.
+- The Media and Events switch of a bank with a hierarchy. Events is the view that opens in a bank
+  without media. A file without a hierarchy shows the media table alone.
+- The tools of the open view: the Voices and Structure switch of the Events view, the filter and
+  the count of events or media. The count is hidden in a narrow group. The Events view has a
+  place after the count for an action that adds an event and the count of selected rows.
+- The bank unit button of a bank or a package, per "Bank units".
+- The kebab. It contains Bank details, the ways the file leaves the tab (Copy into the layer,
+  Extract, Save a copy), and inside a project Find references, which opens the References
+  document on the game path that the bank units name the file by.
+
+Bank details opens a popover with the `BKHD` facts of a bank: its version, bank type, alignment,
+header ID and the ID of its file name where it has one, then its size and its media count. A
+package or a WEM shows File details: its kind, size and media count.
+
+Under the toolbar, a notice band shows what needs action:
 
 - A file that does not read shows the reader's error in a danger notice. The error names the
   offset where the reader knows one.
@@ -37,48 +61,45 @@ The head of the document is the file name, its kind, its media count and its siz
   notice. It is information and not a warning, because the client registers a bank under the
   ID of its file name and never reads the header ID (rule W3 of `ltk_wwise`). A game chunk has
   no file name, so it shows no such notice.
-- A bank shows its version, bank type, alignment and header ID as field rows, and the ID of
-  its file name where it has one.
-- A bank and a package list their bank units, as "Bank units" describes.
-
-The head's kebab contains Find references, which opens the References document on the game path
-that the bank units name the file by.
-
-A bank with a hierarchy has two tabs, Media and Events. Events contains the event tree, and it is
-the tab that opens in a bank without media.
+- While the audio index of the game builds, the Media view of a bank or a package shows an info
+  notice. The Events view shows its own, per "Names".
 
 ## Bank units
 
-The Bank units section lists every `BankUnit` that names the opened file in its `bankPath`, from
-the bins of the open project and then from the audio index of the game. An event bank, a media
-bank and a package each list it, so any file of a unit reaches the others.
+The bank unit button in the toolbar of a bank or a package names the `BankUnit` that names the
+opened file in its `bankPath`, such as `Rumble_Base_SFX`. The units come from the bins of the
+open project and then from the audio index of the game. If units of several names name the
+file, the button adds the count of the other names, such as `Ahri_Base_VO +2`. If no unit names it,
+the button reads Bank units. An event bank, a media bank and a package each have the button, so
+any file of a unit reaches the others.
 
-A unit that several bins declare with the same name, the same paths and the same voice-over flag
-is one row. A base voice-over bank that every skin bin of a champion declares is one row with a
-list of bins, not one row per bin.
+The button opens a menu with one group per unit. A unit that several bins declare with the same
+name, the same paths and the same voice-over flag is one group. A base voice-over bank that every
+skin bin of a champion declares is one group with a list of bins, not one group per bin. A file
+that two units name has two groups.
 
-A row contains:
+A group contains:
 
-- The unit's `name`, and a Voice-over badge if `voiceOver` is set.
-- Each `bankPath` file as a badge with its kind: event bank, media bank or package. The opened
-  file is marked. A found file opens its document on a press. A file that no layer and no game
-  archive contains is greyed and has no press.
-- A disclosure with the bins that declare the unit. A press on a bin opens the object and
-  reveals the `BankUnit` row.
+- The unit's `name` as its label, followed by Voice-over if `voiceOver` is set.
+- Each `bankPath` file as an item with its kind: event bank, media bank or package. The opened
+  file is marked and disabled. A found file opens its document. A file that no layer and no game
+  archive contains is disabled.
+- A submenu with the bins that declare the unit. An item opens the object and reveals the
+  `BankUnit` row.
 
 The declarations are ranked: the project's bins first, then the skin bin whose number matches
 the `Skins/SkinNN` segment of the opened path (`Base` is skin 0), then `skins/root.bin`, then the
 rest in the order of the index. A declaration whose holder links a `ContextualActionData` object
-also offers Open contextual actions, which opens that object.
+also has an Open contextual actions item under it, which opens that object.
 
 `SpellDataResource.AudioBankPaths` and `ClientStateAudioDataProperties.BankPaths` name banks
 without a unit, a name or events. The bins that list the opened file in one of them follow the
-units, each a press that opens the list row.
+units in a submenu, each an item that opens the list row.
 
-The section reads before the audio index of the game is ready. It lists the project's units, says
+The menu reads before the audio index of the game is ready. It lists the project's units, says
 that the index builds, and fills in when the build finishes. A loose file outside a project names
-itself by its file name, so no unit names it. The links need a project, which owns the editor
-tabs. Outside one, the section is text.
+itself by its file name, so no unit names it. The items need a project, which owns the editor
+tabs. Outside one, they are disabled.
 
 ## Media table
 
@@ -141,15 +162,15 @@ A layer file that changes on disk lists again, and its media play from the new b
 
 ## Event tree
 
-The Events tab lists every event of the bank. A named event shows its name, and an event that
+The Events view lists every event of the bank. A named event shows its name, and an event that
 no name hashes to shows `#` and its decimal ID. Named events come first, by name, then the
 unnamed ones, by ID. The filter keeps the events whose name or decimal ID contains its text.
 
-The tab has two views of the events. The Voices view is the default and lists the sounds that each
-event can play, per "Voices". The Structure toggle in the tab's toolbar switches to the Structure
-view, which lists the full tree of each event, per "Rows". Both views keep the same expanded
-events, the same selection and the same player. The names, the bank set, "What plays" and the row
-actions apply to both views.
+The Events view has two views of the events. The Voices view is the default and lists the sounds
+that each event can play, per "Voices". The Voices and Structure switch in the toolbar changes to
+the Structure view, which lists the full tree of each event, per "Rows". Both views keep the same
+expanded events, the same selection and the same player. The names, the bank set, "What plays"
+and the row actions apply to both views.
 
 ### Names
 
@@ -175,8 +196,8 @@ the bank for one rule, both keep the rule, and the badge's tooltip says that the
 ambiguous. `mRuleName` is not in the meta class, and the shipped rules carry it.
 
 The audio index is built on a background thread the first time an event bank opens, and again
-when the game build changes. It is cached beside the game index cache. While it builds, the tab
-shows an info notice and lists the events with the names of the project alone. The list updates
+when the game build changes. It is cached beside the game index cache. While it builds, the Events
+view shows an info notice and lists the events with the names of the project alone. The list updates
 when the build finishes. The index uses `events` as a name source only, never as a list of what
 a bank contains, because the skin loader reads neither `BankUnit.name` nor `BankUnit.events`.
 
@@ -290,7 +311,7 @@ event. Inside a project it also contains Show contextual rule, which opens the `
 object at the first rule that plays the event, and Show in bank unit, which opens the bin at the
 `events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu contains Copy object ID. A sound whose media is found also
 contains Show media, which opens the document of the file that contains the media, switches it to the
-Media tab and selects the row of the source ID.
+Media view and selects the row of the source ID.
 
 In the Voices view, an event row takes the menu of an event, a chain line the menu of its action and
 a voice row the menu of its sound.
@@ -407,8 +428,10 @@ The list is one tab stop. Focus selects the first row if no row is selected.
 Inside a project, an event bank opens as a document that takes edits. The tab takes the unsaved
 dot, `Ctrl+S` saves it, and `Ctrl+Z`, `Ctrl+Shift+Z` and `Ctrl+Y` step its history. The game
 sandbox takes no edit. Every read of the tree applies the unsaved edits, so a press plays the
-edited bank before a save. Both views of the Events tab edit the one document. The rows and keys
-below are those of the Structure view, and "Voices" lists those of the Voices view.
+edited bank before a save. The Save, Undo and Redo buttons of the toolbar do the same as the keys.
+The Voices and Structure views edit the one document, and the document stays open while the Media
+view shows. The rows and keys below are those of the Structure view, and "Voices" lists those of
+the Voices view.
 
 Each edit decodes one object, changes it and encodes it at the bank's version, so every other
 object keeps its bytes. Only the objects of the opened bank take edits. An object of another bank

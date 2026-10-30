@@ -1,7 +1,7 @@
-import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
+import { DownloadSimpleIcon, FloppyDiskIcon, StackPlusIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { Button, Tooltip } from "@/components";
+import { Button, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopFileKind } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
@@ -17,6 +17,7 @@ import { useExtractActions } from "../../gameBrowser/extraction/hooks/useExtract
 import { chunkTarget } from "../../gameBrowser/extraction/utils/extractTargets";
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
 import { useAssetInfo } from "../api/useAssetInfo";
+import { useSaveCopy } from "../hooks/useSaveCopy";
 import { webViewerOf } from "../utils/viewer";
 import { isPropertyBin } from "./BinPreview";
 import { FontPreview } from "./FontPreview";
@@ -70,17 +71,24 @@ export function PreviewDocument({
 
   if (bin) return objects(<PreviewActions document={document} />);
 
+  if (audio) {
+    return (
+      <AudioFileDocument
+        asset={document.asset}
+        name={document.title}
+        documentId={document.id}
+        active={active}
+        fileActions={<PreviewMenuItems document={document} />}
+      />
+    );
+  }
+
   return (
     <>
       <DocumentToolbar active={active}>
         <PreviewActions document={document} />
       </DocumentToolbar>
-      {audio && (
-        <AudioFileDocument asset={document.asset} name={document.title} documentId={document.id} />
-      )}
-      {!audio && (
-        <AssetViewer documentId={document.id} asset={document.asset} name={document.title} />
-      )}
+      <AssetViewer documentId={document.id} asset={document.asset} name={document.title} />
     </>
   );
 }
@@ -165,6 +173,44 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
         </Tooltip>
       )}
       <SaveCopyAction asset={document.asset} name={name} />
+    </>
+  );
+}
+
+/** The ways out of `PreviewActions`, as the items of a document's own kebab. */
+function PreviewMenuItems({ document }: Pick<PreviewProps, "document">) {
+  const { run, lastFolder, layerLabel, busy } = useExtractActions();
+  const target = chunkTarget(document.asset, document.path);
+  const name = document.title;
+  const saveCopy = useSaveCopy(document.asset, name);
+
+  return (
+    <>
+      {target && layerLabel && (
+        <Menu.Item
+          icon={<StackPlusIcon className="size-4" />}
+          disabled={busy}
+          onClick={() => run("copy", [target], name)}
+        >
+          {m.workshop_preview_copy_into_action({ layer: layerLabel })}
+        </Menu.Item>
+      )}
+      {target && lastFolder && (
+        <Menu.Item
+          icon={<DownloadSimpleIcon className="size-4" />}
+          disabled={busy}
+          onClick={() => run("quick", [target], name)}
+        >
+          {m.workshop_preview_extract_to_label({ folder: lastFolder })}
+        </Menu.Item>
+      )}
+      <Menu.Item
+        icon={<FloppyDiskIcon className="size-4" />}
+        disabled={saveCopy.pending}
+        onClick={() => void saveCopy.run()}
+      >
+        {m.workshop_preview_save_copy_action()}
+      </Menu.Item>
     </>
   );
 }
