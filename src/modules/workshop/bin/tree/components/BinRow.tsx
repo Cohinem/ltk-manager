@@ -1,10 +1,4 @@
-import {
-  ArrowSquareOutIcon,
-  CaretRightIcon,
-  type Icon,
-  SpinnerGapIcon,
-  WarningCircleIcon,
-} from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, SpinnerGapIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -21,7 +15,14 @@ import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../../../palette/utils/types";
 import { ObjectGlyph } from "../../../shared/components/ObjectGlyph";
-import { useGuideLevels } from "../../../shared/state/treeGuides";
+import {
+  NAME_COLUMN_CLASSES,
+  PROPERTY_ROW_CLASSES,
+  RowAction,
+  RowCaret,
+  RowGuides,
+  RowKindTag,
+} from "../../../shared/components/PropertyRowParts";
 import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
@@ -50,9 +51,7 @@ import {
   canExpand,
   fieldHash,
   guideBlocks,
-  INDENT,
   lineParent,
-  MAX_INDENT_DEPTH,
   outsideColumn,
   repeatsKey,
   type RowLine,
@@ -164,9 +163,8 @@ export function BinRowLine({
       aria-expanded={expandable ? expanded : undefined}
       tabIndex={tabStop ? 0 : -1}
       className={twMerge(
-        /* DS-VEIL, DS-RADIUS. No transition: a fade in and out under a pointer crossing
-           a list of 24px rows reads as a flicker rather than as a highlight. */
-        "group/row group/reveal flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil",
+        PROPERTY_ROW_CLASSES,
+        "text-mono-row",
         expandable && "cursor-pointer",
         focused && "bg-accent-500/15",
       )}
@@ -202,31 +200,6 @@ export function BinRowLine({
       )}
       {row.node === "target" && <OpenTargetAction hash={row.entry} />}
     </div>
-  );
-}
-
-interface RowActionProps {
-  label: string;
-  icon: Icon;
-  onAct: () => void;
-}
-
-/** A hover action of an editable row, which leaves the row's own click alone. */
-export function RowAction({ label, icon: Glyph, onAct }: RowActionProps) {
-  return (
-    <IconButton
-      size="row"
-      label={label}
-      icon={<Glyph />}
-      muted
-      reveal
-      data-row-action
-      className="shrink-0"
-      onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
-        event.stopPropagation();
-        onAct();
-      }}
-    />
   );
 }
 
@@ -278,51 +251,10 @@ interface GuidesProps {
   parent: string | null;
 }
 
-/**
- * One guide per open level, each under the caret of the level it belongs to.
- *
- * A guide runs the line's full height, so a block's guides join into one edge. The block
- * the reader stands in takes the accent, and the block under the pointer lifts a rung.
- */
+/** The guides of a bin line, whose blocks are the keys of the rows above `parent`. */
 export function Guides({ depth, parent }: GuidesProps) {
   const blocks = useMemo(() => guideBlocks(parent, depth), [parent, depth]);
-  const { active, hover } = useGuideLevels(blocks);
-  const indented = Math.min(depth, MAX_INDENT_DEPTH);
-  const tone = (level: number) =>
-    twMerge(
-      "shrink-0 border-l border-surface-700/60",
-      level === hover && "border-surface-600",
-      level === active && "border-accent-500",
-      level >= indented && "w-0.5",
-    );
-  return (
-    <span className="flex shrink-0 translate-x-[6px] self-stretch" aria-hidden>
-      {Array.from({ length: depth }, (_, level) => (
-        <span
-          key={level}
-          className={tone(level)}
-          style={level < indented ? { width: INDENT } : undefined}
-        />
-      ))}
-    </span>
-  );
-}
-
-interface CaretProps {
-  expandable: boolean;
-  expanded: boolean;
-  loading: boolean;
-}
-
-function Caret({ expandable, expanded, loading }: CaretProps) {
-  return (
-    <span className="flex h-4 w-3 shrink-0 items-center justify-center text-surface-400">
-      {loading && <SpinnerGapIcon className="size-3 animate-spin" />}
-      {!loading && expandable && (
-        <CaretRightIcon weight="bold" className={twMerge("size-3", expanded && "rotate-90")} />
-      )}
-    </span>
-  );
+  return <RowGuides depth={depth} blocks={blocks} />;
 }
 
 interface NameCellProps {
@@ -372,11 +304,11 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
            middle, where the paths of one patch share their folders. */
         target && "min-w-0 flex-1",
         !target && outsideColumn(row.node) && "max-w-[60%]",
-        !outsideColumn(row.node) && "w-[min(calc(var(--bin-name-cols)*1ch+2rem),50%)]",
+        !outsideColumn(row.node) && NAME_COLUMN_CLASSES,
       )}
     >
       <Guides depth={depth} parent={lineParent(line)} />
-      <Caret expandable={expandable} expanded={expanded} loading={loading} />
+      <RowCaret expandable={expandable} expanded={expanded} loading={loading} />
       {object && (
         <ObjectGlyph
           objectClass={row.value.type === "struct" ? row.value.class : null}
@@ -450,12 +382,7 @@ function KindTag({ row }: { row: BinRow }) {
           </span>
         </Tooltip>
       )}
-      <span className={TAG_CLASSES}>{tag}</span>
+      <RowKindTag tag={tag} />
     </span>
   );
 }
-
-/* A plain span rather than a component: the tooltip's render prop spreads its handlers
-   onto the element it is given. */
-/* DS-KIND-HUE, DS-TEXT. Dimmed only as far as AA contrast allows in both themes. */
-const TAG_CLASSES = "text-bin-kind-text/85";

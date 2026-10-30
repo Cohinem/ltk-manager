@@ -10,6 +10,7 @@ import type {
   RowNode,
 } from "@/lib/tauri";
 
+import { nameColumnCols, rowNameCols } from "../../../shared/utils/propertyRows";
 import { nameHash } from "../../shared/utils/binHash";
 import type { ObjectDraft } from "../state/newObject";
 
@@ -762,18 +763,6 @@ export function outsideColumn(node: RowNode): boolean {
   return node === "object" || node === "target" || node === "element";
 }
 
-/** One level of depth, as the guide draws it. Characters, because the tree is mono. */
-export const INDENT = "2ch";
-
-/** Past this depth the indentation stops and the guides stack. */
-export const MAX_INDENT_DEPTH = 8;
-
-/** The narrowest the name column goes, so a shallow list is not cramped. */
-const MIN_NAME_COLS = 22;
-
-/** The widest, so one long name cannot push every value off the pane. */
-const MAX_NAME_COLS = 52;
-
 /**
  * How many characters the name column needs to hold every row without eliding.
  *
@@ -786,18 +775,14 @@ export function nameColumns(
   visible: readonly VisibleRow[],
   tagOf: (row: BinRow) => string | null,
 ): number {
-  let widest = MIN_NAME_COLS;
+  const widths: number[] = [];
   for (const line of visible) {
     /* An object, a target and an element sit outside the column, so none widens it. */
     if (line.kind !== "row" || outsideColumn(line.row.node)) continue;
-    const tag = tagOf(line.row);
+    const tag = tagOf(line.row) ?? "";
     const held = line.row.value.type === "struct" ? (line.row.value.class ?? "") : "";
-    const cols =
-      Math.min(line.depth, MAX_INDENT_DEPTH) * 2 +
-      line.row.name.length +
-      (tag === null ? 0 : tag.length + 1) +
-      (held === "" ? 0 : held.length + 1);
-    if (cols > widest) widest = cols;
+    widths.push(rowNameCols(line.depth, line.row.name, [tag, held]));
   }
-  return Math.min(widest, MAX_NAME_COLS);
+
+  return nameColumnCols(widths);
 }

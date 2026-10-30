@@ -27,6 +27,7 @@ import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { NumberCell, UnitSuffix } from "../../../shared/components/PropertyRowParts";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext } from "../../links/hooks/useLinkTargets";
@@ -62,8 +63,6 @@ import { ColorMark } from "./ColorMark";
 import { FlagsSelect } from "./FlagsSelect";
 
 const AXES = ["x", "y", "z", "w"] as const;
-/** The room a number on its own takes, so a column of rows lines its digits up. */
-const SCALAR_WIDTH = "w-[var(--bin-scalar-width,8rem)]";
 /** One component of a vector or a matrix, which holds a float. */
 const COMPONENT_WIDTH = "w-[var(--bin-component-width,6rem)]";
 /** What stands between a random range's bounds, "The inspector" in docs/ux/BIN_EDITOR.md. */
@@ -604,34 +603,9 @@ interface NumberValueProps {
 }
 
 /** A number in the box it is edited in, and the unit its field is measured in after it. */
-function NumberValue({
-  text,
-  field,
-  invalid,
-  autoFocus,
-  onEnter,
-  onCommit,
-  step = 1,
-}: NumberValueProps) {
+function NumberValue({ field, ...cell }: NumberValueProps) {
   const unit = fieldUnit(field);
-  const box = (
-    <Readout
-      value={text}
-      step={step}
-      className={SCALAR_WIDTH}
-      invalid={invalid}
-      autoFocus={autoFocus}
-      onEnter={onEnter}
-      onCommit={onCommit}
-    />
-  );
-  if (unit === null) return box;
-  return (
-    <span className="flex min-w-0 items-center gap-1">
-      {box}
-      <Unit unit={unit} />
-    </span>
-  );
+  return <NumberCell {...cell} unit={unit === null ? null : UNIT_SUFFIX[unit]()} />;
 }
 
 /** A random range as the two boxes an edit sets, and the unit after them. */
@@ -656,7 +630,7 @@ function rangeText(range: ValueRange): string {
 
 /** What a number is measured in. "The inspector" in docs/ux/BIN_EDITOR.md. */
 function Unit({ unit }: { unit: FieldUnit }) {
-  return <span className="shrink-0 text-surface-400 select-none">{UNIT_SUFFIX[unit]()}</span>;
+  return <UnitSuffix unit={UNIT_SUFFIX[unit]()} />;
 }
 
 /** An enum in the box a leaf edit turns into a select, the number the file holds beside it. */
