@@ -128,7 +128,7 @@ describe("eventRows", () => {
       [event(100, TREE.name)],
       new Set(["e100", "e100/0", "e100/0.0", "e100/0.0:children"]),
       new Map([[100, { kind: "ready", tree: TREE }]]),
-      properties,
+      { properties },
     );
 
     expect(rows.slice(4).map((row) => [row.key, row.kind, row.depth, row.parent])).toEqual([
@@ -138,6 +138,25 @@ describe("eventRows", () => {
       ["e100/0.0.0", "node", 4, "e100/0.0:children"],
       ["e100/0.0.1", "node", 4, "e100/0.0:children"],
       ["e100/1", "action", 1, "e100"],
+    ]);
+  });
+
+  it("ends an event and a container that take a node in an add row", () => {
+    const rows = eventRows(
+      [event(100, TREE.name)],
+      new Set(["e100", "e100/0", "e100/0.0", "e100/0.0:children"]),
+      new Map([[100, { kind: "ready", tree: TREE }]]),
+      { addable: () => true },
+    );
+
+    expect(rows.slice(4).map((row) => [row.key, row.kind, row.depth, row.parent])).toEqual([
+      ["e100/0.0", "node", 2, "e100/0"],
+      ["e100/0.0:children", "children", 3, "e100/0.0"],
+      ["e100/0.0.0", "node", 4, "e100/0.0:children"],
+      ["e100/0.0.1", "node", 4, "e100/0.0:children"],
+      ["e100/0.0:children:add", "add", 4, "e100/0.0:children"],
+      ["e100/1", "action", 1, "e100"],
+      ["e100:add", "add", 1, "e100"],
     ]);
   });
 

@@ -65,7 +65,12 @@ export interface RowFrameProps {
   readonly open: boolean;
   readonly selected: boolean;
   readonly playing: boolean;
-  readonly onSelect: () => void;
+  /** Picks the row. The modifiers of the press say how the pick joins the picks. */
+  readonly onSelect: (event: {
+    readonly ctrlKey: boolean;
+    readonly metaKey: boolean;
+    readonly shiftKey: boolean;
+  }) => void;
   readonly onExpand: (open: boolean) => void;
   readonly onHover: () => void;
   /** Opens the editor of the row on a double click. Absent, a double click expands the row. */

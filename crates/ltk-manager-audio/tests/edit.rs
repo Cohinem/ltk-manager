@@ -5,8 +5,8 @@ mod common;
 use common::{FakeFiles, FakeNames, fixture};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    AudioFile, BankEdit, BankEditError, BankSet, BankUnit, EventBank, EventBankDocument, EventNode,
-    NodeProperty, ObjectId, OpenedBank, SourceId,
+    AudioFile, BankEdit, BankEditError, BankSet, BankUnit, EditContext, EventBank,
+    EventBankDocument, EventNode, NodeProperty, ObjectId, OpenedBank, SourceId,
 };
 use ltk_wwise::hierarchy::{ContainerFields, Object, PropertyId, Typed};
 use ltk_wwise::{Bank, MediaIndex};
@@ -15,8 +15,10 @@ const MEDIA: &str = "assets/sounds/wwise2016/sfx/shared/map22_sfx_audio.bnk";
 /// The one `DATA_BANK` sound of the fixture, which plays [`BANKED_SOURCE`].
 const BANKED_SOUND: u32 = 556_000_103;
 const BANKED_SOURCE: u32 = 879_168_912;
-/// A streaming sound of the random container 279797186.
+/// A streaming sound of the random container [`STREAMED_PARENT`].
 const STREAMED_SOUND: u32 = 747_636_874;
+/// The random container of the event 3553705574, whose one child is [`STREAMED_SOUND`].
+const STREAMED_PARENT: u32 = 279_797_186;
 
 const EVENTS: &str = "assets/sounds/wwise2016/sfx/shared/map22_sfx_events.bnk";
 
@@ -52,7 +54,9 @@ fn set_with(document: &EventBankDocument, files: FakeFiles, extra: &[&str]) -> B
 
 fn edit(document: &mut EventBankDocument, edit: BankEdit) {
     let set = set_of(document);
-    document.edit(&edit, &set).expect("apply the edit");
+    document
+        .edit(&edit, &EditContext::new(&set))
+        .expect("apply the edit");
 }
 
 fn bank_of(bytes: &[u8]) -> Bank {
@@ -193,7 +197,7 @@ fn property_edit_refuses_out_of_range_value() {
             property: NodeProperty::Lpf,
             value: 150.0,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(refused, Err(BankEditError::Value { .. })));
@@ -240,7 +244,7 @@ fn property_edit_refuses_hpf_out_of_range() {
             property: NodeProperty::Hpf,
             value: -1.0,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(refused, Err(BankEditError::Value { .. })));
@@ -257,7 +261,7 @@ fn property_edit_refuses_loop_count_of_container() {
             property: NodeProperty::LoopCount,
             value: 2.0,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(refused, Err(BankEditError::Property { .. })));
@@ -291,7 +295,7 @@ fn target_edit_refuses_dangling_target() {
             action: PLAY,
             target: 12_345,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(refused, Err(BankEditError::NoNode(12_345))));
@@ -300,25 +304,33 @@ fn target_edit_refuses_dangling_target() {
 }
 
 #[test]
-fn remove_child_drops_child_from_children_and_playlist() {
+fn delete_drops_child_from_children_and_playlist_and_removes_it() {
     let mut document = document();
     edit(
         &mut document,
-        BankEdit::RemoveChild {
-            container: RANDOM,
-            child: SOUND,
+        BankEdit::Delete {
+            object: SOUND,
+            parent: Some(RANDOM),
         },
     );
 
-    let (children, playlist) = random_lists(&bank_of(document.bytes()), RANDOM);
+    let written = bank_of(document.bytes());
+    let (children, playlist) = random_lists(&written, RANDOM);
     assert!(!children.contains(&SOUND));
     assert!(!playlist.iter().any(|(child, _)| *child == SOUND));
     assert_eq!(children.len(), 6);
     assert_eq!(playlist.len(), 6);
+    assert!(
+        written
+            .hierarchy()
+            .expect("hierarchy")
+            .get(ObjectId(SOUND))
+            .is_none()
+    );
 }
 
 #[test]
-fn add_child_inserts_child_in_id_order_and_appends_playlist_item() {
+fn add_child_moves_child_in_id_order_and_appends_playlist_item() {
     let mut document = document();
     edit(
         &mut document,
@@ -328,13 +340,23 @@ fn add_child_inserts_child_in_id_order_and_appends_playlist_item() {
         },
     );
 
-    let (children, playlist) = random_lists(&bank_of(document.bytes()), RANDOM);
+    let written = bank_of(document.bytes());
+    let (children, playlist) = random_lists(&written, RANDOM);
     let mut sorted = children.clone();
     sorted.sort_unstable();
     assert_eq!(children, sorted);
     assert!(children.contains(&STREAMED_SOUND));
     assert_eq!(playlist.last(), Some(&(STREAMED_SOUND, 50_000)));
-    assert_eq!(document.edited(), [ObjectId(RANDOM)]);
+    assert!(random_lists(&written, STREAMED_PARENT).0.is_empty());
+    assert_eq!(parent_of(&written, STREAMED_SOUND), RANDOM);
+    assert_eq!(
+        document.edited(),
+        [
+            ObjectId(STREAMED_SOUND),
+            ObjectId(STREAMED_PARENT),
+            ObjectId(RANDOM)
+        ]
+    );
 }
 
 #[test]
@@ -347,14 +369,14 @@ fn add_child_refuses_held_child_and_dangling_child() {
             container: RANDOM,
             child: SOUND,
         },
-        &set,
+        &EditContext::new(&set),
     );
     let dangling = document.edit(
         &BankEdit::AddChild {
             container: MIXER,
             child: 1,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(held, Err(BankEditError::AlreadyChild { .. })));
@@ -427,7 +449,7 @@ fn source_edit_points_banked_sound_at_media_of_set() {
                 sound: BANKED_SOUND,
                 source: 42,
             },
-            &set,
+            &EditContext::new(&set),
         )
         .expect("a source that the media bank contains");
 
@@ -452,14 +474,14 @@ fn source_edit_refuses_media_outside_set_and_wrong_container() {
             sound: BANKED_SOUND,
             source: 42,
         },
-        &set,
+        &EditContext::new(&set),
     );
     let streamed = document.edit(
         &BankEdit::Source {
             sound: STREAMED_SOUND,
             source: BANKED_SOURCE,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(dangling, Err(BankEditError::NoMedia { .. })));
@@ -479,7 +501,7 @@ fn legacy_bank_refuses_edits() {
             property: NodeProperty::Volume,
             value: -3.0,
         },
-        &set,
+        &EditContext::new(&set),
     );
 
     assert!(matches!(refused, Err(BankEditError::Legacy(134))));
@@ -491,9 +513,9 @@ fn event_bank_of_edited_bytes_resolves_edited_tree_and_properties() {
     let mut document = document();
     edit(
         &mut document,
-        BankEdit::RemoveChild {
-            container: RANDOM,
-            child: SOUND,
+        BankEdit::Delete {
+            object: SOUND,
+            parent: Some(RANDOM),
         },
     );
     edit(
@@ -514,6 +536,8 @@ fn event_bank_of_edited_bytes_resolves_edited_tree_and_properties() {
                 },
                 contents: document.bytes().to_vec(),
             },
+            media: Vec::new(),
+            names: Vec::new(),
         },
         &[],
         &FakeFiles::default(),
@@ -545,7 +569,7 @@ fn event_bank_of_edited_bytes_resolves_edited_tree_and_properties() {
         random.weights.as_ref().map(|weights| weights.items.len()),
         Some(6)
     );
-    assert!(bank.nodes().iter().any(|node| node.id == SOUND));
+    assert!(!bank.nodes().iter().any(|node| node.id == SOUND));
 }
 
 /// Returns the children of the random container `id` and its playlist as `(child, weight)`.
@@ -564,4 +588,13 @@ fn random_lists(bank: &Bank, id: u32) -> (Vec<u32>, Vec<(u32, u32)>) {
             .map(|item| (item.child.0, item.weight))
             .collect(),
     )
+}
+
+/// Returns the `parent` field of the sound or container `id`.
+fn parent_of(bank: &Bank, id: u32) -> u32 {
+    match typed(bank, id) {
+        Typed::Sound(sound) => sound.node.parent.0,
+        Typed::Container(container) => container.node.parent.0,
+        _ => panic!("{id} is not a node"),
+    }
 }

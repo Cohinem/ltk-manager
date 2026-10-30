@@ -20,8 +20,10 @@ import { nameColumnStyle, RowAction } from "../../shared/components/PropertyRowP
 import { createGuideStore, GuideStoreContext } from "../../shared/state/treeGuides";
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
+import type { TreePicks } from "../hooks/useTreePicks";
 import { movedIndex, treeStep } from "../utils/rowKeys";
-import { childIds, isEditable, type TreeEditing } from "../utils/treeEditing";
+import { pickMode } from "../utils/rowSelection";
+import { isEditable, type TreeEditing } from "../utils/treeEditing";
 import {
   type FieldCell,
   movedCell,
@@ -34,25 +36,23 @@ import {
   voiceParent,
   type VoiceRow,
 } from "../utils/voices";
+import { AddNodeLine } from "./AddNodeLine";
 import { AUDIO_LIST_GROUP } from "./audioRow";
+import type { NodeActions } from "./EventMenu";
 import { EditedMark, guideBlocks, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
-import { FieldNameCell, FieldValue, NodePicker } from "./FieldRows";
+import { FieldNameCell, FieldValue } from "./FieldRows";
+import { nodeKey } from "./nodeKeys";
 import { EventContent, Status } from "./RowContent";
-import {
-  AddVariation,
-  ChainLine,
-  MediaPicker,
-  VoiceCells,
-  VoiceName,
-  voiceNameColumns,
-} from "./VoiceRowParts";
+import { ChainLine, MediaPicker, VoiceCells, VoiceName, voiceNameColumns } from "./VoiceRowParts";
 
 interface VoiceListProps {
   readonly rows: readonly VoiceRow[];
   readonly expanded: ReadonlySet<string>;
   readonly onExpand: (key: string, open: boolean) => void;
+  /** The key of the row that the keyboard is on. */
   readonly selected: string | null;
-  readonly onSelect: (key: string) => void;
+  /** The picked rows, which the node actions take. */
+  readonly picks: TreePicks;
   readonly player: EventPlayer;
   /** Plays a new pick of `row`, and stops what played before. */
   readonly onPlay: (row: VoiceRow) => void;
@@ -60,8 +60,14 @@ interface VoiceListProps {
   readonly onReplay: (row: VoiceRow) => void;
   /** Plays `media` under the row `key`, and stops what played before. */
   readonly onPreview: (key: string, media: MediaLocation) => void;
-  /** Copies the name of an event row, or the ID of the object of any other row. */
-  readonly onCopy: (row: VoiceRow) => void;
+  /** Copies the names and IDs of the picked rows. */
+  readonly onCopy: () => void;
+  /** The node actions on the picked rows, or null for a view that takes no edit. */
+  readonly actions: NodeActions | null;
+  /** The key of the add row whose menu is open. */
+  readonly adding: string | null;
+  /** Opens the menu of an add row, or closes it with null. */
+  readonly onAdding: (key: string | null) => void;
   /** The context menu items of `row`. */
   readonly menu: (row: VoiceRow) => ReactNode;
   /** The waveform column of `row`. */
@@ -87,21 +93,24 @@ function swappable(line: VoiceLine, editing: TreeEditing | null): boolean {
  *
  * An expanded event draws one chain line per Play action, whose presses open the fields of the
  * action and its containers, then a row per voice with its knobs, a fold of the other switch
- * branches and the add row. One tab stop with `aria-activedescendant`. Up and Down move between
+ * branches and the add rows. One tab stop with `aria-activedescendant`. Up and Down move between
  * rows, Left and Right between the cells of a voice row, and Enter or F2 opens the entry of the
- * cell. Per "Voices" in docs/ux/AUDIO.md.
+ * cell. Per "Voices" and "Selection" in docs/ux/AUDIO.md.
  */
 export function VoiceList({
   rows,
   expanded,
   onExpand,
   selected,
-  onSelect,
+  picks,
   player,
   onPlay,
   onReplay,
   onPreview,
   onCopy,
+  actions,
+  adding,
+  onAdding,
   menu,
   thumbnail,
   editing,
@@ -114,7 +123,6 @@ export function VoiceList({
   const [guides] = useState(createGuideStore);
   const [entering, setEntering] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
-  const [adding, setAdding] = useState<string | null>(null);
   const [cellName, setCellName] = useState<VoiceCell>("media");
   const [segmentAt, setSegmentAt] = useState(0);
   const [menuRow, setMenuRow] = useState<VoiceRow | null>(null);
@@ -145,11 +153,11 @@ export function VoiceList({
   const selectedRow = rows[selectedIndex];
   useEffect(() => guides.set({ active: selectedRow?.parent ?? null }), [guides, selectedRow]);
 
-  function selectAt(index: number) {
+  function selectAt(index: number, range = false) {
     const row = rows[Math.max(0, Math.min(rows.length - 1, index))];
     if (row === undefined) return;
 
-    onSelect(row.key);
+    picks.pick(row.key, range ? "range" : "only");
     virtualizer.scrollToIndex(rows.indexOf(row), { align: "auto" });
   }
 
@@ -208,7 +216,12 @@ export function VoiceList({
     const parent = editableParent(row);
     if (editing === null || parent === null || row.kind !== "voice") return;
 
-    void editing.edit({ kind: "removeChild", container: parent.id, child: row.line.voice.node.id });
+    void editing.edit({ kind: "delete", object: row.line.voice.node.id, parent: parent.id });
+  }
+
+  function closeAdding() {
+    onAdding(null);
+    returnFocus();
   }
 
   /** Applies the edit key of `event` to `row`. Returns `true` if the key was an edit key. */
@@ -229,7 +242,7 @@ export function VoiceList({
         return true;
       }
       if (row.kind === "add") {
-        setAdding(row.key);
+        onAdding(row.key);
         return true;
       }
       if (row.kind === "others") {
@@ -243,11 +256,9 @@ export function VoiceList({
       if (event.key === "F2") return true;
     }
 
+    if (nodeKey(event, actions)) return true;
+
     const parent = editableParent(row);
-    if (event.key === "Delete" && parent !== null) {
-      removeVoice(row);
-      return true;
-    }
 
     const moving = event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown");
     if (moving && parent !== null && editing !== null && row.kind === "voice") {
@@ -273,10 +284,16 @@ export function VoiceList({
       return;
     }
 
-    const target = movedIndex(event.key, selectedIndex, rows.length);
+    const target = event.altKey ? null : movedIndex(event.key, selectedIndex, rows.length);
     if (target !== null) {
       event.preventDefault();
-      selectAt(target);
+      selectAt(target, event.shiftKey);
+      return;
+    }
+
+    if (event.key === "a" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      picks.pickAll();
       return;
     }
 
@@ -313,21 +330,17 @@ export function VoiceList({
       return;
     }
 
-    if (event.key === "Escape" && player.playing !== null) {
+    if (event.key === "Escape") {
       event.preventDefault();
-      player.stop();
+      if (player.playing !== null) player.stop();
+      else picks.pick(row.key, "only");
       return;
     }
 
     if (event.key === "c" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      onCopy(row);
+      onCopy();
     }
-  }
-
-  function closeAdding() {
-    setAdding(null);
-    returnFocus();
   }
 
   function closePicking() {
@@ -350,7 +363,8 @@ export function VoiceList({
       picking === row.key && editing !== null && node.kind === "sound" ? (
         <MediaPicker
           files={files}
-          line={line}
+          stream={node.stream}
+          current={node.source}
           onPreview={(candidate) => onPreview(row.key, candidate.media)}
           onPick={(candidate) => {
             void editing
@@ -387,10 +401,11 @@ export function VoiceList({
     const frame = {
       row,
       open,
-      selected: row.key === selected,
+      selected: row.key === selected || picks.picked.has(row.key),
       playing: player.playing === row.key,
       blocks: guideBlocks(row, byKey),
-      onSelect: () => onSelect(row.key),
+      onSelect: (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) =>
+        picks.pick(row.key, pickMode(event)),
       onExpand: (next: boolean) => onExpand(row.key, next),
       onHover: () => guides.set({ hover: row.parent }),
     };
@@ -400,7 +415,7 @@ export function VoiceList({
         playable={playable}
         playing={frame.playing}
         onToggle={() => {
-          onSelect(row.key);
+          if (!picks.picked.has(row.key)) picks.pick(row.key, "only");
           if (player.playing === row.key) player.stop();
           else onPlay(row);
         }}
@@ -516,18 +531,16 @@ export function VoiceList({
         return (
           <RowFrame {...frame}>
             {lead}
-            {(adding !== row.key || editing === null) && (
-              <AddVariation onAdd={() => setAdding(row.key)} />
-            )}
-            {adding === row.key && editing !== null && (
-              <NodePicker
-                revision={editing.revision}
-                exclude={new Set([row.container.id, ...childIds(row.container)])}
-                onPick={(child) => {
-                  void editing.edit({ kind: "addChild", container: row.container.id, child });
-                  closeAdding();
-                }}
-                onClose={closeAdding}
+            {editing !== null && (
+              <AddNodeLine
+                into={row.into}
+                editing={editing}
+                files={files}
+                exclude={row.exclude}
+                opening={adding === row.key}
+                onOpening={(next) => (next ? onAdding(row.key) : closeAdding())}
+                onPreview={(media) => onPreview(row.key, media)}
+                onLeave={returnFocus}
               />
             )}
           </RowFrame>
@@ -579,6 +592,7 @@ export function VoiceList({
           role="tree"
           tabIndex={0}
           aria-label={m.audio_voices_tree_label()}
+          aria-multiselectable
           aria-activedescendant={selected === null ? undefined : rowId(selected)}
           onKeyDown={handleKeyDown}
           onFocus={(event) => {
@@ -608,7 +622,7 @@ export function VoiceList({
                   className="absolute top-0 left-0 w-full"
                   style={{ transform: `translateY(${item.start}px)` }}
                   onContextMenu={() => {
-                    onSelect(row.key);
+                    if (!picks.picked.has(row.key)) picks.pick(row.key, "only");
                     setMenuRow(row);
                   }}
                 >

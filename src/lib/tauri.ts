@@ -282,6 +282,7 @@ export const api = {
   audioBankOpen: audio.audioBankOpen,
   audioBankClose: audio.audioBankClose,
   audioBankEdit: audio.audioBankEdit,
+  audioBankImport: audio.audioBankImport,
   audioBankStep: audio.audioBankStep,
   audioBankSave: audio.audioBankSave,
   audioBankNodes: audio.audioBankNodes,

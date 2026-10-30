@@ -35,6 +35,19 @@ pub struct OpenedBank {
     pub path: String,
     /// The bytes of the bank and the asset that contains them.
     pub file: AudioFile<Vec<u8>>,
+    /// The media files that the document changed, which the set reads in place of their files.
+    pub media: Vec<OpenedFile>,
+    /// The names of the events that the document created, which name them in the list.
+    pub names: Vec<String>,
+}
+
+/// A file of the bank set as a document holds it, by its game path.
+#[derive(Debug, Clone)]
+pub struct OpenedFile {
+    /// The game path of the file.
+    pub path: String,
+    /// The bytes of the file and the asset that a save writes them to.
+    pub file: AudioFile<Vec<u8>>,
 }
 
 /// Which files the bank set of an opened event bank contains beside the bank.
@@ -89,6 +102,12 @@ impl EventBank {
         let mut event_names = EventNames::new();
         for &id in &ids {
             if let Some(name) = indexes.iter().find_map(|index| index.name(id)) {
+                event_names.insert(name);
+            }
+        }
+        for name in &opened.names {
+            let id = ObjectId::from_name(name);
+            if ids.contains(&id) && event_names.get(id).is_none() {
                 event_names.insert(name);
             }
         }
@@ -666,17 +685,31 @@ struct WithOpened<'a> {
     rest: &'a dyn AudioFiles,
 }
 
+impl WithOpened<'_> {
+    /// Returns the document's copy of the file at `path`: the bank or one of its media files.
+    fn held(&self, path: &str) -> Option<&AudioFile<Vec<u8>>> {
+        if path.eq_ignore_ascii_case(&self.opened.path) {
+            return Some(&self.opened.file);
+        }
+        self.opened
+            .media
+            .iter()
+            .find(|media| path.eq_ignore_ascii_case(&media.path))
+            .map(|media| &media.file)
+    }
+}
+
 impl AudioFiles for WithOpened<'_> {
     fn read(&self, path: &str) -> io::Result<Option<AudioFile<Vec<u8>>>> {
-        if path.eq_ignore_ascii_case(&self.opened.path) {
-            return Ok(Some(self.opened.file.clone()));
+        if let Some(file) = self.held(path) {
+            return Ok(Some(file.clone()));
         }
         self.rest.read(path)
     }
 
     fn open(&self, path: &str) -> io::Result<Option<AudioFile<Box<dyn ReadSeek>>>> {
-        if path.eq_ignore_ascii_case(&self.opened.path) {
-            let file = self.opened.file.clone();
+        if let Some(file) = self.held(path) {
+            let file = file.clone();
             return Ok(Some(AudioFile {
                 asset: file.asset,
                 contents: Box::new(io::Cursor::new(file.contents)) as Box<dyn ReadSeek>,

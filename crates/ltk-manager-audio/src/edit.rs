@@ -1,7 +1,14 @@
-//! An event bank that takes edits: the bank, its undo history and the bytes that a save writes.
+//! An event bank that takes edits: the bank, the media files it adds media to, its undo history
+//! and the bytes that a save writes.
 //!
-//! "Editing" in `docs/ux/AUDIO.md`. Every edit replaces one object, so each other object keeps
-//! its bytes.
+//! "Editing" and "New objects" in `docs/ux/AUDIO.md`, and
+//! `docs/adr/0071-an-event-bank-document-holds-its-media-files.md`. An edit changes, adds and
+//! removes whole objects, so every other object keeps its bytes.
+
+mod history;
+mod ids;
+mod media_file;
+mod structure;
 
 use std::collections::HashMap;
 
@@ -17,6 +24,11 @@ use thiserror::Error;
 use xxhash_rust::xxh64::xxh64;
 
 use crate::bank_set::BankSet;
+use crate::files::AudioFiles;
+use crate::index::AudioIndex;
+use history::{Change, Tx};
+
+pub use media_file::MediaFile;
 
 /// The most steps that the undo history keeps.
 const HISTORY_DEPTH: usize = 100;
@@ -142,10 +154,8 @@ impl NodeProperty {
 pub enum BankEdit {
     /// Points the Play action `action` at the node `target`.
     Target { action: u32, target: u32 },
-    /// Adds the node `child` to the children of `container`, and to its playlist.
+    /// Moves the node `child` of the opened bank from its parent into `container`.
     AddChild { container: u32, child: u32 },
-    /// Removes `child` from the children of `container`, and from every list that names it.
-    RemoveChild { container: u32, child: u32 },
     /// Moves the playlist item of `child` of the random container `container` to `index`.
     MoveChild {
         container: u32,
@@ -166,20 +176,142 @@ pub enum BankEdit {
     },
     /// Points the sound `sound` at the media `source`.
     Source { sound: u32, source: u32 },
+    /// Creates the event `name`, whose ID is the hash of the name, with no action.
+    NewEvent { name: String },
+    /// Creates the event `name` with a copy of every action of `event` and of what they play.
+    CopyEvent { event: u32, name: String },
+    /// Adds `node` under `parent`.
+    AddNode { parent: NodeParent, node: NewNode },
+    /// Adds a copy of `object` and of every object below it beside `object` under `parent`.
+    ///
+    /// `parent` is the container that lists the object, the Play action that plays it, or the
+    /// event that runs the action `object`.
+    Duplicate { object: u32, parent: u32 },
+    /// Unlinks `object` from `parent`, and removes it if nothing else references it.
+    ///
+    /// `parent` is as for [`BankEdit::Duplicate`]. `None` deletes the event `object`.
+    Delete { object: u32, parent: Option<u32> },
+    /// Puts `objects` into a new container of `container` that takes their place under `parent`.
+    ///
+    /// `parent` is the container that lists every object, or the Play action of the one object.
+    Wrap {
+        objects: Vec<u32>,
+        parent: u32,
+        container: ContainerKind,
+    },
+    /// Applies every edit of `edits`, in order, as one undo step.
+    Batch { edits: Vec<BankEdit> },
 }
 
 impl BankEdit {
-    /// Returns the ID of the object that the edit replaces.
-    #[must_use]
-    pub fn object(&self) -> u32 {
+    /// Returns the ID of the one object that the edit replaces, or `None` for an edit that adds,
+    /// removes or replaces several objects.
+    fn replaced(&self) -> Option<u32> {
         match *self {
-            Self::Target { action, .. } => action,
-            Self::AddChild { container, .. }
-            | Self::RemoveChild { container, .. }
-            | Self::MoveChild { container, .. }
-            | Self::Weight { container, .. } => container,
-            Self::Property { object, .. } => object,
-            Self::Source { sound, .. } => sound,
+            Self::Target { action, .. } => Some(action),
+            Self::MoveChild { container, .. } | Self::Weight { container, .. } => Some(container),
+            Self::Property { object, .. } => Some(object),
+            Self::Source { sound, .. } => Some(sound),
+            Self::AddChild { .. }
+            | Self::NewEvent { .. }
+            | Self::CopyEvent { .. }
+            | Self::AddNode { .. }
+            | Self::Duplicate { .. }
+            | Self::Delete { .. }
+            | Self::Wrap { .. }
+            | Self::Batch { .. } => None,
+        }
+    }
+}
+
+/// The object that a new node joins: a container lists it, or an event plays it through a new
+/// Play action.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum NodeParent {
+    /// A container of the opened bank.
+    Container { container: u32 },
+    /// An event of the opened bank.
+    Event { event: u32 },
+}
+
+/// The node that [`BankEdit::AddNode`] adds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum NewNode {
+    /// A new sound that plays the media `source` of the bank set.
+    Sound { source: u32 },
+    /// A new, empty container.
+    Container { container: ContainerKind },
+    /// The node `node`. Under a container it moves from its parent, and under an event a new
+    /// Play action plays it.
+    Existing { node: u32 },
+}
+
+/// The kind of a new container.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum ContainerKind {
+    /// A random container, which plays one child that the client picks.
+    Random,
+    /// A sequence container, which plays its children in playlist order.
+    Sequence,
+    /// A switch container, with the switch group and the default switch of a switch container
+    /// of the set.
+    Switch,
+}
+
+/// What an edit checks its references against, and where it reads a media file from.
+#[derive(Clone, Copy)]
+pub struct EditContext<'a> {
+    set: &'a BankSet,
+    indexes: &'a [&'a AudioIndex],
+    files: Option<&'a dyn AudioFiles>,
+}
+
+impl std::fmt::Debug for EditContext<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EditContext")
+            .field("indexes", &self.indexes.len())
+            .field("files", &self.files.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'a> EditContext<'a> {
+    /// Returns a context over `set`, the bank set of the document opened from its bytes.
+    #[must_use]
+    pub fn new(set: &'a BankSet) -> Self {
+        Self {
+            set,
+            indexes: &[],
+            files: None,
+        }
+    }
+
+    /// Returns the context with `indexes`, whose event names and source IDs a new ID avoids.
+    #[must_use]
+    pub fn with_indexes(self, indexes: &'a [&'a AudioIndex]) -> Self {
+        Self { indexes, ..self }
+    }
+
+    /// Returns the context with `files`, which an import reads a media file of the set from.
+    #[must_use]
+    pub fn with_files(self, files: &'a dyn AudioFiles) -> Self {
+        Self {
+            files: Some(files),
+            ..self
         }
     }
 }
@@ -249,6 +381,56 @@ pub enum BankEditError {
         "Sound {0} is prefetched, so its media is in two files and its source ID takes no edit"
     )]
     Prefetched(u32),
+
+    /// A new event has an empty name.
+    #[error("A new event needs a name")]
+    EventName,
+
+    /// The ID of a new event's name is the ID of an object of the set or of a named event.
+    #[error(
+        "An event or an object of the bank set already has the ID of \"{0}\". Pick another name."
+    )]
+    EventExists(String),
+
+    /// The node is in another bank of the set, whose objects no edit of this bank changes.
+    #[error(
+        "Object {0} is in another bank of the set. Pick an object of this bank, or edit the other \
+         bank."
+    )]
+    OtherBank(u32),
+
+    /// The child holds the container, so the move would make a cycle.
+    #[error("Object {child} contains container {container}, so it cannot move into it")]
+    Cycle { container: u32, child: u32 },
+
+    /// No bank of the set holds a switch container to take a switch group from.
+    #[error(
+        "No bank of the set holds a switch container, so a new one has no switch group to take"
+    )]
+    NoSwitch,
+
+    /// No bank of the set holds a sound to copy the node base of a new node from.
+    #[error("No bank of the set holds a sound for a new sound to copy. Pick another bank.")]
+    NoTemplate,
+
+    /// The set has no media bank and no package to take a new media.
+    #[error("The bank set has no media bank and no package to add the media to")]
+    NoMediaFile,
+
+    /// The media file of the set cannot be read.
+    #[error("The media file of the bank set cannot be read: {0}")]
+    MediaRead(String),
+
+    /// The file is not a WEM, or its media does not decode.
+    #[error("The file is not a WEM that plays: {0}")]
+    Wem(String),
+
+    /// The WEM is of a codec that the game does not play.
+    #[error(
+        "The WEM is codec {0:#06x}, and the game plays only Wwise Vorbis. Convert it to Vorbis \
+         in the Wwise authoring tool, then import the converted file."
+    )]
+    Codec(u16),
 }
 
 impl From<BankEditError> for AppError {
@@ -257,7 +439,11 @@ impl From<BankEditError> for AppError {
     }
 }
 
-/// An open event bank, its undo history and the bytes that a save writes.
+/// An open event bank, the media files it adds media to, its undo history and the bytes that a
+/// save writes.
+///
+/// One edit is one undo step over the bank and its media files together. A media file joins the
+/// document on its first import and stays in it until the document closes.
 #[derive(Debug)]
 pub struct EventBankDocument {
     bank: Bank,
@@ -267,10 +453,14 @@ pub struct EventBankDocument {
     bytes: Vec<u8>,
     /// The xxh64 of the bytes that the document was read from or last saved as.
     base: u64,
-    /// The object that each edit replaced, the last edit last.
-    undo: Vec<Object>,
-    /// The object that each undo replaced, the last undo last.
-    redo: Vec<Object>,
+    /// The media banks and packages of the set that an import added media to.
+    media: Vec<MediaFile>,
+    /// The names of the events that an edit created.
+    names: Vec<String>,
+    /// The changes of each edit, the last edit last.
+    undo: Vec<Vec<Change>>,
+    /// The changes that redo each undone edit, the last undo last.
+    redo: Vec<Vec<Change>>,
     /// Counts every change.
     revision: u64,
     /// The revision that the bytes at `base` hold.
@@ -301,6 +491,8 @@ impl EventBankDocument {
             opened,
             base: xxh64(&bytes, 0),
             bytes,
+            media: Vec::new(),
+            names: Vec::new(),
             undo: Vec::new(),
             redo: Vec::new(),
             revision: 0,
@@ -363,37 +555,66 @@ impl EventBankDocument {
             .collect()
     }
 
-    /// Applies `edit` as one undo step, with the references checked against `set`.
+    /// Returns the media files that an import added media to, in the order they joined.
+    #[must_use]
+    pub fn media(&self) -> &[MediaFile] {
+        &self.media
+    }
+
+    /// Returns the media files that an import added media to, to point one at its layer copy.
+    pub fn media_mut(&mut self) -> &mut [MediaFile] {
+        &mut self.media
+    }
+
+    /// Returns the names of the events that an edit created, in the order of the edits.
+    #[must_use]
+    pub fn created_names(&self) -> &[String] {
+        &self.names
+    }
+
+    /// Applies `edit` as one undo step, with the references checked against `context`.
     ///
-    /// `set` is the bank set of the document, opened from [`EventBankDocument::bytes`]. An edit
-    /// that leaves the bank unchanged takes no step.
+    /// The set of `context` is the bank set of the document, opened from
+    /// [`EventBankDocument::bytes`] and its media files. An edit that leaves the bank unchanged
+    /// takes no step.
     ///
     /// # Errors
     ///
-    /// Fails if the bank is not version 145, if the object is not in the bank or not of the kind
-    /// the edit changes, if a new target, child or source is not in `set`, or if the object does
-    /// not decode or encode. A refused edit leaves the document unchanged.
-    pub fn edit(&mut self, edit: &BankEdit, set: &BankSet) -> Result<(), BankEditError> {
-        let version = self.check()?;
-        let id = edit.object();
-        let current = self.object(id)?;
-        let typed = current.decode(version)?.ok_or(BankEditError::Kind {
-            id,
-            expected: "an action, a sound or a container",
+    /// Fails if the bank is not version 145, if an object is not in the bank or not of the kind
+    /// the edit changes, if a new target, child or source is not in the set, if a new event's name
+    /// is taken, or if an object does not decode or encode. A refused edit leaves the document
+    /// unchanged.
+    pub fn edit(
+        &mut self,
+        edit: &BankEdit,
+        context: &EditContext<'_>,
+    ) -> Result<(), BankEditError> {
+        self.transact(context, |tx| apply(tx, edit))
+    }
+
+    /// Adds the WEM `wem` as a new media of the set and a new sound under `parent` that plays it,
+    /// as one undo step, and returns the ID of the sound.
+    ///
+    /// The media goes into the media bank of the set if the template sound plays from a bank,
+    /// and into the package if it streams. The file is read through the files of `context` the
+    /// first time it takes a media. "New objects" in `docs/ux/AUDIO.md`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `wem` is not a Wwise Vorbis WEM that decodes, if the set has no sound to copy or
+    /// no media file to add the media to, and for the reasons of [`EventBankDocument::edit`].
+    pub fn import(
+        &mut self,
+        parent: &NodeParent,
+        wem: Vec<u8>,
+        context: &EditContext<'_>,
+    ) -> Result<u32, BankEditError> {
+        let mut sound = 0;
+        self.transact(context, |tx| {
+            sound = structure::import(tx, parent, wem)?.0;
+            Ok(())
         })?;
-
-        let changed = apply(edit, typed, set)?.encode(version)?;
-        if changed == *current {
-            return Ok(());
-        }
-
-        let previous = self.replace(changed)?;
-        self.undo.push(previous);
-        if self.undo.len() > HISTORY_DEPTH {
-            self.undo.remove(0);
-        }
-        self.redo.clear();
-        self.changed()
+        Ok(sound)
     }
 
     /// Reverts the last edit. Returns `false` if there is no edit to revert.
@@ -402,11 +623,11 @@ impl EventBankDocument {
     ///
     /// Fails if the bank does not write.
     pub fn undo(&mut self) -> Result<bool, BankEditError> {
-        let Some(object) = self.undo.pop() else {
+        let Some(changes) = self.undo.pop() else {
             return Ok(false);
         };
-        let replaced = self.replace(object)?;
-        self.redo.push(replaced);
+        let inverse = self.revert(changes)?;
+        self.redo.push(inverse);
         self.changed()?;
         Ok(true)
     }
@@ -417,19 +638,58 @@ impl EventBankDocument {
     ///
     /// Fails if the bank does not write.
     pub fn redo(&mut self) -> Result<bool, BankEditError> {
-        let Some(object) = self.redo.pop() else {
+        let Some(changes) = self.redo.pop() else {
             return Ok(false);
         };
-        let replaced = self.replace(object)?;
-        self.undo.push(replaced);
+        let inverse = self.revert(changes)?;
+        self.undo.push(inverse);
         self.changed()?;
         Ok(true)
     }
 
-    /// Records that [`EventBankDocument::bytes`] are on disk.
+    /// Records that [`EventBankDocument::bytes`] and the bytes of every media file are on disk.
     pub fn mark_saved(&mut self) {
         self.base = xxh64(&self.bytes, 0);
         self.saved = self.revision;
+        for file in &mut self.media {
+            file.mark_saved();
+        }
+    }
+
+    /// Runs `body` as one edit, and keeps its changes as one undo step.
+    fn transact(
+        &mut self,
+        context: &EditContext<'_>,
+        body: impl FnOnce(&mut Tx<'_, '_>) -> Result<(), BankEditError>,
+    ) -> Result<(), BankEditError> {
+        self.check()?;
+        let mut tx = Tx::new(&mut self.bank, &mut self.media, &mut self.names, context)?;
+        let result = body(&mut tx);
+        let changes = tx.into_changes();
+
+        if let Err(error) = result {
+            self.revert(changes)?;
+            self.refresh_media()?;
+            return Err(error);
+        }
+        if changes.is_empty() {
+            return Ok(());
+        }
+
+        self.undo.push(changes);
+        if self.undo.len() > HISTORY_DEPTH {
+            self.undo.remove(0);
+        }
+        self.redo.clear();
+        self.changed()
+    }
+
+    fn revert(&mut self, changes: Vec<Change>) -> Result<Vec<Change>, BankEditError> {
+        let hierarchy = self
+            .bank
+            .hierarchy_mut()
+            .ok_or(BankEditError::NoHierarchy)?;
+        history::revert(hierarchy, &mut self.media, changes)
     }
 
     /// Returns the version of the bank if it takes edits.
@@ -444,62 +704,73 @@ impl EventBankDocument {
         Ok(version)
     }
 
-    fn object(&self, id: u32) -> Result<&Object, BankEditError> {
-        self.bank
-            .hierarchy()
-            .and_then(|hierarchy| hierarchy.get(ObjectId(id)))
-            .ok_or(BankEditError::NoObject(id))
-    }
-
-    /// Replaces the object with the ID of `object` and returns the object it replaced.
-    fn replace(&mut self, object: Object) -> Result<Object, BankEditError> {
-        let id = object.id();
-        let hierarchy = self
-            .bank
-            .hierarchy_mut()
-            .ok_or(BankEditError::NoHierarchy)?;
-        if hierarchy.get(id).is_none() {
-            return Err(BankEditError::NoObject(id.0));
+    fn refresh_media(&mut self) -> Result<(), BankEditError> {
+        for file in &mut self.media {
+            file.refresh()?;
         }
-        Ok(hierarchy
-            .replace(object)
-            .expect("the hierarchy holds the object it replaces"))
+        Ok(())
     }
 
-    /// Writes the bank out again and counts the change.
+    /// Writes the bank and the changed media files out again and counts the change.
     fn changed(&mut self) -> Result<(), BankEditError> {
         let mut bytes = Vec::with_capacity(self.bytes.len());
         self.bank.to_writer(&mut bytes)?;
         self.bytes = bytes;
+        self.refresh_media()?;
         self.revision += 1;
         Ok(())
     }
 }
 
-/// Returns `typed` with `edit` applied, checked against `set`.
-fn apply(edit: &BankEdit, typed: Typed, set: &BankSet) -> Result<Typed, BankEditError> {
-    let id = edit.object();
+/// Applies `edit` in `tx`.
+fn apply(tx: &mut Tx<'_, '_>, edit: &BankEdit) -> Result<(), BankEditError> {
+    match edit {
+        BankEdit::Batch { edits } => {
+            for each in edits {
+                apply(tx, each)?;
+            }
+            Ok(())
+        }
+        BankEdit::NewEvent { name } => structure::new_event(tx, name, None),
+        BankEdit::CopyEvent { event, name } => structure::new_event(tx, name, Some(*event)),
+        BankEdit::AddNode { parent, node } => structure::add_node(tx, parent, node).map(drop),
+        BankEdit::AddChild { container, child } => {
+            let parent = NodeParent::Container {
+                container: *container,
+            };
+            structure::add_node(tx, &parent, &NewNode::Existing { node: *child }).map(drop)
+        }
+        BankEdit::Duplicate { object, parent } => structure::duplicate(tx, *object, *parent),
+        BankEdit::Delete { object, parent } => structure::delete(tx, *object, *parent),
+        BankEdit::Wrap {
+            objects,
+            parent,
+            container,
+        } => structure::wrap(tx, objects, *parent, *container),
+        single => {
+            let id = single
+                .replaced()
+                .expect("every other edit replaces one object");
+            let typed = tx.typed(ObjectId(id))?;
+            let changed = apply_one(single, id, typed, tx)?;
+            tx.put(&changed)
+        }
+    }
+}
+
+/// Returns `typed`, the object `id`, with the one-object `edit` applied, checked against `tx`.
+fn apply_one(
+    edit: &BankEdit,
+    id: u32,
+    typed: Typed,
+    tx: &Tx<'_, '_>,
+) -> Result<Typed, BankEditError> {
     match *edit {
         BankEdit::Target { target, .. } => {
             let mut action = play_action(typed, id)?;
-            check_node(set, target, PLAY_TARGETS)?;
+            check_node(tx, target, PLAY_TARGETS)?;
             action.target = ObjectId(target);
             Ok(Typed::Action(action))
-        }
-        BankEdit::AddChild { child, .. } => {
-            let mut container = container(typed, id)?;
-            add_child(&mut container, child, set)?;
-            Ok(Typed::Container(container))
-        }
-        BankEdit::RemoveChild { child, .. } => {
-            let mut container = container(typed, id)?;
-            if !container.remove_child(ObjectId(child)) {
-                return Err(BankEditError::NotChild {
-                    container: id,
-                    child,
-                });
-            }
-            Ok(Typed::Container(container))
         }
         BankEdit::MoveChild { child, index, .. } => {
             let mut container = container(typed, id)?;
@@ -528,9 +799,10 @@ fn apply(edit: &BankEdit, typed: Typed, set: &BankSet) -> Result<Typed, BankEdit
                     expected: "a sound",
                 });
             };
-            set_source(&mut sound, source, set)?;
+            set_source(&mut sound, source, tx.context.set)?;
             Ok(Typed::Sound(sound))
         }
+        _ => unreachable!("apply sends every edit of several objects to the structure module"),
     }
 }
 
@@ -556,10 +828,11 @@ pub(crate) const CHILD_KINDS: &[ObjectKind] = &[
     ObjectKind::LAYER_CONTAINER,
 ];
 
-/// Fails if no bank of `set` holds an object `id` of one of `kinds`.
-fn check_node(set: &BankSet, id: u32, kinds: &[ObjectKind]) -> Result<(), BankEditError> {
-    match set.object(ObjectId(id)) {
-        Some((_, _, object)) if kinds.contains(&object.kind()) => Ok(()),
+/// Fails if neither the opened bank nor another bank of the set holds an object `id` of one of
+/// `kinds`.
+fn check_node(tx: &Tx<'_, '_>, id: u32, kinds: &[ObjectKind]) -> Result<(), BankEditError> {
+    match tx.locate(ObjectId(id)) {
+        Some((kind, _)) if kinds.contains(&kind) => Ok(()),
         _ => Err(BankEditError::NoNode(id)),
     }
 }
@@ -604,39 +877,6 @@ fn item_of(playlist: &[PlaylistItem], container: u32, child: u32) -> Result<usiz
         .iter()
         .position(|item| item.child == ObjectId(child))
         .ok_or(BankEditError::NotChild { container, child })
-}
-
-/// Adds `child` to `container` in ID order, which is the order that shipped banks write.
-fn add_child(container: &mut Container, child: u32, set: &BankSet) -> Result<(), BankEditError> {
-    let id = container.id.0;
-    if matches!(
-        container.fields,
-        ContainerFields::Switch(_) | ContainerFields::Layer(_)
-    ) {
-        return Err(BankEditError::Grouped(id));
-    }
-    if child == id {
-        return Err(BankEditError::OwnChild(id));
-    }
-    if container.children.contains(&ObjectId(child)) {
-        return Err(BankEditError::AlreadyChild {
-            container: id,
-            child,
-        });
-    }
-    check_node(set, child, CHILD_KINDS)?;
-
-    let at = container
-        .children
-        .partition_point(|existing| existing.0 < child);
-    container.children.insert(at, ObjectId(child));
-    if let ContainerFields::RandomSequence(fields) = &mut container.fields {
-        fields.playlist.push(PlaylistItem {
-            child: ObjectId(child),
-            weight: DEFAULT_WEIGHT,
-        });
-    }
-    Ok(())
 }
 
 fn set_property(

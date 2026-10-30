@@ -67,6 +67,8 @@ fn opened(path: &str, bytes: Vec<u8>) -> OpenedBank {
             },
             contents: bytes,
         },
+        media: Vec::new(),
+        names: Vec::new(),
     }
 }
 

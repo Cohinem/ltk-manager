@@ -2,7 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useToast } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import { api, type AssetRef, type AudioBankState, type BankEdit } from "@/lib/tauri";
+import {
+  api,
+  type AssetRef,
+  type AudioBankState,
+  type BankEdit,
+  type NodeParent,
+} from "@/lib/tauri";
 import { type HistoryStep, useDocumentHistory, useDocumentSave } from "@/modules/editor";
 
 import { previewDocument } from "../../documents/utils/contentDocument";
@@ -21,6 +27,11 @@ export interface BankDocument {
   readonly revision: BankRevision | null;
   /** Applies `edit` as one undo step. Resolves false, after a toast, if it was refused. */
   readonly edit: (edit: BankEdit) => Promise<boolean>;
+  /**
+   * Adds the WEM file at `file` as a new sound under `parent`, as one undo step. Resolves false,
+   * after a toast, if it was refused.
+   */
+  readonly importWem: (parent: NodeParent, file: string) => Promise<boolean>;
   /** Steps the history back or forward. Resolves false if it took no step. */
   readonly step: (step: HistoryStep) => Promise<boolean>;
   /** Writes the unsaved edits. Rejects, after a toast, if the save fails. */
@@ -100,6 +111,23 @@ export function useBankDocument(
     [toast],
   );
 
+  const importWem = useCallback(
+    async (parent: NodeParent, file: string) => {
+      const current = latest.current;
+      if (current === null) return false;
+
+      const result = await api.audioBankImport(current.id, parent, file);
+      if (!result.ok) {
+        toast.error(m.audio_edit_import_failed_title(), errorSummary(result.error));
+        return false;
+      }
+      setState(result.value);
+      setHistory(afterEdit);
+      return true;
+    },
+    [toast],
+  );
+
   const step = useCallback(
     async (direction: HistoryStep) => {
       const current = latest.current;
@@ -164,5 +192,5 @@ export function useBankDocument(
   useDocumentHistory(tab, stepFromKeys, state?.editable === true);
 
   const revision = state === null ? null : { id: state.id, revision: state.revision };
-  return { state, revision, edit, step, save, history };
+  return { state, revision, edit, importWem, step, save, history };
 }

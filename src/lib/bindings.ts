@@ -425,10 +425,8 @@ export type BankDeclaration = {
 export type BankEdit = 
 /**  Points the Play action `action` at the node `target`. */
 { kind: "target"; action: number; target: number } | 
-/**  Adds the node `child` to the children of `container`, and to its playlist. */
+/**  Moves the node `child` of the opened bank from its parent into `container`. */
 { kind: "addChild"; container: number; child: number } | 
-/**  Removes `child` from the children of `container`, and from every list that names it. */
-{ kind: "removeChild"; container: number; child: number } | 
 /**  Moves the playlist item of `child` of the random container `container` to `index`. */
 { kind: "moveChild"; container: number; child: number; index: number } | 
 /**  Sets the weight of the playlist item of `child`, and makes the random pick read weights. */
@@ -436,7 +434,34 @@ export type BankEdit =
 /**  Sets `property` of `object` to `value`. A default value removes the property. */
 { kind: "property"; object: number; property: NodeProperty; value: number | null } | 
 /**  Points the sound `sound` at the media `source`. */
-{ kind: "source"; sound: number; source: number };
+{ kind: "source"; sound: number; source: number } | 
+/**  Creates the event `name`, whose ID is the hash of the name, with no action. */
+{ kind: "newEvent"; name: string } | 
+/**  Creates the event `name` with a copy of every action of `event` and of what they play. */
+{ kind: "copyEvent"; event: number; name: string } | 
+/**  Adds `node` under `parent`. */
+{ kind: "addNode"; parent: NodeParent; node: NewNode } | 
+/**
+ *  Adds a copy of `object` and of every object below it beside `object` under `parent`.
+ * 
+ *  `parent` is the container that lists the object, the Play action that plays it, or the
+ *  event that runs the action `object`.
+ */
+{ kind: "duplicate"; object: number; parent: number } | 
+/**
+ *  Unlinks `object` from `parent`, and removes it if nothing else references it.
+ * 
+ *  `parent` is as for [`BankEdit::Duplicate`]. `None` deletes the event `object`.
+ */
+{ kind: "delete"; object: number; parent: number | null } | 
+/**
+ *  Puts `objects` into a new container of `container` that takes their place under `parent`.
+ * 
+ *  `parent` is the container that lists every object, or the Play action of the one object.
+ */
+{ kind: "wrap"; objects: number[]; parent: number; container: ContainerKind } | 
+/**  Applies every edit of `edits`, in order, as one undo step. */
+{ kind: "batch"; edits: BankEdit[] };
 
 /**  The `BKHD` header of a bank, and whether the client loads the bank. */
 export type BankFacts = {
@@ -1432,6 +1457,18 @@ export type Consequence =
 "game-hung" | 
 /**  The game did not survive. */
 "game-stopped";
+
+/**  The kind of a new container. */
+export type ContainerKind = 
+/**  A random container, which plays one child that the client picks. */
+"random" | 
+/**  A sequence container, which plays its children in playlist order. */
+"sequence" | 
+/**
+ *  A switch container, with the switch group and the default switch of a switch container
+ *  of the set.
+ */
+"switch";
 
 /**  A single file entry in a layer's content directory. */
 export type ContentEntry = {
@@ -5703,6 +5740,18 @@ export type NewMod_Serialize = {
 	release?: ReleaseOverrides_Serialize,
 };
 
+/**  The node that [`BankEdit::AddNode`] adds. */
+export type NewNode = 
+/**  A new sound that plays the media `source` of the bank set. */
+{ kind: "sound"; source: number } | 
+/**  A new, empty container. */
+{ kind: "container"; container: ContainerKind } | 
+/**
+ *  The node `node`. Under a container it moves from its parent, and under an event a new
+ *  Play action plays it.
+ */
+{ kind: "existing"; node: number };
+
 /**  Where a new object of a declared document starts. */
 export type NewObject = 
 /**  A copy of an object the document holds: `clone`. */
@@ -5845,6 +5894,16 @@ export type NodeAddress_Serialize = {
 	 */
 	label?: string | null,
 };
+
+/**
+ *  The object that a new node joins: a container lists it, or an event plays it through a new
+ *  Play action.
+ */
+export type NodeParent = 
+/**  A container of the opened bank. */
+{ kind: "container"; container: number } | 
+/**  An event of the opened bank. */
+{ kind: "event"; event: number };
 
 /**
  *  A property of a sound, a container or a Play action that an edit sets.

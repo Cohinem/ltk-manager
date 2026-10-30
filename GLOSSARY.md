@@ -456,6 +456,10 @@ names the events that no bank unit of a set lists.
 **Sound cue** - a sound that the viewport plays from a clip event or a VFX field, resolved through
 the sound lookup.
 
-**Event bank document** - an event bank open for edits, `EventBankDocument`: the bank, its undo
-history and the bytes that a save writes. Each `BankEdit` replaces one object of the opened bank,
-checked against the bank set.
+**Event bank document** - an event bank open for edits, `EventBankDocument`: the bank, the media
+files that an import added media to, its undo history and the bytes that a save writes. Each
+`BankEdit` changes, adds or removes whole objects of the opened bank, checked against the bank set,
+and is one undo step over the bank and its media files.
+
+**Media file** - a media bank or a package of the bank set that an event bank document holds,
+`MediaFile`, with the media that an import added to it.

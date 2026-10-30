@@ -1,5 +1,16 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "audio_add_action": "Add",
+  "audio_add_container_action": "Container",
+  "audio_add_file_action": "From file…",
+  "audio_add_file_filter_label": "Wwise media",
+  "audio_add_file_title": "Import a WEM file",
+  "audio_add_move_action": "Move existing here",
+  "audio_add_play_existing_action": "Play existing",
+  "audio_add_random_action": "Random container",
+  "audio_add_sequence_action": "Sequence container",
+  "audio_add_sound_action": "New sound",
+  "audio_add_switch_action": "Switch container",
   "audio_column_channels_label": "Ch",
   "audio_column_codec_label": "Codec",
   "audio_column_duration_label": "Duration",
@@ -30,6 +41,7 @@
   "audio_edit_delay_label": "Delay",
   "audio_edit_edited_label": "Edited",
   "audio_edit_hpf_label": "HPF",
+  "audio_edit_import_failed_title": "The WEM was not imported",
   "audio_edit_knob_label": "{field} knob",
   "audio_edit_legacy_description": "This bank is version {version}, and only a version 145 bank takes edits. Convert it with the Convert repair of its Problems entry, then edit the converted bank.",
   "audio_edit_loop_forever": "Loops forever",
@@ -108,6 +120,9 @@
   "audio_events_filtered_empty": "No event matches the filter",
   "audio_events_index_building_description": "Reading the game's bins for event names and bank units. The list updates when it finishes.",
   "audio_events_index_failed_title": "The game's audio index cannot be built",
+  "audio_events_new_action": "New event",
+  "audio_events_new_label": "Name of the new event",
+  "audio_events_new_placeholder": "Event name, such as Play_sfx_Mod_Cast",
   "audio_events_siblings_description": "No bank unit names this bank, so its media is read from the _audio bank and package beside it.",
   "audio_events_total_label": [
     {
@@ -142,6 +157,19 @@
   "audio_media_empty": "This file contains no media",
   "audio_media_failed_empty": "The media table cannot be read",
   "audio_media_filtered_empty": "No source ID matches the filter",
+  "audio_node_add_action": "Add",
+  "audio_node_copy_many_action": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Copy {count} ID",
+        "countPlural=other": "Copy {count} IDs"
+      }
+    }
+  ],
+  "audio_node_delete_action": "Delete",
+  "audio_node_duplicate_action": "Duplicate",
   "audio_node_layer_hint": "every child plays",
   "audio_node_layer_label": "Layer #{id}",
   "audio_node_missing_label": "Object #{id} missing",
@@ -158,6 +186,7 @@
   "audio_node_switch_label": "Switch #{id}",
   "audio_node_unsupported_hint": "does not play",
   "audio_node_unsupported_label": "{kind} #{id}",
+  "audio_node_wrap_action": "Wrap in container",
   "audio_object_id_label": "object ID",
   "audio_play_action": "Play {source}",
   "audio_play_failed_label": "Media {source} cannot be played",
@@ -166,6 +195,16 @@
   "audio_rejection_title": "The client rejects this bank",
   "audio_save_decoded_action": "Save as .{extension}",
   "audio_save_original_action": "Save as .wem",
+  "audio_selection_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} selected",
+        "countPlural=other": "{count} selected"
+      }
+    }
+  ],
   "audio_stop_action": "Stop {source}",
   "audio_stopped_label": "Stopped",
   "audio_tab_events_label": "Events",

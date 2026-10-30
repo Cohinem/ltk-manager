@@ -165,6 +165,7 @@ services! {
         audio_bank_open,
         audio_bank_close,
         audio_bank_edit,
+        audio_bank_import,
         audio_bank_step,
         audio_bank_save,
         audio_bank_nodes,

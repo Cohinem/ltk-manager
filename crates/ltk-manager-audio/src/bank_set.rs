@@ -276,6 +276,19 @@ impl BankSet {
         self.packaged.get(&package_key(source)).copied()
     }
 
+    /// Returns the size of the media `source` in the first package that contains it.
+    pub(crate) fn packaged_size(&self, source: SourceId) -> Option<u32> {
+        let file = self.package_with_media(source)?;
+        let BankContent::Package { entries } = &self.files[file].content else {
+            return None;
+        };
+        let key = package_key(source);
+        entries
+            .iter()
+            .find(|entry| entry.key() == key)
+            .map(MountedEntry::size)
+    }
+
     fn push(&mut self, file: BankFile) {
         let index = self.files.len();
         match &file.content {
