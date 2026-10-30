@@ -10,6 +10,7 @@ import {
   ContentBrowser,
   ExtractDialog,
   ExtractRunner,
+  useConvertManifests,
   useEditorPersistence,
   useLayerFileReload,
   usePruneTimelineMarkers,
@@ -69,6 +70,7 @@ function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
   useRecordOpened(project.path);
   useRequestedDocument(project.path, ready);
   useLayerFileReload(project.path);
+  useConvertManifests(project.path);
   usePruneTimelineMarkers(project.path, ready);
 
   if (!ready) return <LoadingState className="h-64" />;

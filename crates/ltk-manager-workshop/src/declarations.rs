@@ -1,10 +1,12 @@
 //! A project layer's declarations manifest (ADR-0042), edited through
 //! `ltk-declarations`.
 
+use std::path::PathBuf;
+
 use ltk_declarations::Manifest;
 use ltk_game_data::{EntryName, ModuleName};
 use ltk_meta::path::PropertyPath;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub use self::outline::{
     DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
@@ -139,13 +141,74 @@ impl ProjectDir {
     /// [`AppError::ValidationFailed`] for a layer name that is not one path
     /// component, and the errors of [`Manifest::read`].
     pub fn declarations_manifest(&self, layer: &str) -> AppResult<Manifest> {
+        Manifest::read(self.layer_dir(layer)?).map_err(declarations_error)
+    }
+
+    /// Converts the JSON and TOML declaration files of every layer to YAML.
+    ///
+    /// A layer that fails keeps its files and joins [`ManifestConversions::failed`]. Returns
+    /// an empty report if the project config does not read.
+    pub fn convert_manifests(&self) -> ManifestConversions {
+        let mut report = ManifestConversions::default();
+        let Ok(config) = self.config() else {
+            return report;
+        };
+
+        for layer in &config.layers {
+            let converted = self.layer_dir(&layer.name).and_then(|directory| {
+                ltk_declarations::convert_layer(directory).map_err(declarations_error)
+            });
+
+            match converted {
+                Ok(removed) if removed.is_empty() => {}
+                Ok(removed) => {
+                    tracing::info!(layer = layer.name, ?removed, "Converted game data to YAML");
+                    report.converted.push(layer.name.clone());
+                }
+                Err(error) => {
+                    tracing::warn!(layer = layer.name, %error, "Failed to convert game data to YAML");
+                    report.failed.push(ManifestConversionFailure {
+                        layer: layer.name.clone(),
+                        message: error.to_string(),
+                    });
+                }
+            }
+        }
+
+        report
+    }
+
+    /// The content directory of the layer `layer`.
+    fn layer_dir(&self, layer: &str) -> AppResult<PathBuf> {
         if layer.is_empty() || layer.contains(['/', '\\']) || matches!(layer, "." | "..") {
             return Err(AppError::ValidationFailed(format!(
                 "Invalid layer name: {layer}"
             )));
         }
-        Manifest::read(self.path().join("content").join(layer)).map_err(declarations_error)
+        Ok(self.path().join("content").join(layer))
     }
+}
+
+/// The layers that [`ProjectDir::convert_manifests`] converted and the ones it could not.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct ManifestConversions {
+    /// The names of the layers whose files were converted.
+    pub converted: Vec<String>,
+    /// The layers that keep their JSON or TOML files.
+    pub failed: Vec<ManifestConversionFailure>,
+}
+
+/// A layer whose declaration files could not be converted to YAML.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct ManifestConversionFailure {
+    /// The name of the layer.
+    pub layer: String,
+    /// The conversion error, with the file it is about.
+    pub message: String,
 }
 
 /// A manifest failure as the workshop reports it.

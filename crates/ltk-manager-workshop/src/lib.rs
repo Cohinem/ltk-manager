@@ -20,7 +20,10 @@ pub use declarations::{
     DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
     DeclaredObjectEdit, DeclaredSign, LineSpan, ModuleSelector,
 };
-pub use declarations::{ManifestChange, ModuleAction, declarations_error};
+pub use declarations::{
+    ManifestChange, ManifestConversionFailure, ManifestConversions, ModuleAction,
+    declarations_error,
+};
 pub use folders::{
     AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
     FolderInspection, FolderWad,

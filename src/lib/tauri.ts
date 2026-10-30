@@ -495,6 +495,7 @@ export const api = {
   // A project's game data declarations.
   declarations: {
     outline: workshop.declarationsOutline,
+    convert: workshop.convertProjectManifests,
     /** A module action with no document to undo it, for a view of the manifest itself. */
     moduleAction: bin.declarationsModuleAction,
   },

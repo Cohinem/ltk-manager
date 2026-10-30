@@ -64,6 +64,7 @@
 
 #![warn(missing_docs)]
 
+mod convert;
 mod document_text;
 mod edit;
 mod layout;
@@ -88,6 +89,7 @@ use ltk_game_data::{
 use ltk_meta::path::PropertyPath;
 use rowan::ast::AstNode as _;
 
+pub use self::convert::convert_layer;
 pub use self::layout::{Binding, BodyAt, KeyLayout, Layout};
 
 use self::document_text::DocumentText;
