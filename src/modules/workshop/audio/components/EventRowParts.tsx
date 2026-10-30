@@ -114,16 +114,20 @@ export function RowFrame({
 interface LeadProps {
   readonly row: TreeRowShape;
   readonly blocks: readonly string[];
+  /** The levels whose block ends on the row, which draw a bracket corner. Absent draws guides. */
+  readonly ends?: readonly boolean[];
+  /** The row's index in its list, which the hover lift of the lanes reads. */
+  readonly index?: number;
   readonly open: boolean;
   readonly expandable: boolean;
   readonly onExpand: (open: boolean) => void;
 }
 
 /** The guides and the caret of a row. A click on the caret expands or collapses the row. */
-export function Lead({ row, blocks, open, expandable, onExpand }: LeadProps) {
+export function Lead({ row, blocks, ends, index, open, expandable, onExpand }: LeadProps) {
   return (
     <>
-      <RowGuides depth={row.depth} blocks={blocks} />
+      <RowGuides depth={row.depth} blocks={blocks} ends={ends} index={index} />
       <span
         className={twMerge("flex", expandable && "cursor-pointer")}
         onClick={(event) => {

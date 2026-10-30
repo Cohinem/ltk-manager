@@ -22,6 +22,7 @@ import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import type { TreePicks } from "../hooks/useTreePicks";
 import { useNodeNames } from "../state/nodeNames";
+import { rowLanes } from "../utils/lanes";
 import { movedIndex, treeStep } from "../utils/rowKeys";
 import { pickMode } from "../utils/rowSelection";
 import { isEditable, type TreeEditing } from "../utils/treeEditing";
@@ -43,7 +44,7 @@ import {
 import { AddNodeLine } from "./AddNodeLine";
 import { AUDIO_LIST_GROUP } from "./audioRow";
 import type { NodeActions } from "./EventMenu";
-import { EditedMark, guideBlocks, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
+import { EditedMark, Lead, PlayButton, RowFrame, rowId } from "./EventRowParts";
 import { nodeKey } from "./nodeKeys";
 import { EventContent, Status } from "./RowContent";
 import {
@@ -144,6 +145,7 @@ export function VoiceList({
     () => new Set(rows.flatMap((row) => (row.open ? [row.key] : []))),
     [rows],
   );
+  const lanes = useMemo(() => rowLanes(rows), [rows]);
   const names = useNodeNames();
   const nameCols = useMemo(() => voiceNameColumns(rows, names), [rows, names]);
   const stems = useMemo(() => headerStems(rows, names), [rows, names]);
@@ -398,17 +400,20 @@ export function VoiceList({
     };
   }
 
-  function line(row: VoiceRow): ReactNode {
+  function line(row: VoiceRow, index: number): ReactNode {
+    const lane = lanes[index];
     const frame = {
       row,
       open: row.open,
       selected: row.key === selected || picks.picked.has(row.key),
       playing: player.playing === row.key,
-      blocks: guideBlocks(row, byKey),
+      blocks: lane?.blocks ?? [],
+      ends: lane?.ends,
+      index,
       onSelect: (event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) =>
         picks.pick(row.key, pickMode(event)),
       onExpand: (next: boolean) => fold(row, next),
-      onHover: () => guides.set({ hover: row.parent }),
+      onHover: () => guides.set({ hover: row.parent, hoverAt: index }),
     };
     const lead = <Lead {...frame} expandable={row.expandable} />;
     const play = (playable: boolean) => (
@@ -587,7 +592,7 @@ export function VoiceList({
           onFocus={(event) => {
             if (event.target === event.currentTarget && selectedIndex < 0) selectAt(0);
           }}
-          onPointerLeave={() => guides.set({ hover: null })}
+          onPointerLeave={() => guides.set({ hover: null, hoverAt: null })}
           data-ui="VoiceList"
           className={twMerge(
             AUDIO_LIST_GROUP,
@@ -615,7 +620,7 @@ export function VoiceList({
                     setMenuRow(row);
                   }}
                 >
-                  {line(row)}
+                  {line(row, item.index)}
                 </div>
               );
             })}

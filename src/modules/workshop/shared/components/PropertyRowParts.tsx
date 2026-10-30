@@ -36,34 +36,62 @@ interface RowGuidesProps {
   depth: number;
   /** The key of the row that holds each level, outermost first. */
   blocks: readonly string[];
+  /**
+   * `true` for each level whose block ends on this row, which draws the guide as a bracket
+   * corner. Absent draws plain guides.
+   */
+  ends?: readonly boolean[];
+  /** The row's index in its list, which limits the hover lift to the rows above the pointer. */
+  index?: number;
 }
 
 /**
  * One guide per open level, each under the caret of the level it belongs to.
  *
- * A guide runs the line's full height, so a block's guides join into one edge. The block the
- * reader stands in takes the accent, and the block under the pointer lifts a rung.
+ * A guide runs the line's full height, so a block's guides join into one edge. With `ends`, the
+ * guide of a block's last row stops at the row's middle and turns toward the row, so a block
+ * reads as a bracket. The block the reader stands in takes the accent, and the block under the
+ * pointer lifts a rung.
  */
-export function RowGuides({ depth, blocks }: RowGuidesProps) {
-  const { active, hover } = useGuideLevels(blocks);
+export function RowGuides({ depth, blocks, ends, index }: RowGuidesProps) {
+  const { active, hover } = useGuideLevels(blocks, index);
   const indented = Math.min(depth, MAX_INDENT_DEPTH);
-  const tone = (level: number) =>
+  const color = (level: number) =>
     twMerge(
-      "shrink-0 border-l border-surface-700/60",
+      "border-surface-700/60",
       level === hover && "border-surface-600",
       level === active && "border-accent-500",
-      level >= indented && "w-0.5",
     );
 
   return (
     <span className="flex shrink-0 translate-x-[6px] self-stretch" aria-hidden>
-      {Array.from({ length: depth }, (_, level) => (
-        <span
-          key={level}
-          className={tone(level)}
-          style={level < indented ? { width: INDENT } : undefined}
-        />
-      ))}
+      {Array.from({ length: depth }, (_, level) => {
+        const style = level < indented ? { width: INDENT } : undefined;
+        if (ends?.[level] === true) {
+          return (
+            <span
+              key={level}
+              className={twMerge("relative shrink-0", level >= indented && "w-0.5")}
+              style={style}
+            >
+              <span
+                className={twMerge(
+                  "absolute top-0 left-0 h-1/2 w-[0.75ch] rounded-bl-sm border-b border-l",
+                  color(level),
+                )}
+              />
+            </span>
+          );
+        }
+
+        return (
+          <span
+            key={level}
+            className={twMerge("shrink-0 border-l", color(level), level >= indented && "w-0.5")}
+            style={style}
+          />
+        );
+      })}
     </span>
   );
 }
