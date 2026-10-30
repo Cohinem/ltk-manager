@@ -1,27 +1,31 @@
-import type { SoundChannel } from "./soundPlayer";
+import type { ChannelVoice, SoundChannel } from "./soundPlayer";
 
-/**
- * Stops every voice of `channel`, then plays `urls` under `key` as its only voices.
- *
- * Each voice waits `delays[i]` seconds before it starts.
- */
+/** Stops every voice of `channel`, then plays `voices` under `key` as its only voices. */
 export function playSolo(
   channel: SoundChannel,
   key: string,
-  urls: readonly string[],
-  delays?: readonly number[],
+  voices: readonly ChannelVoice[],
 ): void {
   channel.stopAll();
   channel.resume();
-  channel.play(key, urls, "once", 0, delays);
+  channel.play(key, voices, "once", 0);
 }
 
-/** Stops `key` if it plays on `channel`, and else plays `urls` under it with `playSolo`. */
-export function toggleSolo(channel: SoundChannel, key: string, urls: readonly string[]): void {
+/** Stops `key` if it plays on `channel`, and else plays `voices` under it with `playSolo`. */
+export function toggleSolo(
+  channel: SoundChannel,
+  key: string,
+  voices: readonly ChannelVoice[],
+): void {
   if (channel.state().playing.has(key)) {
     channel.stopAll();
     return;
   }
 
-  playSolo(channel, key, urls);
+  playSolo(channel, key, voices);
+}
+
+/** Returns the voice of a media that plays as its file holds it, with no property applied. */
+export function plainVoice(url: string): ChannelVoice {
+  return { url, path: null };
 }

@@ -11,6 +11,7 @@ import type {
 
 import { type NodeField, nodeFields } from "./nodeFields";
 import { NO_NAMES, nodeMatches, type NodeNames } from "./nodeNames";
+import type { MixPath } from "./voiceMix";
 
 /** The fetch state of one event's tree, as the rows read it. */
 export type TreeState =
@@ -272,10 +273,16 @@ export function sortEvents(events: readonly AudioEvent[]): AudioEvent[] {
 /** A source of numbers in `[0, 1)`, `Math.random` unless a test seeds one. */
 export type RandomSource = () => number;
 
-/** One media of a press and the seconds that it waits before it starts. */
+/** One media of a press and the objects whose properties it plays with. */
 export interface EventVoice {
   readonly media: MediaLocation;
-  readonly delay: number;
+  readonly path: MixPath;
+}
+
+/** One media that a pick plays, and the nodes from its sound up to the picked node. */
+interface PickedSound {
+  readonly media: MediaLocation;
+  readonly nodes: readonly number[];
 }
 
 /**
@@ -287,14 +294,24 @@ export interface EventVoice {
  * and an object that does not play give none. Per "What plays" in docs/ux/AUDIO.md.
  */
 export function pickSounds(node: EventNode, random: RandomSource): MediaLocation[] {
-  const childSounds = (index: number) => {
-    const child = node.kind === "sound" ? undefined : childrenOf(node)[index];
-    return child === undefined ? [] : pickSounds(child, random);
+  return pickedSounds(node, random).map((pick) => pick.media);
+}
+
+/** Returns the picks of one press on `node`, as `pickSounds` picks them, with their nodes. */
+function pickedSounds(node: EventNode, random: RandomSource): PickedSound[] {
+  const below = (child: EventNode | undefined): PickedSound[] => {
+    if (child === undefined) return [];
+
+    return pickedSounds(child, random).map((pick) => ({
+      media: pick.media,
+      nodes: [...pick.nodes, node.id],
+    }));
   };
+  const childSounds = (index: number) => below(childrenOf(node)[index]);
 
   switch (node.kind) {
     case "sound":
-      return node.media === null ? [] : [node.media];
+      return node.media === null ? [] : [{ media: node.media, nodes: [node.id] }];
     case "random": {
       const item =
         node.mode === "sequence" ? node.playlist[0] : weightedItem(node.playlist, random);
@@ -306,7 +323,7 @@ export function pickSounds(node: EventNode, random: RandomSource): MediaLocation
     }
     case "layer":
     case "mixer":
-      return node.children.flatMap((child) => pickSounds(child, random));
+      return node.children.flatMap(below);
     default:
       return [];
   }
@@ -333,18 +350,32 @@ export function eventSounds(tree: EventTree, random: RandomSource): MediaLocatio
   return eventVoices(tree, random).map((voice) => voice.media);
 }
 
-/** Returns the media of one press on `node`, each without a delay. */
-export function nodeVoices(node: EventNode, random: RandomSource): EventVoice[] {
-  return pickSounds(node, random).map((media) => ({ media, delay: 0 }));
+/**
+ * Returns the media of one press on `node`, under the containers `above` it, innermost first.
+ *
+ * A press on a node waits on no Play action.
+ */
+export function nodeVoices(
+  node: EventNode,
+  random: RandomSource,
+  above: readonly number[] = [],
+): EventVoice[] {
+  return pickedSounds(node, random).map((pick) => ({
+    media: pick.media,
+    path: { nodes: [...pick.nodes, ...above], action: null },
+  }));
 }
 
-/** Returns the media of one press of the event `tree`, each after the delay of its action. */
+/** Returns the media of one press of the event `tree`, each under the Play action that picks it. */
 export function eventVoices(tree: EventTree, random: RandomSource): EventVoice[] {
   return tree.actions.flatMap((action) => {
     if (action.node === null) return [];
 
-    const delay = action.delay / MS_PER_SECOND;
-    return pickSounds(action.node, random).map((media) => ({ media, delay }));
+    const played = { id: action.id, delay: action.delay / MS_PER_SECOND };
+    return pickedSounds(action.node, random).map((pick) => ({
+      media: pick.media,
+      path: { nodes: pick.nodes, action: played },
+    }));
   });
 }
 

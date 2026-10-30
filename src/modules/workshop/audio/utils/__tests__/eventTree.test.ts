@@ -7,6 +7,7 @@ import {
   eventSounds,
   eventVoices,
   filterEvents,
+  nodeVoices,
   pickSounds,
   shownChildOrder,
   sortEvents,
@@ -242,8 +243,39 @@ describe("eventSounds", () => {
 });
 
 describe("eventVoices", () => {
-  it("starts each pick after the delay of its action, in seconds", () => {
-    expect(eventVoices(TREE, () => 0.6)).toEqual([{ media: media(12), delay: 0.25 }]);
+  it("gives each pick the path from its sound up to its Play action and the action's delay", () => {
+    expect(eventVoices(TREE, () => 0.6)).toEqual([
+      { media: media(12), path: { nodes: [2, 7], action: { id: 5, delay: 0.25 } } },
+    ]);
+  });
+
+  it("names every container between a sound and its action, the innermost first", () => {
+    const layered: EventTree = {
+      ...TREE,
+      actions: [
+        {
+          id: 5,
+          class: 0x0400,
+          label: "Play",
+          target: 4,
+          node: { kind: "layer", id: 4, children: [RANDOM, sound(3, 13)] },
+          delay: 0,
+        },
+      ],
+    };
+
+    expect(eventVoices(layered, () => 0).map((voice) => voice.path.nodes)).toEqual([
+      [1, 7, 4],
+      [3, 4],
+    ]);
+  });
+});
+
+describe("nodeVoices", () => {
+  it("adds the containers above the pressed node to each path, without an action", () => {
+    expect(nodeVoices(RANDOM, () => 0, [4, 8])).toEqual([
+      { media: media(11), path: { nodes: [1, 7, 4, 8], action: null } },
+    ]);
   });
 });
 

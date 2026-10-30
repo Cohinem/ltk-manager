@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { plainVoice } from "../../player/solo";
 import { shownSubject, type WaveformSubject } from "../waveformSync";
 
-const played: WaveformSubject = { key: "e1", urls: ["a", "b"] };
-const selected: WaveformSubject = { key: "n4", urls: ["c"] };
+const played: WaveformSubject = { key: "e1", voices: [plainVoice("a"), plainVoice("b")] };
+const selected: WaveformSubject = { key: "n4", voices: [plainVoice("c")] };
 
 describe("shownSubject", () => {
   it("returns what plays over the selection", () => {

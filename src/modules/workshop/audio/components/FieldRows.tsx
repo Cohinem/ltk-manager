@@ -1,6 +1,6 @@
 import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Combobox, Knob, useValueEntry, ValueEntry } from "@/components";
 import { m } from "@/i18n";
@@ -13,6 +13,7 @@ import {
   UnitSuffix,
 } from "../../shared/components/PropertyRowParts";
 import { audioQueries, type BankRevision } from "../api/queries";
+import { useMixDraftStore } from "../state/mixDrafts";
 import { useNodeNames } from "../state/nodeNames";
 import { matchingNodes } from "../utils/bankEdits";
 import { type EventRow, objectLabel } from "../utils/eventTree";
@@ -75,6 +76,7 @@ export function FieldValue({
 }: FieldValueProps) {
   const [draft, setDraft] = useState<{ value: number; over: number } | null>(null);
   if (draft !== null && draft.over !== field.value) setDraft(null);
+  useMixDraft(field, draft?.value ?? null);
 
   const editable = editing !== null && field.editable && !editing.locked(field.target);
   const range = knobRange(field.name);
@@ -95,6 +97,7 @@ export function FieldValue({
       return Promise.resolve(true);
     }
 
+    setDraft({ value, over: field.value });
     return editing.edit(fieldEdit(field, value)).then((applied) => {
       if (applied) onCommitted?.();
       else setDraft(null);
@@ -166,6 +169,35 @@ export function FieldValue({
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Writes the draft `value` of a property `field` to the mix drafts while it is not null, so a
+ * voice that plays follows the knob before the edit lands.
+ */
+function useMixDraft(field: NodeField, value: number | null) {
+  const { target } = field;
+  const object = target.kind === "property" ? target.object : null;
+  const property = target.kind === "property" ? target.property : null;
+  const setDraft = useMixDraftStore((state) => state.set);
+  const clearDraft = useMixDraftStore((state) => state.clear);
+
+  useEffect(() => {
+    if (object === null || property === null) return;
+
+    if (value === null) {
+      clearDraft(object, property);
+    } else {
+      setDraft({ object, property, value });
+    }
+  }, [clearDraft, object, property, setDraft, value]);
+
+  useEffect(
+    () => () => {
+      if (object !== null && property !== null) clearDraft(object, property);
+    },
+    [clearDraft, object, property],
   );
 }
 

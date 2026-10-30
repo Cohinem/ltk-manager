@@ -117,7 +117,7 @@ fn base_index() -> AudioIndex {
 
 /// Returns the source and the container of every sound under the tree of `resolved`.
 fn media_of(resolved: &ResolvedSound) -> Vec<(u32, Option<MediaContainer>)> {
-    let SoundResolution::Resolved { tree } = &resolved.resolution else {
+    let SoundResolution::Resolved { tree, .. } = &resolved.resolution else {
         panic!("{} did not resolve: {resolved:?}", resolved.name);
     };
     tree.actions
@@ -141,6 +141,19 @@ fn resolve_sounds_reads_event_from_own_bank_units() {
     assert_eq!(resolved.len(), 1);
     assert_eq!(resolved[0].name, STEP);
     assert_eq!(media_of(&resolved[0]), [(11, Some(MediaContainer::Bank))]);
+}
+
+#[test]
+fn resolve_sounds_reads_properties_of_action_and_sound() {
+    let skin_units = [unit("Skin03_SFX", &[SKIN_EVENTS, SKIN_MEDIA], &[])];
+
+    let resolved = resolve_sounds(&skin_units, &[STEP.to_owned()], &[], &files(), None);
+
+    let SoundResolution::Resolved { properties, .. } = &resolved[0].resolution else {
+        panic!("{STEP} did not resolve: {:?}", resolved[0]);
+    };
+    let ids: Vec<u32> = properties.iter().map(|object| object.id).collect();
+    assert_eq!(ids, [100, 200]);
 }
 
 #[test]

@@ -8771,7 +8771,9 @@ class: string };
 /**  What one event name resolves to. */
 export type SoundResolution = 
 /**  The play tree of the event. */
-{ status: "resolved"; tree: EventTree } | 
+{ status: "resolved"; tree: EventTree; 
+/**  The properties of the actions and nodes of the tree, which the voices play with. */
+properties: ObjectProperties[] } | 
 /**  No bank of the set contains an event of the name. */
 { status: "noEvent" } | 
 /**  An object of the tree cannot be decoded. */

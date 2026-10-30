@@ -1,11 +1,11 @@
-import type { SoundChannel } from "../player/soundPlayer";
+import type { ChannelVoice, SoundChannel } from "../player/soundPlayer";
 
 /** What the waveform view draws and plays: the voices of one key, of which it draws the first. */
 export interface WaveformSubject {
   /** The channel key that the media plays under. */
   readonly key: string;
-  /** The media that one play starts, all at once. The view draws the first one. */
-  readonly urls: readonly string[];
+  /** The voices that one play starts, all at once. The view draws the media of the first one. */
+  readonly voices: readonly ChannelVoice[];
 }
 
 /**
@@ -57,7 +57,7 @@ export function createWaveformSync(
   subject: WaveformSubject,
   duration: number,
 ): WaveformSync {
-  const { key, urls } = subject;
+  const { key, voices } = subject;
   let dragging = false;
   let drawn: number | null = null;
 
@@ -67,7 +67,7 @@ export function createWaveformSync(
   const playFrom = (seconds: number) => {
     channel.stopAll();
     channel.resume();
-    channel.play(key, urls, "once", seconds);
+    channel.play(key, voices, "once", seconds);
   };
 
   const sync: WaveformSync = {

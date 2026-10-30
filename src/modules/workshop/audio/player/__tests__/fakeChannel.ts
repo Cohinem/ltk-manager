@@ -26,8 +26,8 @@ export function openFakeChannel(): SoundChannel {
   };
 
   return {
-    play(key, urls, _repeat, from = 0) {
-      playedUrls.push(...urls);
+    play(key, voices, _repeat, from = 0) {
+      playedUrls.push(...voices.map((voice) => voice.url));
       positions = new Map(positions).set(key, from);
       changed();
     },
@@ -56,6 +56,8 @@ export function openFakeChannel(): SoundChannel {
       changed();
     },
     setVolume() {},
+    setMixer() {},
+    reaches: () => false,
     state: () => snapshot,
     subscribe(listener) {
       listeners.add(listener);

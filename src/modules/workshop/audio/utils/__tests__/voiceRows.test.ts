@@ -327,7 +327,7 @@ describe("voiceRows", () => {
 describe("replayOf", () => {
   const options = { properties: new Map(), editable: true };
 
-  it("replays the voice of a voice row", () => {
+  it("replays the voice of a voice row with the containers above it", () => {
     const rows = voiceRows(
       [audioEvent(100)],
       new Set(["e100"]),
@@ -339,7 +339,9 @@ describe("replayOf", () => {
     expect(voice === undefined ? null : replayOf(voice)).toEqual({
       kind: "voice",
       key: "e100/0.0.0",
+      object: 1,
       media: media(10),
+      path: { nodes: [1, 7], action: null },
     });
   });
 
@@ -349,7 +351,9 @@ describe("replayOf", () => {
     expect(row === undefined ? null : replayOf(row)).toEqual({
       kind: "voice",
       key: "e100",
+      object: 1,
       media: media(10),
+      path: { nodes: [1], action: null },
     });
   });
 
@@ -365,6 +369,7 @@ describe("replayOf", () => {
     expect(header === undefined ? null : replayOf(header)).toEqual({
       kind: "event",
       key: "e100",
+      object: 7,
       event: 100,
     });
   });
