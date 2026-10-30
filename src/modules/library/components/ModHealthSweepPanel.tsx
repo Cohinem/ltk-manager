@@ -47,6 +47,7 @@ import {
   useRepairMods,
 } from "../api";
 import { alternativeCopy } from "../utils/alternativeCopy";
+import { fixNote } from "../utils/fixCopy";
 import {
   alarmOf,
   alarmOver,
@@ -610,6 +611,7 @@ function RuleList({ verdict, name }: { verdict: ModHealthVerdict; name: string }
           ) : (
             <p className="text-surface-500">{brief.description}</p>
           )}
+          <FixNote brief={brief} offered={fixable} />
           {(brief.alternatives ?? []).map((offered) => (
             <AlternativeLine
               key={`${offered.problem}:${offered.alternative.id}`}
@@ -623,6 +625,14 @@ function RuleList({ verdict, name }: { verdict: ModHealthVerdict; name: string }
       ))}
     </ul>
   );
+}
+
+/** What the fix of a rule changes, under the rule of a mod that Repair reaches. */
+function FixNote({ brief, offered }: { brief: RuleBrief; offered: boolean }) {
+  const note = fixNote(brief.rule);
+  if (!offered || brief.fixable === 0 || note === null) return null;
+
+  return <p className="text-surface-500">{note}</p>;
 }
 
 /**

@@ -409,5 +409,6 @@
   "library_view_tags_label": "Tags",
   "rule.audio/bank-version.convert.attenuation.description": "Rewritten at version 145. The events keep their IDs. One attenuation flag of version 145 has no value in this bank and is written as zero.",
   "rule.audio/bank-version.convert.description": "Rewritten at version 145. The events keep their IDs.",
-  "rule.audio/bank-version.convert.title": "Convert to version 145"
+  "rule.audio/bank-version.convert.title": "Convert to version 145",
+  "rule.bin/skinhack.fix.description": "Repair removes the bank units and the tags of another skin. The base skin's audio plays in their place."
 }
