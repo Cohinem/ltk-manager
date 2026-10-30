@@ -317,12 +317,10 @@ fn bank_sources(mut source: impl Read + Seek) -> Result<Vec<SourceId>, ltk_wwise
         let mut body = vec![0; body_len as usize];
         source.read_exact(&mut body)?;
         return Ok(body
-            .chunks_exact(DIDX_RECORD_LEN)
-            .map(|record| {
-                SourceId(u32::from_le_bytes(
-                    record[..4].try_into().expect("four bytes"),
-                ))
-            })
+            .as_chunks::<DIDX_RECORD_LEN>()
+            .0
+            .iter()
+            .map(|&[a, b, c, d, ..]| SourceId(u32::from_le_bytes([a, b, c, d])))
             .collect());
     }
     Ok(Vec::new())
