@@ -1,12 +1,7 @@
 import type { ContentTree } from "@/lib/tauri";
 
 /** The names a layer's declarations manifest takes at the layer's root, as league-mod reads them. */
-const MANIFEST_NAMES: readonly string[] = [
-  "game_data.yaml",
-  "game_data.yml",
-  "game_data.toml",
-  "game_data.json",
-];
+const MANIFEST_NAMES: readonly string[] = ["game_data.yaml", "game_data.yml"];
 
 /** Whether any layer of the project holds a declarations manifest. */
 export function holdsDeclarations(tree: ContentTree): boolean {

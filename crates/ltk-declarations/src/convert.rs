@@ -1,7 +1,6 @@
 //! Converts a layer's JSON and TOML declaration files to YAML.
 //!
-//! This module parses both formats itself, so it keeps working after `ltk_game_data` stops
-//! reading them.
+//! This module parses both formats itself, because `ltk_game_data` refuses them.
 
 use std::path::{Path, PathBuf};
 
@@ -12,15 +11,7 @@ use serde_json::Value;
 use yaml_edit::YamlNode;
 
 use crate::line_ending::LineEnding;
-use crate::{Error, FILE_NAME, locate, resolve_source, syntax, write_file};
-
-/// The manifest names of a layer, with the deprecated formats last.
-const MANIFEST_NAMES: [&str; 4] = [
-    "game_data.yaml",
-    "game_data.yml",
-    "game_data.toml",
-    "game_data.json",
-];
+use crate::{Error, FILE_NAME, locate, present_manifests, resolve_source, syntax, write_file};
 
 /// The YAML text of a converted file and where it goes.
 #[derive(Debug)]
@@ -54,11 +45,7 @@ struct Conversion {
 pub fn convert_layer(layer_dir: impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> {
     let layer_dir = layer_dir.as_ref();
 
-    let present: Vec<PathBuf> = MANIFEST_NAMES
-        .iter()
-        .map(|name| layer_dir.join(name))
-        .filter(|path| path.exists())
-        .collect();
+    let present = present_manifests(layer_dir);
     let manifest = match present.as_slice() {
         [] => return Ok(Vec::new()),
         [path] => path,

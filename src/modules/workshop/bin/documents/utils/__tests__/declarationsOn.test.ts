@@ -21,7 +21,7 @@ function tree(...layers: (readonly string[])[]): ContentTree {
 }
 
 describe("holdsDeclarations", () => {
-  it.each(["game_data.yaml", "game_data.yml", "game_data.toml", "game_data.json"])(
+  it.each(["game_data.yaml", "game_data.yml"])(
     "reads %s at a layer's root as declarations",
     (name) => {
       expect(holdsDeclarations(tree(["data/a.bin"], [name]))).toBe(true);

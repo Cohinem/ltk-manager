@@ -83,8 +83,8 @@ use std::path::{Path, PathBuf};
 use fs_err as fs;
 use ltk_game_data::{
     BinHash, ClassName, Declarations, EntryName, Error as GameDataError,
-    ErrorKind as GameDataErrorKind, LinkPath, MANIFEST_NAMES, ModuleName, Sign, Target, Value,
-    load_declarations,
+    ErrorKind as GameDataErrorKind, LinkPath, MANIFEST_NAMES, ModuleName, REFUSED_MANIFEST_NAMES,
+    Sign, Target, Value, load_declarations,
 };
 use ltk_meta::path::PropertyPath;
 use rowan::ast::AstNode as _;
@@ -463,12 +463,7 @@ impl Manifest {
     /// is not UTF-8, and [`Error::Io`] when the file cannot be read.
     pub fn read(layer_dir: impl Into<PathBuf>) -> Result<Self, Error> {
         let layer_dir = layer_dir.into();
-        let present: Vec<PathBuf> = MANIFEST_NAMES
-            .iter()
-            .map(|name| layer_dir.join(name))
-            .filter(|path| path.exists())
-            .collect();
-        let path = match present.as_slice() {
+        let path = match present_manifests(&layer_dir).as_slice() {
             [] => {
                 return Ok(Self {
                     path: layer_dir.join(FILE_NAME),
@@ -919,6 +914,17 @@ impl Manifest {
             reason,
         }
     }
+}
+
+/// Returns the manifests of the layer at `layer_dir`, including JSON and TOML ones that
+/// `ltk_game_data` refuses.
+fn present_manifests(layer_dir: &Path) -> Vec<PathBuf> {
+    MANIFEST_NAMES
+        .iter()
+        .chain(&REFUSED_MANIFEST_NAMES)
+        .map(|name| layer_dir.join(name))
+        .filter(|path| path.exists())
+        .collect()
 }
 
 /// Writes `bytes` over `path` through a temporary file beside it.
