@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                     |
 | ---------- | ------------------------------------------ |
+| 2026-10-30 | Add new objects and selection              |
 | 2026-10-30 | Replace the document head with a toolbar   |
 | 2026-10-30 | Add the Voices view                        |
 | 2026-10-30 | Edit fields as rows, add the knob          |
@@ -17,7 +18,6 @@ and of `ltk_wwise`.
 | 2026-10-29 | Add bank units and contextual event names  |
 | 2026-10-29 | Add the waveform column                    |
 | 2026-10-29 | Add the waveform                           |
-| 2026-10-29 | Add VFX sound                              |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -40,8 +40,8 @@ under it. The tab shows the file name. The toolbar contains, from the left:
 - The Media and Events switch of a bank with a hierarchy. Events is the view that opens in a bank
   without media. A file without a hierarchy shows the media table alone.
 - The tools of the open view: the Voices and Structure switch of the Events view, the filter and
-  the count of events or media. The count is hidden in a narrow group. The Events view has a
-  place after the count for an action that adds an event and the count of selected rows.
+  the count of events or media. The count is hidden in a narrow group. The Events view then
+  shows the count of picked rows and `+ New event`, per "Selection" and "New objects".
 - The bank unit button of a bank or a package, per "Bank units".
 - The kebab. It contains Bank details, the ways the file leaves the tab (Copy into the layer,
   Extract, Save a copy), and inside a project Find references, which opens the References
@@ -292,17 +292,19 @@ to play and show no play button. Every media plays at the volume of the media ta
 The tree of the Structure view is one tab stop. Focus selects the first row if no row is
 selected. The keys of the Voices view are in "Voices".
 
-| Key                | Action                                                         |
-| ------------------ | -------------------------------------------------------------- |
-| Up, Down           | Move the selection one row                                     |
-| Page Up, Page Down | Move the selection ten rows                                    |
-| Home, End          | Select the first or the last row                               |
-| Right              | Expand the row, or select its first child if it is expanded    |
-| Left               | Collapse the row, or select its parent if it is collapsed      |
-| Space, Enter       | Play the selected row                                          |
-| Escape             | Stop what plays                                                |
-| Ctrl+C             | Copy the name of an event, or the ID of an action or an object |
-| Shift+F10, Menu    | Open the context menu of the selected row                      |
+| Key                | Action                                                        |
+| ------------------ | ------------------------------------------------------------- |
+| Up, Down           | Move the selection one row                                    |
+| Page Up, Page Down | Move the selection ten rows                                   |
+| Home, End          | Select the first or the last row                              |
+| Right              | Expand the row, or select its first child if it is expanded   |
+| Left               | Collapse the row, or select its parent if it is collapsed     |
+| Shift+Up, Down     | Pick the range to the next row, per "Selection"               |
+| Ctrl+A             | Pick every drawn row                                          |
+| Space, Enter       | Play the selected row, or the picked rows together            |
+| Escape             | Stop what plays, or keep only the selected row picked         |
+| Ctrl+C             | Copy the names of the picked events and the IDs of the others |
+| Shift+F10, Menu    | Open the context menu of the selected row                     |
 
 ### Row actions
 
@@ -314,7 +316,8 @@ contains Show media, which opens the document of the file that contains the medi
 Media view and selects the row of the source ID.
 
 In the Voices view, an event row takes the menu of an event, a chain line the menu of its action and
-a voice row the menu of its sound.
+a voice row the menu of its sound. An editable bank adds the actions of "New objects" to each menu.
+Every item of a menu shows its icon, and its key where it has one.
 
 ## Voices
 
@@ -397,10 +400,10 @@ the same marks. A knob turns and an entry opens as "Knob" describes.
   once, from the first. A highlighted media plays. Enter points the `source` of the sound at the
   highlighted media and plays it, and Escape closes the picker. Replacing the file of a media is
   not part of the picker.
-- A chain whose run ends in a random container or an actor-mixer has an Add variation row under its
-  voices. A press or Enter on it opens the child picker of that container.
-- Delete removes the selected voice from its parent container, and Alt+Up and Alt+Down move it in
-  the playlist of a random parent. A weight is edited in its cell.
+- A chain whose run ends in a container that takes a child has a `+ Add` row under its voices,
+  and an expanded event ends in its own. A press or Enter on one opens the menu of "New objects".
+- Delete deletes the picked voices from their parents, and Alt+Up and Alt+Down move the selected
+  voice in the playlist of a random parent. A weight is edited in its cell.
 - Every other change of the tree is made in the Structure view.
 
 ### Keyboard
@@ -416,11 +419,15 @@ The list is one tab stop. Focus selects the first row if no row is selected.
 | Left, Right        | On the first cell or press, and on another row, collapse or expand as in "Keyboard" |
 | Enter, F2          | Open the entry of the cell, or the media picker on the media cell                   |
 | Enter, F2          | Open the fields of a press, the entry of a field row, or the picker of the add row  |
-| Space              | Play the selected row                                                               |
-| Delete             | Remove the selected voice from its container                                        |
+| Space              | Play the selected row, or the picked rows together                                  |
+| Shift+Up, Down     | Pick the range to the next row, per "Selection"                                     |
+| Ctrl+A             | Pick every drawn row                                                                |
+| Ctrl+Enter         | Open the add row of the chain or the event                                          |
+| Ctrl+D             | Duplicate the picked rows                                                           |
+| Delete             | Delete the picked rows from their parents                                           |
 | Alt+Up, Alt+Down   | Move the selected voice in the playlist of its random container                     |
-| Escape             | Stop what plays                                                                     |
-| Ctrl+C             | Copy the name of an event, or the ID of an action or a sound                        |
+| Escape             | Stop what plays, or keep only the selected row picked                               |
+| Ctrl+C             | Copy the names of the picked events and the IDs of the others                       |
 | Shift+F10, Menu    | Open the context menu of the selected row                                           |
 
 ## Editing
@@ -433,9 +440,11 @@ The Voices and Structure views edit the one document, and the document stays ope
 view shows. The rows and keys below are those of the Structure view, and "Voices" lists those of
 the Voices view.
 
-Each edit decodes one object, changes it and encodes it at the bank's version, so every other
-object keeps its bytes. Only the objects of the opened bank take edits. An object of another bank
-of the set is edited in the document of that bank.
+Each edit decodes the objects it changes, changes them and encodes them at the bank's version, or
+adds or removes whole objects, so every other object keeps its bytes. Only the objects of the
+opened bank take edits. An object of another bank of the set is edited in the document of that
+bank. An import also adds a media to a media bank or a package of the set, which the document
+holds beside the bank.
 
 ### What an edit changes
 
@@ -446,14 +455,14 @@ Enter and a press outside commit the entry, and Escape cancels it. An entry left
 opened with writes nothing. An action of another class than Play and an object outside the opened
 bank list their fields read-only, and their entry does not open.
 
-| Row                           | Field rows and keys                                                        |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| Play action                   | `target`, the object ID it plays. `delay`                                  |
-| Sound                         | `source`, the source ID of its media, and the properties of the next table |
-| Container                     | The properties of the next table but `loopCount`, then `children`          |
-| Child of a random container   | `weight`, and its place in the playlist                                    |
-| Random container, actor-mixer | Add child, on the `children` row                                           |
-| Child of any container        | Remove from container                                                      |
+| Row                          | Field rows and keys                                                        |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| Play action                  | `target`, the object ID it plays. `delay`                                  |
+| Sound                        | `source`, the source ID of its media, and the properties of the next table |
+| Container                    | The properties of the next table but `loopCount`, then `children`          |
+| Child of a random container  | `weight`, and its place in the playlist                                    |
+| Container that takes a child | The add row under `children`, per "New objects"                            |
+| Child of any container       | Remove from container, which deletes it as "New objects" describes         |
 
 | Field        | Wwise property                        | Shows                                           | Default |
 | ------------ | ------------------------------------- | ----------------------------------------------- | ------- |
@@ -506,9 +515,9 @@ turns on. The other items then pick by the weights they carry.
 
 A random container draws its children in playlist order, which is the order a sequence plays.
 Moving a child moves its playlist item. An added child joins the children in ID order, as shipped
-banks write them, and the end of the playlist at weight 50. A switch container and a layer
-container take no added or moved child, because their groups name the children again. A removed
-child leaves every list of the container that names it.
+banks write them, and the end of the playlist at weight 50. A child added to a switch container
+joins its default switch. A layer container takes no added child, because its layers name the
+children again. A removed child leaves every list of the container that names it.
 
 ### Refusals
 
@@ -521,6 +530,12 @@ An edit is refused with the reason in a toast, and the bank is unchanged:
 - A source ID that no media index of the set holds for a sound in a bank, or that no package holds
   for a streamed sound. A prefetched sound takes no source edit, because its media is in two files
 - A value outside the range of its property
+- A new event whose name is empty or whose ID is taken, and a moved node of another bank or one
+  that holds the container
+- A new sound in a set with no sound to copy, and a new switch container in a set with no switch
+  container
+- An imported file that is not a WEM, whose codec is not Wwise Vorbis, or whose media does not
+  decode, and an import into a set with no media bank and no package
 
 A refused entry opens again with the typed text, marked, until Escape drops it. An entry whose
 text holds no number stays open and marked on Enter, and a press outside drops it.
@@ -529,21 +544,107 @@ text holds no number stays open and marked on Enter, and a press outside drops i
 
 These are the edit keys of the Structure view. The edit keys of the Voices view are in "Voices".
 
-| Key              | Action                                                                  |
-| ---------------- | ----------------------------------------------------------------------- |
-| F2               | Open the value entry of a field row, or the child picker of `children`  |
-| Enter            | The same as F2 on a field row or a `children` row. Play any other row   |
-| Enter, Escape    | Commit or cancel the open entry, and return focus to the tree           |
-| Tab              | Move to the next knob                                                   |
-| Delete           | Remove the selected child from its container                            |
-| Alt+Up, Alt+Down | Move the selected child of a random container in its playlist           |
-| Ctrl+Enter       | Open the child picker of a random container, an actor-mixer or its list |
+| Key              | Action                                                               |
+| ---------------- | -------------------------------------------------------------------- |
+| F2               | Open the value entry of a field row, or the menu of the add row      |
+| Enter            | The same as F2 on a field, `children` or add row. Play any other row |
+| Enter, Escape    | Commit or cancel the open entry, and return focus to the tree        |
+| Tab              | Move to the next knob                                                |
+| Delete           | Delete the picked rows from their parents                            |
+| Alt+Up, Alt+Down | Move the selected child of a random container in its playlist        |
+| Ctrl+Enter       | Open the add row of the selected container, or of the row's parent   |
+| Ctrl+D           | Duplicate the picked rows                                            |
 
-The child picker is a field in the container's `children` row, and opening it expands the
-container and the row. A double click on the count of the `children` row also opens it. It lists the sounds and containers of the bank set by kind and ID,
-filtered as the text is typed. Enter adds the highlighted one and Escape closes the picker. A
-child row and the `children` row also show their action on hover: Remove from container, and Add
-child.
+The add row of a container sits at the end of its `children` row, and opening it expands the
+container and the row. A double click on the count of the `children` row also opens it. The node
+picker of Existing lists the sounds and containers of the bank set by kind and ID, filtered as the
+text is typed. Enter adds the highlighted one and Escape closes the picker. A child row and the
+`children` row also show their action on hover: Remove from container, and Add child.
+
+### New objects
+
+New objects are experimental until the in-game checks of #954 confirm them in a match. Every
+action of this section carries the Experimental chip. An edit of an existing value carries none.
+
+An event ends in an add row, and so does the `children` row of a random, sequence or switch
+container and of an actor-mixer. A layer container has no add row, because its layers name the
+children again. The row reads `+ Add`, and a press, Enter or Ctrl+Enter opens its menu:
+
+| Item      | Under a container                                       | Under an event                            |
+| --------- | ------------------------------------------------------- | ----------------------------------------- |
+| New sound | A sound that plays a media of the bank set              | The same, played by a new Play action     |
+| From file | A sound that plays a `.wem` imported from disk          | The same, played by a new Play action     |
+| Container | An empty random, sequence or switch container           | The same, played by a new Play action     |
+| Existing  | Move existing here: the node leaves its parent for this | Play existing: a new Play action plays it |
+
+New sound opens the media picker of "Voices" over every media of the set. Existing opens the node
+picker. Toolbar `+ New event` opens a name entry in its place. Enter creates the event, and Escape
+or a press outside drops the entry.
+
+A context menu holds the actions on the picked rows. Each item shows its icon and its key.
+
+| Item              | Key        | Action                                                                     |
+| ----------------- | ---------- | -------------------------------------------------------------------------- |
+| Add               | Ctrl+Enter | Opens the add row of the row's container or event                          |
+| Duplicate         | Ctrl+D     | Adds a copy of each picked node or action beside it                        |
+| Wrap in container | none       | Puts the picked nodes of one parent into a new container of a kind         |
+| Delete            | Delete     | Deletes each picked row from its parent                                    |
+| Copy              | Ctrl+C     | Copies the event names and object IDs of the picked rows, one on each line |
+
+Duplicate on an event opens the name entry with the name and `_copy`, and the new event copies
+every action and every node below them.
+
+**IDs.** A new event's ID is the FNV-1 hash of its name, because a bin names an event by its name.
+A name whose ID an object of the set or an event name of the audio indexes holds is refused. Every
+other new object takes the FNV-1 hash of `ltk-manager/<bank ID>/<n>`, and a new media takes that of
+`ltk-manager/<bank ID>/media/<xxh64 of the WEM>/<n>`. `n` counts up from 0 to the first ID that no
+object or media of the set, of the project and game audio indexes, and of the document holds. The
+bank ID is the header ID of the opened bank. Two banks therefore draw apart, and a WEM imported
+again after an undo takes the ID it had, which the decoded media cache keys on.
+
+**Parent links.** Every container lists each child whose `parent` field names it, and every child
+names the container that lists it. A new node under a container takes the container as its parent.
+A node that a Play action plays directly takes the actor-mixer above the template sound, which
+lists it. A copy keeps the parent of its original, and each node below it is copied with a fresh ID
+under the copy. Move existing here takes the node out of the container that listed it.
+
+**Templates.** A new sound copies the node base of the first sound below its container, else of the
+first sound of the opened bank, else of the set, so it routes to the bus that the bank already
+uses. A new container copies the node base of a container of its kind and drops its properties. A
+switch container takes the switch group and the default switch of a switch container of the set,
+and is refused if the set has none. A child added to a switch container joins its default switch.
+
+**Delete.** A delete unlinks the row from its parent: a container drops the child, a Play action
+whose target is deleted leaves its event, and an event drops the action. The object is then kept if
+another container, action or event of the set still references it, and its `parent` moves to a
+container that lists it. Otherwise it is removed, with every object below it that the delete leaves
+unreferenced. An actor-mixer is never removed. A media that the document imported and that no sound
+plays any more leaves its file. A delete never changes another bank.
+
+**Wrap in container.** The new container takes the place of the first picked node in the lists of
+the parent, the other picked nodes leave the parent, and the container lists them all in their
+playlist order and weights. A node that a Play action plays is wrapped alone, and the Play then
+plays the container.
+
+**From file.** The import reads the file as a WEM, refuses any codec other than Wwise Vorbis, and
+decodes it with the decoder of the Media view. Only Vorbis plays in the game. Converting another
+format is #955. The media goes into the media bank of the set if the template sound plays from a
+bank, and into the package if it streams, and into the other file if the set has no such file. The
+sound's `in_memory_size` is the length of the WEM. A game media file is copied into the project
+layer on its first import, as a game event bank is on its first edit.
+
+### Selection
+
+A press picks one row. Ctrl+click adds or drops a row, Shift+click and Shift+Up or Down pick the
+range from the last row picked without Shift, Ctrl+A picks every drawn row, and Escape keeps the
+row under the keyboard alone. A row of a field, a `children` list or an add row takes no pick. The
+toolbar shows the count of picked rows when it is more than one.
+
+Delete, Duplicate, Wrap in container and Copy take every picked row, and each is one undo step. A
+row below another picked row is left to it. Space plays the picked rows together. A knob edit of a
+picked node applies to every picked node that takes the property: volume, make-up gain and pitch
+move by the same amount, and every other property takes the same value. A knob is disabled while
+one picked row does not take its property.
 
 ### Marks and saving
 
@@ -551,10 +652,13 @@ A row whose object differs from the bank as it was opened carries an accent dot.
 edit of an object removes its dot.
 
 The first edit of a game bank writes the game's bytes into the project, in the layer of the
-sandbox or else the base layer, at the chunk's path below its archive folder. The edit is refused
-if the project already has a file there. A save writes the layer file through a temporary file,
-and the tab then opens that layer file. A save refuses if the file changed on disk since it was
-opened or last saved, and the edits stay in the document until the bank is reopened.
+sandbox or else the base layer, at the chunk's path below its archive folder. The first import
+into a game media file copies that file the same way. The edit is refused if the project already
+has a file there. One edit is one undo step over the bank and its media files, and an undo of an
+import restores the bytes of both. A save writes each changed file through a temporary file, and
+the tab then opens the layer file of the bank. A save refuses, and writes no file, if a file
+changed on disk since it was opened or last saved, and the edits stay in the document until the
+bank is reopened.
 
 ## Waveform
 

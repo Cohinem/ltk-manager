@@ -1,8 +1,9 @@
 //! An event bank that takes edits: the bank, the media files it adds media to, its undo history
 //! and the bytes that a save writes.
 //!
-//! "Editing" and "New objects" in `docs/ux/AUDIO.md`. An edit changes, adds and removes whole
-//! objects, so every other object keeps its bytes.
+//! "Editing" and "New objects" in `docs/ux/AUDIO.md`, and
+//! `docs/adr/0071-an-event-bank-document-holds-its-media-files.md`. An edit changes, adds and
+//! removes whole objects, so every other object keeps its bytes.
 
 mod history;
 mod ids;
