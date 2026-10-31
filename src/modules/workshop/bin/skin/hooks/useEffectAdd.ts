@@ -2,7 +2,7 @@ import { use, useMemo } from "react";
 
 import { useToast } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { BinEdit } from "@/lib/tauri";
+import type { BinEdit, BinRow, ValueEdit } from "@/lib/tauri";
 
 import { useDeclares } from "../../documents/hooks/useDeclared";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
@@ -37,6 +37,30 @@ export function useSkinCalls(): ((calls: SkinCalls) => void) | null {
       });
     };
   }, [send, landed, declares, toast]);
+}
+
+/** The edits of a skin section's rows, which state a refusal in a toast as `useSkinCalls` does. */
+export interface SkinRowEdits {
+  readonly removeItem: (row: BinRow) => void;
+  readonly editProperty: (holder: BinRow, field: string, edits: ValueEdit[]) => void;
+}
+
+/** Returns the edits of a skin section's rows, and null if the view does not edit. */
+export function useSkinRowEdits(): SkinRowEdits | null {
+  const sendCalls = useSkinCalls();
+
+  return useMemo(() => {
+    if (sendCalls === null) return null;
+
+    return {
+      removeItem: (row) =>
+        sendCalls(() => [{ kind: "removeItem", entry: row.entry, path: row.path }]),
+      editProperty: (holder, field, edits) =>
+        sendCalls(() => [
+          { kind: "editProperty", entry: holder.entry, holder: holder.path, field, edits },
+        ]),
+    };
+  }, [sendCalls]);
 }
 
 /**

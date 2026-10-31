@@ -199,15 +199,26 @@ export function visibilityTimeline(
 ): VisibilityEntry[] {
   const spelled = new Map(submeshes.map((name) => [nameHash(name), name]));
   const nameOf = (ref: HashRef) => spelled.get(ref.hash) ?? ref.name;
-  const changes: { at: number; show: string[]; hide: string[] }[] = [];
+  const changes: VisibilityChange[] = [];
   for (const step of steps) {
     for (const event of step.clip.events) {
       if (event.kind.kind !== "submeshVisibility") continue;
-      const show = event.kind.show.map(nameOf);
-      const hide = event.kind.hide.map(nameOf);
-      changes.push({ at: secondsOf(step, event.startFrame), show, hide });
+      const start: VisibilityChange = {
+        at: secondsOf(step, event.startFrame),
+        show: event.kind.show.map(nameOf),
+        hide: event.kind.hide.map(nameOf),
+        ends: null,
+        made: null,
+      };
+      changes.push(start);
       if (event.endFrame !== null) {
-        changes.push({ at: secondsOf(step, event.endFrame), show: hide, hide: show });
+        changes.push({
+          at: secondsOf(step, event.endFrame),
+          show: [],
+          hide: [],
+          ends: start,
+          made: null,
+        });
       }
     }
   }
@@ -216,12 +227,40 @@ export function visibilityTimeline(
   const timeline: VisibilityEntry[] = [{ at: 0, hidden: base }];
   let hidden = base;
   for (const change of changes) {
-    hidden = applyChange(hidden, change);
+    const made = change.ends?.made;
+    const applied =
+      change.ends === null ? change : { show: made?.hidden ?? [], hide: made?.shown ?? [] };
+    if (change.ends === null) change.made = madeBy(hidden, change);
+    hidden = applyChange(hidden, applied);
     const last = timeline[timeline.length - 1];
     if (last.at === change.at) timeline[timeline.length - 1] = { at: change.at, hidden };
     else timeline.push({ at: change.at, hidden });
   }
   return timeline;
+}
+
+/** One step of a visibility pass, which is an event's start or, under `ends`, its end. */
+interface VisibilityChange {
+  readonly at: number;
+  readonly show: readonly string[];
+  readonly hide: readonly string[];
+  /** The start this change ends, whose own change it puts back. */
+  readonly ends: VisibilityChange | null;
+  /** What the start actually changed, set when the pass reaches it. */
+  made: { readonly shown: readonly string[]; readonly hidden: readonly string[] } | null;
+}
+
+/** The submeshes `change` shows that were hidden, and the ones it hides that were shown. */
+function madeBy(
+  hidden: readonly string[],
+  change: { show: readonly string[]; hide: readonly string[] },
+) {
+  const was = new Set(hidden.map((name) => name.toLowerCase()));
+
+  return {
+    shown: change.show.filter((name) => was.has(name.toLowerCase())),
+    hidden: change.hide.filter((name) => !was.has(name.toLowerCase())),
+  };
 }
 
 function applyChange(

@@ -86,7 +86,10 @@ function clip(name: string, hash: string): GraphClip {
     name,
     hash,
     class: "AtomicClipData",
-    animation: { path: `${name}.anm`, asset: null },
+    animation: {
+      path: `${name}.anm`,
+      asset: { kind: "gameChunk", wad: "a.wad.client", pathHash: hash },
+    },
     track: null,
     mask: null,
     syncGroup: null,

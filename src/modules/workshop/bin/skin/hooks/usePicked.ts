@@ -19,29 +19,37 @@ export interface Picked {
 
 interface Held {
   readonly path: string | null;
-  readonly count: number;
+  /** The words of each item when last seen, which tell an append from an insert. */
+  readonly names: readonly string[];
   readonly listed: boolean;
+}
+
+function nameOf(item: PhysicsItem): string {
+  return `${item.title}\n${item.detail ?? ""}`;
 }
 
 /**
  * The pick of one list of the Physics pane.
  *
  * "The physics pane" in docs/ux/SKIN_EDITOR.md. The list starts unfolded on its first
- * item. An item added to the list is opened for the reader, and an empty list stays
- * unfolded since it has no fields to show.
+ * item. An item appended to the list is opened for the reader, an item that an undo puts back
+ * inside the list leaves the pick alone, and an empty list stays unfolded since it has no
+ * fields to show.
  */
 export function usePicked(items: readonly PhysicsItem[]): Picked {
+  const names = items.map(nameOf);
   const [held, setHeld] = useState<Held>({
     path: items[0]?.path ?? null,
-    count: items.length,
+    names,
     listed: true,
   });
-  if (items.length !== held.count) {
-    const grown = items.length > held.count;
+  if (names.length !== held.names.length || names.some((name, at) => name !== held.names[at])) {
+    const appended =
+      names.length > held.names.length && held.names.every((name, at) => name === names[at]);
     setHeld({
-      path: grown ? items[items.length - 1].path : held.path,
-      count: items.length,
-      listed: grown ? false : held.listed,
+      path: appended ? items[items.length - 1].path : held.path,
+      names,
+      listed: appended ? false : held.listed,
     });
   }
 

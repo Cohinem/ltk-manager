@@ -184,7 +184,7 @@ function orientationModel(orientation: WireOrientation, pose: Pose): Orientation
  * default mask is one of.
  */
 export function dynamicsModelOf(
-  skin: SkinModel,
+  skin: Pick<SkinModel, "poseModifiers">,
   pose: Pose,
   muted: ReadonlySet<string> = NONE_MUTED,
   colliders: ReadonlyMap<string, Colliders> = NO_COLLIDERS,

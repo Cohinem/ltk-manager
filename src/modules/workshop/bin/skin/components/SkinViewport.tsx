@@ -99,6 +99,7 @@ import { useBakeTangents } from "../hooks/useBakeTangents";
 import { useDynamicsEdit } from "../hooks/useDynamicsEdit";
 import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/useGraphSource";
 import { useJointPick } from "../hooks/useJointPick";
+import { useResetOnChange } from "../hooks/useResetOnChange";
 import { useSkinDynamics } from "../hooks/useSkinDynamics";
 import { useSkinKeys } from "../hooks/useSkinKeys";
 import { useSkinOutlines } from "../hooks/useSkinOutlines";
@@ -217,9 +218,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const { clock, picked, setPicked, playing, setPlaying, speed, setSpeed } =
     use(SkinChoiceContext) ?? own;
   const { effects, setEffects, submesh, pickSubmesh, mask } = use(SkinChoiceContext) ?? own;
-  const { conditions } = use(SkinChoiceContext) ?? own;
+  const { conditions, resetConditions } = use(SkinChoiceContext) ?? own;
   const { parameter, setParameter, shown, setShown, resetShown } = use(SkinChoiceContext) ?? own;
-  const { simulatedRate, setSimulatedRate, muted } = use(SkinChoiceContext) ?? own;
+  const { simulatedRate, setSimulatedRate, muted, resetMuted } = use(SkinChoiceContext) ?? own;
+  useResetOnChange(skin.persistentConditions.length, resetConditions);
+  useResetOnChange(skin.poseModifiers.length, resetMuted);
   const { joint, setJoint, socket: movedSocket, socketMode } = use(SkinChoiceContext) ?? own;
   const { setSocketMode, socketSpace, setSocketSpace } = use(SkinChoiceContext) ?? own;
 
@@ -329,6 +332,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const scale = skin.scale ?? 1;
   /* While the Move gizmo is on, the reader moves the unit, and the pose is simulated live. */
   const dynamics = useSkinDynamics(skin, clipPose, {
+    entry,
     timed,
     masks: graph.data?.masks,
     rate: simulatedRate,

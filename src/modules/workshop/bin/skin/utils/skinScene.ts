@@ -46,7 +46,7 @@ const SEQUENCER = "SequencerClipData";
 /** `ParametricClipData`, whose children each play at a value of one parameter. */
 export const PARAMETRIC = "ParametricClipData";
 
-/** The clips a preview poses with: every one whose playlist reaches a file. */
+/** The clips a preview poses with: every one whose playlist reaches a file on this machine. */
 export function playableClips(clips: readonly GraphClip[]): GraphClip[] {
   const byHash = clipsByHash(clips);
   return clips.filter((clip) => resolvePlaylist(clip, byHash, null, new Set()).length > 0);
@@ -110,7 +110,7 @@ function resolvePlaylist(
   parameter: number | null,
   above: Set<string>,
 ): GraphClip[] {
-  if (clip.animation !== null) return [clip];
+  if (clip.animation !== null) return clip.animation.asset ? [clip] : [];
   if (above.has(clip.hash)) return [];
   above.add(clip.hash);
   const steps: GraphClip[] = [];
@@ -344,10 +344,16 @@ export function submeshOutline<T>(
   };
 }
 
-/** The material `submesh` draws with: its override's, else the skin's, and null for neither. */
+/**
+ * The material `submesh` draws with, in the order of `bindingOf`: its override's, none where its
+ * override names a texture alone, else the skin's. Returns null if neither names a material.
+ */
 export function submeshMaterial(skin: SkinModel, submesh: string): MaterialPreview | null {
   const override = overrideOf(skin, submesh);
-  return override === null ? skin.material : override.material;
+  if (override === null) return skin.material;
+  if (override.material !== null) return override.material;
+
+  return override.texture === null ? skin.material : null;
 }
 
 /**

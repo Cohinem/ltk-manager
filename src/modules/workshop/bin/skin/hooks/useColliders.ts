@@ -52,8 +52,12 @@ function landedOn(edits: ColliderEdits, asset: AssetRef | null): boolean {
 }
 
 /** The game path the shapes of `chain` are saved at, and null for a skin with nowhere to save them. */
-function filePathOf(skin: SkinModel, chain: WireChain): string | null {
-  return chain.colliderFile?.path || colliderPathOf(skin);
+function filePathOf(
+  skin: Pick<SkinModel, "skeleton">,
+  entry: string,
+  chain: WireChain,
+): string | null {
+  return chain.colliderFile?.path || colliderPathOf(skin, entry);
 }
 
 /**
@@ -62,23 +66,28 @@ function filePathOf(skin: SkinModel, chain: WireChain): string | null {
  *
  * A chain whose shapes are being saved answers the last commit, ahead of the file.
  */
-export function useColliderFiles(skin: SkinModel | undefined): ReadonlyMap<string, ColliderFile> {
+export function useColliderFiles(
+  skin: SkinModel | undefined,
+  entry: string,
+): ReadonlyMap<string, ColliderFile> {
   const client = useQueryClient();
+  const modifiers = skin?.poseModifiers;
+  const skeleton = skin?.skeleton ?? null;
   const chains = useMemo(() => {
-    if (skin === undefined) return [];
+    if (modifiers === undefined) return [];
 
-    return skin.poseModifiers.flatMap((modifier) =>
+    return modifiers.flatMap((modifier) =>
       modifier.kind === "dynamicsChain"
         ? [
             {
               chain: modifier.path,
               asset: modifier.colliderFile?.asset ?? null,
-              file: filePathOf(skin, modifier),
+              file: filePathOf({ skeleton }, entry, modifier),
             },
           ]
         : [],
     );
-  }, [skin]);
+  }, [modifiers, skeleton, entry]);
 
   const read = useQueries({
     queries: chains.map((chain) => viewportQueries.colliders(chain.asset)),
@@ -176,7 +185,7 @@ export function useColliderEdit(
 
     return {
       commit: (chain, file) => {
-        const path = filePathOf(skin, chain);
+        const path = filePathOf(skin, entry, chain);
         if (path === null) {
           toast.error(m.workshop_bin_physics_colliders_failed_title());
           return;

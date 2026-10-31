@@ -62,6 +62,30 @@ describe("usePicked", () => {
     expect(result.current.listed).toBe(false);
   });
 
+  it("leaves the pick alone when an undo puts an item back inside the list", () => {
+    const { result, rerender } = renderHook(({ held }) => usePicked(held), {
+      initialProps: { held: items("a", "c") },
+    });
+    act(() => result.current.pick("a"));
+
+    rerender({ held: items("a", "b", "c") });
+
+    expect(result.current.item?.path).toBe("a");
+    expect(result.current.listed).toBe(true);
+  });
+
+  it("opens an item added after another item's words changed", () => {
+    const { result, rerender } = renderHook(({ held }) => usePicked(held), {
+      initialProps: { held: items("a", "b") },
+    });
+
+    rerender({ held: items("a", "renamed") });
+    rerender({ held: items("a", "renamed", "c") });
+
+    expect(result.current.item?.path).toBe("c");
+    expect(result.current.listed).toBe(false);
+  });
+
   it("keeps the place of the pick when the picked item is removed", () => {
     const { result, rerender } = renderHook(({ held }) => usePicked(held), {
       initialProps: { held: items("a", "b", "c") },

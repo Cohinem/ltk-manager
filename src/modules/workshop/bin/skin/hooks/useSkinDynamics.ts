@@ -25,6 +25,8 @@ export interface SkinDynamicsOptions {
   /** Steps a second. */
   readonly rate: number;
   /** The pose modifiers the preview leaves out, by hash path. */
+  /** The skin object, whose default collider file is named after it. */
+  readonly entry: string;
   readonly muted: ReadonlySet<string>;
   /** The reader moves the unit by hand, so the simulation steps live under it. */
   readonly live: boolean;
@@ -65,15 +67,19 @@ export interface SkinDynamics {
 export function useSkinDynamics(
   skin: SkinModel,
   clipPose: Pose | null,
-  { timed, masks, rate, muted, live, socket, socketMode }: SkinDynamicsOptions,
+  { entry, timed, masks, rate, muted, live, socket, socketMode }: SkinDynamicsOptions,
 ): SkinDynamics {
-  const colliders = usePlacedColliders(useColliderFiles(skin), clipPose);
+  const colliders = usePlacedColliders(useColliderFiles(skin, entry), clipPose);
   const shapes = useMemo(() => [...colliders.values()], [colliders]);
 
+  /* Only the modifiers, so an edit of the rest of the skin does not bake the pass again. */
+  const modifiers = skin.poseModifiers;
   const model = useMemo(
     () =>
-      clipPose === null ? NO_DYNAMICS : dynamicsModelOf(skin, clipPose, muted, colliders, masks),
-    [skin, clipPose, muted, colliders, masks],
+      clipPose === null
+        ? NO_DYNAMICS
+        : dynamicsModelOf({ poseModifiers: modifiers }, clipPose, muted, colliders, masks),
+    [modifiers, clipPose, muted, colliders, masks],
   );
   const cues = useMemo(() => dynamicsCues(timed, masks, clipPose), [timed, masks, clipPose]);
   const simulated = useSimulatedPose(clipPose, model, {

@@ -1,5 +1,5 @@
 import { EyeIcon, EyeSlashIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
-import { use, useCallback, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -18,10 +18,9 @@ import {
 import { CONDITION } from "../../classes/utils/classLayouts";
 import { usePaneCommands } from "../../menus/state/paneCommands";
 import { FoldCaret } from "../../shared/components/FoldCaret";
-import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { fieldHash, rowKey } from "../../tree/utils/binRows";
-import { useSkinCalls } from "../hooks/useEffectAdd";
+import { useSkinCalls, useSkinRowEdits } from "../hooks/useEffectAdd";
 import { useListElements } from "../hooks/useListElements";
 import { SkinChoiceContext } from "../state/skinChoice";
 import {
@@ -71,6 +70,13 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
   }, []);
 
   const count = listLength(list);
+  const seen = useRef(count);
+  useEffect(() => {
+    /* A removal or an undo moves the indexes behind it, and the added row keeps its fold. */
+    if (count < seen.current) setOpen(new Set());
+    seen.current = count;
+  }, [count]);
+
   const sendCalls = useSkinCalls();
   const add =
     sendCalls === null
@@ -81,7 +87,7 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
         };
 
   const choice = use(SkinChoiceContext);
-  const removeItem = use(LeafEditContext)?.removeItem;
+  const removeItem = useSkinRowEdits()?.removeItem;
   const titled = conditions.flatMap((condition) => {
     const index = itemIndex(condition);
 
@@ -104,7 +110,7 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
       SKIN_REMOVE_CONDITION_LIST,
       titled.map(({ condition, title }) => ({
         title,
-        run: removeItem === undefined ? null : () => void removeItem(condition),
+        run: removeItem === undefined ? null : () => removeItem(condition),
       })),
     ),
   });
@@ -173,7 +179,7 @@ interface ConditionRowProps {
 /** One condition's row: its fold, its preview switch, its drivers, its effect count and remove. */
 function ConditionRow({ condition, index, pages, view, scope, open, onToggle }: ConditionRowProps) {
   const choice = use(SkinChoiceContext);
-  const removeItem = use(LeafEditContext)?.removeItem;
+  const removeItem = useSkinRowEdits()?.removeItem;
   const fields = fieldsOf(pages.get(rowKey(condition)));
   const driverOf = (field: string) => {
     const driver = fields(field);
@@ -232,7 +238,7 @@ function ConditionRow({ condition, index, pages, view, scope, open, onToggle }: 
               size="xs"
               aria-label={remove}
               left={<XIcon weight="bold" />}
-              onClick={() => void removeItem(condition)}
+              onClick={() => removeItem(condition)}
             />
           </Tooltip>
         )}

@@ -33,7 +33,7 @@ use ltk_manager_bin::bin_walk::{Address, Declared};
 pub const ID: RuleId = RuleId("bin/texture-file");
 
 /// The properties whose value names a texture.
-const TEXTURE_FIELDS: [BinHash; 27] = [
+const TEXTURE_FIELDS: [BinHash; 28] = [
     named("texture"),
     named("erosionMapName"),
     named("textureMult"),
@@ -55,6 +55,7 @@ const TEXTURE_FIELDS: [BinHash; 27] = [
     named("baseTexture"),
     named("glossTexture"),
     named("emissiveTexture"),
+    named("RoughnessMetallicAoTexture"),
     named("transitionTexture"),
     named("inventoryIcon"),
     named("TextureName"),
