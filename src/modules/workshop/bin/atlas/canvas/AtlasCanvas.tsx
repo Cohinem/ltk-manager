@@ -16,7 +16,6 @@ import { Notice } from "../../shared/preview/Notice";
 import { BaseElsewhereNotice } from "../components/BaseElsewhereNotice";
 import { boardCommands } from "../engine/commands/board";
 import { type PreviewState, visibleElements } from "../engine/commands/build";
-import { layerEdits } from "../engine/edit/targets";
 import { onBoard, toFrame } from "../engine/layout/board";
 import type { Screen } from "../engine/layout/solve";
 import { labelOf } from "../engine/model/layers";
@@ -26,7 +25,6 @@ import type { ViewFont, ViewStyleSheet } from "../engine/model/view";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
 import { useUiPrograms, useUiTextures } from "../hooks/useAtlasSources";
 import { useBoard } from "../hooks/useBoard";
-import { useDeleteElements } from "../hooks/useDeleteElements";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
 import { useLoadoutView } from "../hooks/useLoadoutView";
 import { useTextSource, useViewStrings } from "../hooks/useTextSource";
@@ -43,13 +41,12 @@ import {
   useViewPreview,
   viewKey,
 } from "../state/atlasPreview";
-import { canvasKey } from "./canvasKeys";
 import { frameLocal, nestedFramesOf, overlayFramesOf, placeholderRects } from "./canvasMarks";
 import { CanvasMenu, useCanvasMenu } from "./CanvasMenu";
 import { CanvasStatus, editingOf } from "./CanvasStatus";
 import { FrameOverlay, frameNameAt } from "./FrameOverlay";
-import { previewKey } from "./previewKeys";
 import { useButtonPlay } from "./useButtonPlay";
+import { useCanvasCommands } from "./useCanvasCommands";
 import { useCanvasEdit } from "./useCanvasEdit";
 import { useCanvasPlace } from "./useCanvasPlace";
 import { useComboPlay } from "./useComboPlay";
@@ -69,10 +66,6 @@ export interface AtlasCanvasProps {
   readonly focus?: boolean;
 }
 
-/** How many source pixels an arrow key nudges by, and with Shift held. */
-const NUDGE = 1;
-const NUDGE_FAR = 10;
-
 const NO_FONTS: readonly ViewFont[] = [];
 const NO_SHEETS: readonly ViewStyleSheet[] = [];
 const NO_SCENES: ReadonlySet<string> = new Set();
@@ -88,7 +81,9 @@ const NO_SCENES: ReadonlySet<string> = new Set();
  * the pointer and opens its menu. The keys are F to frame the selection, 0 to fit, 1 for 100%,
  * plus and minus to zoom, the arrows to nudge by a source pixel or ten with Shift, the brackets
  * to move the selection up and down its siblings' draw order, all the way with Shift, Delete or
- * Backspace to delete the selection, and Escape to clear it. The marks over the frame are `FrameOverlay`'s.
+ * Backspace to delete the selection, Ctrl+A to select every element, and Escape to clear the
+ * selection. `useCanvasCommands` offers the same actions to the menu bar. The marks over the frame
+ * are `FrameOverlay`'s.
  *
  * While a component is being placed, `useCanvasPlace` takes the press and draws its ghost.
  */
@@ -218,7 +213,26 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
     hovered,
     enabled: !focus && !interact,
   });
-  const deleter = useDeleteElements(key, tree);
+  const offers = useCanvasCommands({
+    view: key,
+    focus,
+    source: view,
+    tree,
+    settings,
+    solved,
+    placed,
+    order,
+    only,
+    selection,
+    selected,
+    hiddenElements,
+    hiddenScenes,
+    shown,
+    nudge: canvas.nudge,
+    transform,
+    edit,
+  });
+
   const menu = useCanvasMenu({
     nameAt: (x, y) => frameNameAt(overlayFrames, transform.view, x, y)?.scene,
     pickAll: canvas.pickAll,
@@ -272,28 +286,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const putDown = (x: number, y: number) => place.put(transform.toScreen(x, y), canvas.pick(x, y));
 
   const onKeyDown = (event: ReactKeyboardEvent) => {
-    if (held.press(event)) return;
-    if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (previewKey(event.key, previewActions)) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    const step = event.shiftKey ? NUDGE_FAR : NUDGE;
-    const run = canvasKey(event.key, {
-      transform,
-      selected: selected === null ? null : (shown?.get(selected) ?? null),
-      clear: () => select(key, null),
-      nudge: (dx, dy) => canvas.nudge(dx * step, dy * step),
-      remove: () => void deleter.run(focus ? [] : selection),
-      arrange: (layerStep) => {
-        if (tree !== null && selected !== null && edit?.editable === true) {
-          void edit.apply(layerEdits(tree, selected, layerStep));
-        }
-      },
-    });
-    if (!run) return;
+    if (held.press(event) || !offers.answerKey(event)) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -314,7 +307,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   });
 
   return (
-    <div data-ui="AtlasCanvas" className="flex min-h-0 flex-1 flex-col">
+    <div data-ui="AtlasCanvas" className="flex min-h-0 flex-1 flex-col" {...offers.paneFocus}>
       <ContextMenu.Root>
         <ContextMenu.Trigger
           ref={hold}

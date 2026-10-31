@@ -7,6 +7,7 @@ import { m } from "@/i18n";
 import type { EmitterRef } from "../../clipboard/emitterCopy";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import { TemplateSubmenu } from "../../templates/TemplateMenus";
+import { vfxShortcut } from "../../utils/vfxKeys";
 import type { MasterItem } from "../utils/systemGraph";
 import { GraphActionsContext } from "./graphActions";
 
@@ -40,21 +41,25 @@ export function EmitterMenuItems({
       {emitter !== null && duplicate !== null && (
         <ContextMenu.Item
           icon={<CopySimpleIcon />}
-          shortcut="Ctrl+D"
+          shortcut={vfxShortcut("duplicate")}
           onClick={() => void duplicate(targets)}
         >
           {m.workshop_bin_emitter_duplicate_action()}
         </ContextMenu.Item>
       )}
       {emitter !== null && (
-        <ContextMenu.Item icon={<CopyIcon />} shortcut="Ctrl+C" onClick={() => void copy(targets)}>
+        <ContextMenu.Item
+          icon={<CopyIcon />}
+          shortcut={vfxShortcut("copy")}
+          onClick={() => void copy(targets)}
+        >
           {m.workshop_bin_emitter_copy_action()}
         </ContextMenu.Item>
       )}
       {paste !== null && (
         <ContextMenu.Item
           icon={<ClipboardTextIcon />}
-          shortcut="Ctrl+V"
+          shortcut={vfxShortcut("paste")}
           onClick={() => void paste(actions.entry, emitter)}
         >
           {m.workshop_bin_emitter_paste_action()}
@@ -64,7 +69,7 @@ export function EmitterMenuItems({
       {emitter !== null && remove !== null && (
         <ContextMenu.Item
           icon={<TrashIcon />}
-          shortcut="Del"
+          shortcut={vfxShortcut("remove")}
           variant="danger"
           onClick={() => void remove(targets)}
         >

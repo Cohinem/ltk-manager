@@ -64,12 +64,20 @@ export function useTemplateChoices(
 
 /**
  * The Add from template submenu of the Graph menu and of the inspector's Emitter menu, which
- * lands after `place.after` or last.
+ * lands after `place.after` or last. With `reason`, a surface that keeps the item lists it
+ * disabled where the document takes no edit.
  */
-export function TemplateSubmenu({ place }: { place: TemplatePlace }) {
+export function TemplateSubmenu({ place, reason }: { place: TemplatePlace; reason?: string }) {
   const emitters = useVfxTemplates("emitter");
   const systems = useVfxTemplates("system");
   const land = useLand(place);
+  if (land === null && reason !== undefined) {
+    return (
+      <Menu.Item icon={<SparkleIcon />} disabled reason={reason}>
+        {m.workshop_bin_emitter_template_action()}
+      </Menu.Item>
+    );
+  }
   if (land === null || emitters.length + systems.length === 0) return null;
 
   return (

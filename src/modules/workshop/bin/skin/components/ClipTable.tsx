@@ -32,21 +32,19 @@ import { FoldCaret } from "../../shared/components/FoldCaret";
 import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
 import { skinQueries } from "../api/skinQueries";
+import {
+  useClipFilterCommand,
+  useClipPaneCommands,
+  useClipSortCommands,
+} from "../hooks/useClipCommands";
 import type { GraphSource } from "../hooks/useGraphSource";
-import { type ClipTab, SkinChoiceContext } from "../state/skinChoice";
+import { SkinChoiceContext } from "../state/skinChoice";
+import { CLIP_TABS } from "../utils/skinCommands";
 import { playableClips } from "../utils/skinScene";
 import { shownColumns } from "./ClipColumns";
 import { ClipContextMenu } from "./ClipContextMenu";
 import { ClipDetail } from "./ClipDetail";
 import { MapTable } from "./ClipMaps";
-
-/** The tabs in the order the control lists them, "The clips pane" in docs/ux/SKIN_EDITOR.md. */
-const TABS: readonly { value: ClipTab; label: () => string }[] = [
-  { value: "clips", label: m.workshop_bin_clip_tab_clips_label },
-  { value: "tracks", label: m.workshop_bin_clip_tab_tracks_label },
-  { value: "masks", label: m.workshop_bin_clip_tab_masks_label },
-  { value: "syncGroups", label: m.workshop_bin_clip_tab_sync_groups_label },
-];
 
 /** The rows the filter leaves, by name without regard to case, named ones first. */
 export function matchingClips(clips: readonly GraphClip[], filter: string): GraphClip[] {
@@ -65,6 +63,8 @@ interface ClipsPaneProps {
   readonly source: GraphSource;
   /** The skeleton's joint names by slot, which a mask's weights are listed against. */
   readonly joints: readonly string[] | null;
+  /** `false` where the view has no preview, so a click selects any row and poses nothing. */
+  readonly previewed?: boolean;
 }
 
 /**
@@ -73,10 +73,11 @@ interface ClipsPaneProps {
  * "The clips pane" in docs/ux/SKIN_EDITOR.md. The graph is read once through the query and
  * every tab draws out of that one answer.
  */
-export function ClipsPane({ source, joints }: ClipsPaneProps) {
+export function ClipsPane({ source, joints, previewed = true }: ClipsPaneProps) {
   const choice = use(SkinChoiceContext);
   const graph = useQuery(skinQueries.graph(source.document, source.graph));
   const tab = choice?.tab ?? "clips";
+  useClipPaneCommands(graph.data);
 
   if (source.graph === null) return <Notice text={m.workshop_bin_section_none_empty()} />;
   if (graph.error !== null) return <Notice text={m.workshop_bin_clip_graph_failed_empty()} />;
@@ -84,13 +85,16 @@ export function ClipsPane({ source, joints }: ClipsPaneProps) {
     return <Notice text={m.workshop_bin_clip_graph_loading_label()} />;
   }
 
-  if (tab === "clips") return <ClipTable graph={graph.data} source={source} />;
+  if (tab === "clips")
+    return <ClipTable graph={graph.data} source={source} previewed={previewed} />;
   return <MapTable graph={graph.data} tab={tab} joints={joints} />;
 }
 
 /** The map control and name filter above the clip tables. */
 export function ClipTabs() {
   const choice = use(SkinChoiceContext);
+  const filterField = useClipFilterCommand();
+
   if (choice === null) return null;
   const { tab, setTab, filter, setFilter } = choice;
 
@@ -98,6 +102,7 @@ export function ClipTabs() {
     <div className="flex flex-wrap items-center gap-2">
       {tab === "clips" && (
         <Field.Control
+          ref={filterField}
           size="xs"
           className="w-40 font-sans"
           aria-label={m.workshop_bin_clip_filter_label()}
@@ -112,7 +117,7 @@ export function ClipTabs() {
         aria-label={m.workshop_bin_clip_tabs_label()}
         value={tab}
         onChange={setTab}
-        options={TABS.map((each) => ({ value: each.value, label: each.label() }))}
+        options={CLIP_TABS.map((each) => ({ value: each.value, label: each.label() }))}
       />
     </div>
   );
@@ -126,7 +131,15 @@ export function ClipTabs() {
  * reaches a file. The rows are windowed and measured, so a graph of a thousand clips
  * costs the rows on screen and an unfolded row takes the height its fields need.
  */
-function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSource }) {
+function ClipTable({
+  graph,
+  source,
+  previewed,
+}: {
+  graph: AnimationGraph;
+  source: GraphSource;
+  previewed: boolean;
+}) {
   const choice = use(SkinChoiceContext);
   const client = useQueryClient();
   const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
@@ -169,6 +182,9 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
     [graph.clips, filter, rates.data],
   );
   const columns = useMemo(() => shownColumns(graph.clips), [graph.clips]);
+
+  useClipSortCommands(columns, sorting, setSorting);
+
   const playable = useMemo(
     () => new Set(playableClips(graph.clips).map((clip) => clip.hash)),
     [graph.clips],
@@ -203,12 +219,12 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
           <span
             className={twMerge("flex shrink-0 items-center gap-2 overflow-hidden", column.width)}
           >
-            {column.key === "name" && <ClipPlaying hash={row.id} />}
+            {column.key === "name" && previewed && <ClipPlaying hash={row.id} />}
             {column.draw(row.original)}
           </span>
         ),
       })),
-    [columns],
+    [columns, previewed],
   );
 
   return (
@@ -222,7 +238,9 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
         columns: tableColumns,
       }}
     >
-      {(table) => <VirtualClips table={table} source={source} playable={playable} />}
+      {(table) => (
+        <VirtualClips table={table} source={source} playable={previewed ? playable : null} />
+      )}
     </DataTable>
   );
 }
@@ -251,7 +269,8 @@ function VirtualClips({
 }: {
   table: DataTableInstance<ClipTableRow>;
   source: GraphSource;
-  playable: ReadonlySet<string>;
+  /** The clips that a click poses, and null where a click selects any row. */
+  playable: ReadonlySet<string> | null;
 }) {
   const choice = use(SkinChoiceContext);
   const rows = table.getRowModel().rows;
@@ -332,7 +351,9 @@ function VirtualClips({
                     expanded={expanded}
                     onToggle={() => choice?.toggleExpanded("clips", clip.hash)}
                     onClick={() => {
-                      if (playable.has(clip.hash)) choice?.setPicked(clip.hash);
+                      if (playable === null || playable.has(clip.hash)) {
+                        choice?.setPicked(clip.hash);
+                      }
                     }}
                   >
                     <ClipCells row={row} customCells />

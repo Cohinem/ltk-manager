@@ -23,6 +23,7 @@ import {
   usePreviewWireOverlay,
 } from "@/stores";
 
+import type { PaneCommand } from "../../../menus/state/paneCommands";
 import { CameraMenu } from "../../../shared/preview/CameraMenu";
 import { ShadersToggle } from "../../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../../shared/preview/PreviewViewport";
@@ -39,6 +40,7 @@ import { type Motion, retargetable, type RigModel } from "../../engine/model/rig
 import { ForceGizmo } from "../../forces/ForceGizmo";
 import { useForcePreview } from "../../forces/forcePreview";
 import { useForces } from "../../forces/useForces";
+import { useReadOnlyReason, useShownPaneCommands } from "../../hooks/usePaneOffers";
 import { vfxKeys } from "../../hooks/useVfxSystem";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { RigControl } from "../../playback/components/RigControl";
@@ -56,9 +58,11 @@ import { distorts, drawsTheAttachment, isUndrawn } from "../../rendering/utils/d
 import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
 import { chosenEmitter } from "../../timeline/utils/selection";
+import { handleAddsCommand, handleCommand, VFX_PANE } from "../../utils/vfxCommands";
 import { useWarmUp } from "../hooks/useWarmUp";
 import { createGrabLatch } from "../utils/grabLatch";
 import {
+  HANDLE_KINDS,
   handleBlock,
   type HandleKind,
   isOverride,
@@ -185,6 +189,33 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
      the ground and the renderer carry from one system to the next. */
   const shown = system !== null && system.emitters.length > 0 ? system : null;
   const opened = shown?.emitters.find((emitter) => emitter.index === selected) ?? null;
+  const handleable = edit !== null && child === null && opened !== null;
+  const readOnly = useReadOnlyReason();
+
+  useShownPaneCommands(VFX_PANE.viewport, {
+    [handleCommand("none")]: {
+      run: handleable ? () => void choose(null) : null,
+      checked: handle === null,
+      reason: readOnly ?? m.workshop_bin_menu_vfx_emitter_reason(),
+    },
+    ...Object.fromEntries(
+      HANDLE_KINDS.flatMap((kind): [string, PaneCommand][] => {
+        const hint = opened === null ? null : handleHint(kind, opened, translationRow, rotationRow);
+
+        return [
+          [
+            handleCommand(kind),
+            {
+              run: handleable && hint === null ? () => void choose(kind) : null,
+              checked: handle === kind,
+              reason: hint ?? readOnly ?? m.workshop_bin_menu_vfx_emitter_reason(),
+            },
+          ],
+          [handleAddsCommand(kind), { run: null, checked: adds(kind) }],
+        ];
+      }),
+    ),
+  });
 
   return (
     <div data-ui="VfxViewport" className="flex min-h-0 flex-1 flex-col select-none">
@@ -302,7 +333,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
             <CameraMenu />
             <FitButton label={m.workshop_bin_preview_fit_action()} onFit={requestFit} />
           </div>
-          {edit !== null && child === null && opened !== null && (
+          {handleable && (
             <>
               <ControlDivider />
               <HandleMenu

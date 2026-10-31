@@ -17,6 +17,12 @@ import { useAudioInspector, useSetAudioInspector } from "@/stores";
 import { twMerge } from "@/utils";
 
 import type { ViewContext, WidgetProps } from "../../bin/classes/components/ClassCells";
+import {
+  ObjectEditItems,
+  ObjectFileItems,
+  ObjectViewItems,
+} from "../../bin/menus/components/ObjectBarItems";
+import { useObjectCommands } from "../../bin/menus/hooks/useObjectMenus";
 import { LeafEditContext } from "../../bin/tree/hooks/useLeafEdit";
 import { rowKey } from "../../bin/tree/utils/binRows";
 import { previewDocument } from "../../documents/utils/contentDocument";
@@ -130,6 +136,7 @@ interface VoiceLinesViewProps {
  * "Voice lines" in docs/ux/CONTEXTUAL_VOICE.md.
  */
 function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
+  const objectCommands = useObjectCommands();
   const remembered = useVoiceSkin(view.entry);
   const choose = useChooseVoiceSkin();
   const read = useVoiceLines(view.document, view.entry, remembered);
@@ -796,6 +803,9 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
   }
 
   const menuCommands: Partial<Record<AudioCommandId, () => void>> = {
+    save: objectCommands.save ?? undefined,
+    undo: objectCommands.undo ?? undefined,
+    redo: objectCommands.redo ?? undefined,
     ...lineCommands(selectedRow === undefined ? null : actionsOf(selectedRow)),
     play:
       selectedRow === undefined || selectedRow.kind === "add"
@@ -850,7 +860,12 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
               },
               reasons: selectedRow === undefined ? selectRowReasons() : {},
             }}
-            slots={{ volume: <VolumeReadout /> }}
+            slots={{
+              volume: <VolumeReadout />,
+              fileActions: <ObjectFileItems />,
+              editActions: <ObjectEditItems />,
+              viewActions: <ObjectViewItems part="mode" />,
+            }}
             titles={{
               add: m.audio_voice_add_rule_action(),
               playAll: m.audio_voice_play_all_action(),

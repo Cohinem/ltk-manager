@@ -21,6 +21,7 @@ import {
   usePreviewSun,
 } from "@/stores";
 
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { Notice } from "../../shared/preview/Notice";
 import { PreviewViewport } from "../../shared/preview/PreviewViewport";
 import { useFitRequest } from "../../shared/preview/useFitRequest";
@@ -33,7 +34,8 @@ import { useMeshImport } from "../hooks/useMeshImport";
 import { usePlaceableActions } from "../hooks/usePlaceableActions";
 import { useSunEdit } from "../hooks/useSunEdit";
 import { useViewportEdits } from "../hooks/useViewportEdits";
-import { isGizmoTool, useMapScene } from "../state/mapScene";
+import { isGizmoTool, useMapDragged, useMapScene } from "../state/mapScene";
+import { MAP_PANE_COMMANDS } from "../utils/mapCommands";
 import { meshIndexOf } from "../utils/meshSelection";
 import { withDragged } from "../utils/placeableSpace";
 import { BoxSelect } from "./BoxSelect";
@@ -101,9 +103,9 @@ interface MapSceneProps {
 
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { pick, materials, hidden, focus, selected, backdrop, editable, tool } = useMapScene();
-  const { renaming, setRenaming, dragged, geometryEdited, geometryOpening, reimport } =
-    useMapScene();
-  const { space, snap, sunHandle } = useMapScene();
+  const { renaming, setRenaming, geometryEdited, geometryOpening, reimport } = useMapScene();
+  const { space, snap, sunHandle, geometryDocument } = useMapScene();
+  const dragged = useMapDragged();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
   const actions = usePlaceableActions();
@@ -160,6 +162,18 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { warps, softens } = useMemo(() => passesOf(played.map((group) => group.system)), [played]);
 
   const [fitToken, refit] = useFitRequest();
+
+  usePaneCommands("map.viewport", {
+    [MAP_PANE_COMMANDS.importMesh]: {
+      run: editable && geometryDocument !== null ? () => void importer.pick() : null,
+    },
+    [MAP_PANE_COMMANDS.frameMap]: { run: refit },
+    [MAP_PANE_COMMANDS.boxSelect]: {
+      run: () => picking.setBoxing(!picking.boxing),
+      checked: picking.boxing,
+    },
+    [MAP_PANE_COMMANDS.drop]: { run: edits.drop },
+  });
 
   return (
     <>

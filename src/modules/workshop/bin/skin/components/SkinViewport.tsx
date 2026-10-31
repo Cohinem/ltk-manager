@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "three";
 
 import { IconButton, Menu, Tooltip } from "@/components";
@@ -31,6 +31,7 @@ import {
   type Pose,
   type SceneClock,
   sequencePose,
+  SIMULATED_RATES,
   snappedPose,
   SocketGizmo,
   useAssetTextures,
@@ -55,6 +56,7 @@ import {
   usePreviewMove,
   usePreviewMoveMode,
   usePreviewPlacedOn,
+  usePreviewPhysics,
   usePreviewPlacement,
   usePreviewPostEffects,
   usePreviewShaders,
@@ -73,6 +75,7 @@ import { PostEffectsControl } from "../../map/components/PostEffectsControl";
 import { SunControl } from "../../map/components/SunControl";
 import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
 import { useHeldValue } from "../../material/state/heldValue";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { Notice } from "../../shared/preview/Notice";
 import { PreviewToggle, ShadersToggle } from "../../shared/preview/PreviewToggle";
@@ -91,6 +94,7 @@ import { runSoundCues } from "../../vfx/playback/utils/runSound";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
 import { skinQueries } from "../api/skinQueries";
+import { useBakeTangents } from "../hooks/useBakeTangents";
 import { useDynamicsEdit } from "../hooks/useDynamicsEdit";
 import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/useGraphSource";
 import { useJointPick } from "../hooks/useJointPick";
@@ -112,12 +116,29 @@ import {
 import { conditionedHidden } from "../utils/conditionScene";
 import { foldedTime } from "../utils/follow";
 import {
+  listCommands,
+  SKIN_BAKE_COMMAND,
+  SKIN_EFFECTS_COMMAND,
+  SKIN_FIT_COMMAND,
+  SKIN_HIDE_UI_COMMAND,
+  SKIN_OVERLAY_COMMAND,
+  SKIN_PARAMETER_LIST,
+  SKIN_POST_EFFECTS_COMMAND,
+  SKIN_RATE_LIST,
+  SKIN_SCRUB_COMMAND,
+  SKIN_SUBMESH_LIST,
+  SKIN_SUN_COMMAND,
+  SKIN_VISIBILITY_COMMAND,
+} from "../utils/skinCommands";
+import { SKIN_SHOW_UI_KEY } from "../utils/skinKeys";
+import {
   BIND_POSE,
   bindingOf,
+  chosenClipHash,
   jointSlot,
   nearestValue,
-  openingClip,
   parameterValues,
+  parameterLabel,
   playableClips,
   playlistOf,
   DATA_TEXTURES,
@@ -130,7 +151,7 @@ import { ClipEffect } from "./ClipEffect";
 import { BEFORE_THE_SCENE, Clock } from "./Clock";
 import { JointEffect } from "./JointEffect";
 import { PhysicsMenu } from "./PhysicsMenu";
-import { SkinEffectsMenu } from "./SkinEffectsMenu";
+import { SkinEffectCommands, SkinEffectsMenu } from "./SkinEffectsMenu";
 import { SkinPhysicsOverlay } from "./SkinPhysicsOverlay";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
 
@@ -138,6 +159,11 @@ const NO_CLIPS: readonly GraphClip[] = [];
 
 /** Where the character's feet stand, which the match camera stands off. */
 const FEET = [0, 0, 0] as const;
+
+/** Presses the control in `slot`, because the popup keeps its open state inside the control. */
+function pressControl(slot: RefObject<HTMLElement | null>): void {
+  slot.current?.querySelector("button")?.click();
+}
 
 export interface SkinViewportProps {
   readonly document: BinDocumentId;
@@ -228,7 +254,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     if (!controlsHidden) return;
 
     const showControls = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setControlsHidden(false);
+      if (event.key === SKIN_SHOW_UI_KEY.key) setControlsHidden(false);
     };
     window.addEventListener("keydown", showControls);
 
@@ -243,8 +269,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     [graph.data],
   );
 
-  const held = picked === BIND_POSE || listed.some((clip) => clip.hash === picked) ? picked : null;
-  const chosen = held ?? openingClip(listed)?.hash ?? BIND_POSE;
+  const chosen = chosenClipHash(listed, picked);
   const chosenClip = listed.find((each) => each.hash === chosen) ?? null;
   const values = useMemo(
     () => (chosenClip === null ? null : parameterValues(chosenClip)),
@@ -404,6 +429,76 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
 
   const keys = useSkinKeys({ clock, playing, setPlaying, speed, setSpeed, fit: refit });
 
+  const bake = useBakeTangents({ document, entry, asset, mesh: skin.mesh?.asset ?? null });
+  const physics = usePreviewPhysics();
+  const visibilitySlot = useRef<HTMLSpanElement>(null);
+  const sunSlot = useRef<HTMLSpanElement>(null);
+  const postEffectsSlot = useRef<HTMLSpanElement>(null);
+  const transportBox = useRef<HTMLDivElement>(null);
+  const rail = (slot: RefObject<HTMLElement | null>) => ({
+    run: backdrop === null || controlsHidden ? null : () => pressControl(slot),
+    reason: m.workshop_bin_menu_skin_backdrop_reason(),
+  });
+  const hiddenNames = new Set(hidden.map((name) => name.toLowerCase()));
+
+  usePaneCommands("skin.viewport", {
+    [SKIN_FIT_COMMAND]: { run: refit },
+    [SKIN_HIDE_UI_COMMAND]: {
+      run: () => setControlsHidden(!controlsHidden),
+      checked: controlsHidden,
+    },
+    [SKIN_BAKE_COMMAND]: bake.offered
+      ? {
+          run: bake.available && !bake.pending ? bake.run : null,
+          reason: bake.available ? undefined : m.workshop_bin_skin_tangents_layer_hint(),
+          title: bake.pending ? m.workshop_bin_skin_tangents_pending_label() : undefined,
+        }
+      : undefined,
+    [SKIN_SCRUB_COMMAND]: {
+      run: controlsHidden
+        ? null
+        : () => transportBox.current?.querySelector<HTMLElement>('[role="slider"]')?.focus(),
+      reason: m.workshop_bin_menu_skin_controls_reason(),
+    },
+    [SKIN_VISIBILITY_COMMAND]: rail(visibilitySlot),
+    [SKIN_SUN_COMMAND]: rail(sunSlot),
+    [SKIN_POST_EFFECTS_COMMAND]: rail(postEffectsSlot),
+    [SKIN_EFFECTS_COMMAND]: {
+      run: idle.length > 0 || cues.length > 0 ? () => setEffects(!effects) : null,
+      checked: effects,
+    },
+    [SKIN_OVERLAY_COMMAND]: {
+      run: overlaid ? () => setDisplay({ previewPhysics: !physics }) : null,
+      checked: physics,
+    },
+    ...listCommands(
+      SKIN_SUBMESH_LIST,
+      submeshes.map((name) => {
+        const visible = !hiddenNames.has(name.toLowerCase());
+
+        return { title: name, checked: visible, run: () => setShown(name, !visible) };
+      }),
+    ),
+    ...listCommands(
+      SKIN_RATE_LIST,
+      simulates
+        ? SIMULATED_RATES.map((rate) => ({
+            title: m.workshop_bin_physics_rate_value_label({ rate }),
+            checked: rate === simulatedRate,
+            run: () => setSimulatedRate(rate),
+          }))
+        : [],
+    ),
+    ...listCommands(
+      SKIN_PARAMETER_LIST,
+      (values ?? []).map((value) => ({
+        title: parameterLabel(value),
+        checked: value === at,
+        run: () => setParameter(value),
+      })),
+    ),
+  });
+
   /* The map's systems play whatever the skin's own switch says, and stay out of `loaded`,
      whose change is a seek of every effect the skin wears. */
   const played = [...(effects ? worn : []), ...mapParticles.map((group) => group.system)];
@@ -451,271 +546,293 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         ref={keys}
         tabIndex={-1}
         data-ui="SkinViewport"
-        className="relative min-h-0 flex-1 outline-none"
+        className="flex min-h-0 flex-1 flex-col outline-none"
       >
-        <PreviewViewport
-          renderer="shared"
-          gizmo={!controlsHidden}
-          stage={ground}
-          textured={midlane}
-          backdrop={backdropSource}
-          backdropVisibility={backdropVisibility}
-          backdropSky={backdropSky}
-          sun={backdrop === null ? null : sun}
-          postEffects={backdrop === null ? null : postEffects}
-          ambientOcclusion={backdrop === null ? null : ambientOcclusion}
-          onBackdropOrigin={setOrigin}
-        >
-          <Clock clock={clock} playing={playing && !scrubbing} speed={speed} />
-          {sound.on && (
-            <SoundCues clock={clock} cues={sounds} duration={duration} output={sound.output} />
-          )}
-          <VisibilityCues
-            timeline={timeline}
-            clock={clock}
-            duration={duration}
-            onChange={setHidden}
-          />
-          <FitCamera bounds={bounds} ground={stood} token={fitToken} />
-          <Passes warps={warps} softens={softens} />
-          <MapParticles groups={mapParticles} />
-          {backdropStructures && (
-            <MapCharacters document={mapFile.document} visibility={backdropVisibility} />
-          )}
-          <Placement
-            enabled={move && !controlsHidden}
-            mode={moveMode}
-            position={stood}
-            facing={facing}
-            onMove={(placed) =>
-              setDisplay({
-                previewPlacement: [...placed.position],
-                previewPlacedOn: backdrop,
-                previewFacing: placed.facing,
-              })
-            }
+        <SkinEffectCommands
+          document={document}
+          asset={asset}
+          skin={entry}
+          clip={chosen === BIND_POSE ? "" : chosen}
+          clipName={chosenClip?.name ?? null}
+          idle={idle}
+          cues={cues}
+          pose={pose}
+          scale={scale}
+        />
+        <div data-ui="SkinViewport:scene" className="relative min-h-0 flex-1">
+          <PreviewViewport
+            renderer="shared"
+            gizmo={!controlsHidden}
+            stage={ground}
+            textured={midlane}
+            backdrop={backdropSource}
+            backdropVisibility={backdropVisibility}
+            backdropSky={backdropSky}
+            sun={backdrop === null ? null : sun}
+            postEffects={backdrop === null ? null : postEffects}
+            ambientOcclusion={backdrop === null ? null : ambientOcclusion}
+            onBackdropOrigin={setOrigin}
           >
-            <group ref={unit} />
-            {driveLive !== null && (
-              <LiveRoot
-                onFrame={(seconds, position, yaw) => driveLive(clock.time, seconds, position, yaw)}
-              />
+            <Clock clock={clock} playing={playing && !scrubbing} speed={speed} />
+            {sound.on && (
+              <SoundCues clock={clock} cues={sounds} duration={duration} output={sound.output} />
             )}
-            <Character
-              mesh={mesh.data}
-              pose={pose}
+            <VisibilityCues
+              timeline={timeline}
               clock={clock}
-              bindingOf={bindingFor}
-              programsOf={programsFor}
-              outlineOf={outlineFor}
-              held={heldValue}
-              colors={colors}
-              hidden={hidden}
-              scale={scale}
-              selfIllumination={skin.selfIllumination ?? 0}
-              highlighted={submesh}
-              jointWeights={maskWeights}
-              onSubmeshPick={picks.pickSubmesh}
-            >
-              {effects &&
-                drawn.map(({ key, effect }, at) => {
-                  const system = drawnModels[at];
-                  if (system === null || system === undefined) return null;
-                  return (
-                    <JointEffect
-                      key={key}
-                      effect={effect}
-                      system={system}
-                      pose={pose}
-                      clock={clock}
-                      scale={scale}
-                    />
-                  );
-                })}
-              {effects &&
-                cues.map((cue, at) => {
-                  const system = cueModels[at];
-                  if (system === null || system === undefined) return null;
-                  return (
-                    <ClipEffect
-                      key={cue.key}
-                      cue={cue}
-                      system={system}
-                      pose={pose}
-                      clock={clock}
-                      scale={scale}
-                      duration={duration}
-                      sound={sound.on ? sound.output : null}
-                    />
-                  );
-                })}
-            </Character>
-            {armature && (
-              <Armature
-                pose={pose}
-                clock={clock}
-                scale={scale}
-                colors={colors}
-                jointWeights={maskWeights}
-                labels={jointNames ? labels : null}
-                onPick={picks.pickJoint}
-              />
+              duration={duration}
+              onChange={setHidden}
+            />
+            <FitCamera bounds={bounds} ground={stood} token={fitToken} />
+            <Passes warps={warps} softens={softens} />
+            <MapParticles groups={mapParticles} />
+            {backdropStructures && (
+              <MapCharacters document={mapFile.document} visibility={backdropVisibility} />
             )}
-            {overlaid && (
-              <SkinPhysicsOverlay
-                skin={skin}
-                muted={muted}
-                pose={pose}
-                clock={clock}
-                scale={scale}
-                colors={colors}
-                rig={dynamics.rig}
-                shapes={dynamics.shapes}
-              />
-            )}
-            {selectedJoint >= 0 && !controlsHidden && (
-              <JointHighlight
-                pose={pose}
-                clock={clock}
-                scale={scale}
-                colors={colors}
-                joint={selectedJoint}
-              />
-            )}
-          </Placement>
-          {handle !== null && sendDynamics !== null && !controlsHidden && (
-            <SocketGizmo
-              pose={pose}
-              clock={clock}
-              scale={scale}
-              slot={handle.slot}
-              mode={handle.mode}
+            <Placement
+              enabled={move && !controlsHidden}
+              mode={moveMode}
               position={stood}
               facing={facing}
-              anchor={unit}
-              onMove={(place) =>
-                sendDynamics(socketDragEdits(pose, skin.sockets, handle.path, place, handle.mode))
+              onMove={(placed) =>
+                setDisplay({
+                  previewPlacement: [...placed.position],
+                  previewPlacedOn: backdrop,
+                  previewFacing: placed.facing,
+                })
               }
+            >
+              <group ref={unit} />
+              {driveLive !== null && (
+                <LiveRoot
+                  onFrame={(seconds, position, yaw) =>
+                    driveLive(clock.time, seconds, position, yaw)
+                  }
+                />
+              )}
+              <Character
+                mesh={mesh.data}
+                pose={pose}
+                clock={clock}
+                bindingOf={bindingFor}
+                programsOf={programsFor}
+                outlineOf={outlineFor}
+                held={heldValue}
+                colors={colors}
+                hidden={hidden}
+                scale={scale}
+                selfIllumination={skin.selfIllumination ?? 0}
+                highlighted={submesh}
+                jointWeights={maskWeights}
+                onSubmeshPick={picks.pickSubmesh}
+              >
+                {effects &&
+                  drawn.map(({ key, effect }, at) => {
+                    const system = drawnModels[at];
+                    if (system === null || system === undefined) return null;
+                    return (
+                      <JointEffect
+                        key={key}
+                        effect={effect}
+                        system={system}
+                        pose={pose}
+                        clock={clock}
+                        scale={scale}
+                      />
+                    );
+                  })}
+                {effects &&
+                  cues.map((cue, at) => {
+                    const system = cueModels[at];
+                    if (system === null || system === undefined) return null;
+                    return (
+                      <ClipEffect
+                        key={cue.key}
+                        cue={cue}
+                        system={system}
+                        pose={pose}
+                        clock={clock}
+                        scale={scale}
+                        duration={duration}
+                        sound={sound.on ? sound.output : null}
+                      />
+                    );
+                  })}
+              </Character>
+              {armature && (
+                <Armature
+                  pose={pose}
+                  clock={clock}
+                  scale={scale}
+                  colors={colors}
+                  jointWeights={maskWeights}
+                  labels={jointNames ? labels : null}
+                  onPick={picks.pickJoint}
+                />
+              )}
+              {overlaid && (
+                <SkinPhysicsOverlay
+                  skin={skin}
+                  muted={muted}
+                  pose={pose}
+                  clock={clock}
+                  scale={scale}
+                  colors={colors}
+                  rig={dynamics.rig}
+                  shapes={dynamics.shapes}
+                />
+              )}
+              {selectedJoint >= 0 && !controlsHidden && (
+                <JointHighlight
+                  pose={pose}
+                  clock={clock}
+                  scale={scale}
+                  colors={colors}
+                  joint={selectedJoint}
+                />
+              )}
+            </Placement>
+            {handle !== null && sendDynamics !== null && !controlsHidden && (
+              <SocketGizmo
+                pose={pose}
+                clock={clock}
+                scale={scale}
+                slot={handle.slot}
+                mode={handle.mode}
+                position={stood}
+                facing={facing}
+                anchor={unit}
+                onMove={(place) =>
+                  sendDynamics(socketDragEdits(pose, skin.sockets, handle.path, place, handle.mode))
+                }
+              />
+            )}
+          </PreviewViewport>
+          {!controlsHidden && armature && jointNames && (
+            <canvas
+              ref={setLabels}
+              data-ui="SkinViewport:joint-names"
+              aria-hidden
+              className="pointer-events-none absolute inset-0 font-mono text-fine select-none"
             />
           )}
-        </PreviewViewport>
-        {!controlsHidden && armature && jointNames && (
-          <canvas
-            ref={setLabels}
-            data-ui="SkinViewport:joint-names"
-            aria-hidden
-            className="pointer-events-none absolute inset-0 font-mono text-fine select-none"
-          />
-        )}
+
+          {!controlsHidden && (
+            <ViewportControls data-ui="SkinViewport:controls">
+              <div className="flex shrink-0 items-center gap-0.5">
+                <BackdropToggle />
+                {backdrop !== null && (
+                  <>
+                    <span ref={visibilitySlot} className="contents">
+                      <BackdropVisibilityControl backdrop={backdropFlags} />
+                    </span>
+                    <span ref={sunSlot} className="contents">
+                      <SunControl source={backdropSource} />
+                    </span>
+                    <span ref={postEffectsSlot} className="contents">
+                      <PostEffectsControl source={backdropSource} />
+                    </span>
+                  </>
+                )}
+              </div>
+              <ControlDivider />
+              <div className="flex shrink-0 items-center gap-0.5">
+                <PlacementToggle />
+                {backdrop === null && (
+                  <PreviewToggle
+                    flag="previewGround"
+                    label={m.workshop_bin_preview_stage_label()}
+                    icon={<GridFourIcon />}
+                  />
+                )}
+                {backdrop === null && ground && (
+                  <PreviewToggle
+                    flag="previewMidlane"
+                    label={m.workshop_bin_preview_midlane_label()}
+                    icon={<MapTrifoldIcon />}
+                  />
+                )}
+              </div>
+              <ControlDivider />
+              <div className="flex shrink-0 items-center gap-0.5">
+                {(idle.length > 0 || cues.length > 0) && (
+                  <IconButton
+                    pressed={effects}
+                    icon={<SparkleIcon />}
+                    onClick={() => setEffects(!effects)}
+                    label={m.workshop_bin_mesh_preview_effects_label()}
+                  />
+                )}
+                <SkinEffectsMenu
+                  document={document}
+                  asset={asset}
+                  skin={entry}
+                  clip={chosen === BIND_POSE ? "" : chosen}
+                  clipName={chosenClip?.name ?? null}
+                  idle={idle}
+                  cues={cues}
+                  pose={pose}
+                  scale={scale}
+                />
+                <ArmatureMenu />
+                {overlaid && (
+                  <PhysicsMenu
+                    rate={simulates ? simulatedRate : null}
+                    onRateChange={setSimulatedRate}
+                  />
+                )}
+                <ShadersToggle />
+                <SoundToggle unresolved={sound.unresolved} />
+                <BakeTangentsButton
+                  document={document}
+                  entry={entry}
+                  asset={asset}
+                  mesh={skin.mesh?.asset ?? null}
+                />
+                <SubmeshMenu
+                  submeshes={submeshes}
+                  hidden={hidden}
+                  overridden={shown.size > 0}
+                  onShow={setShown}
+                  onReset={resetShown}
+                />
+              </div>
+              <ControlDivider />
+              <div className="flex shrink-0 items-center gap-0.5">
+                <ViewModeMenu />
+                <CameraMenu />
+                <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
+              </div>
+              <ControlDivider />
+              <IconButton
+                aria-label={m.workshop_bin_preview_hide_ui_action()}
+                icon={<EyeSlashIcon />}
+                onClick={() => setControlsHidden(true)}
+                tooltip={m.workshop_bin_preview_hide_ui_hint()}
+              />
+            </ViewportControls>
+          )}
+        </div>
 
         {!controlsHidden && (
-          <ViewportControls data-ui="SkinViewport:controls">
-            <div className="flex shrink-0 items-center gap-0.5">
-              <BackdropToggle />
-              {backdrop !== null && (
-                <>
-                  <BackdropVisibilityControl backdrop={backdropFlags} />
-                  <SunControl source={backdropSource} />
-                  <PostEffectsControl source={backdropSource} />
-                </>
-              )}
-            </div>
-            <ControlDivider />
-            <div className="flex shrink-0 items-center gap-0.5">
-              <PlacementToggle />
-              {backdrop === null && (
-                <PreviewToggle
-                  flag="previewGround"
-                  label={m.workshop_bin_preview_stage_label()}
-                  icon={<GridFourIcon />}
-                />
-              )}
-              {backdrop === null && ground && (
-                <PreviewToggle
-                  flag="previewMidlane"
-                  label={m.workshop_bin_preview_midlane_label()}
-                  icon={<MapTrifoldIcon />}
-                />
-              )}
-            </div>
-            <ControlDivider />
-            <div className="flex shrink-0 items-center gap-0.5">
-              {(idle.length > 0 || cues.length > 0) && (
-                <IconButton
-                  pressed={effects}
-                  icon={<SparkleIcon />}
-                  onClick={() => setEffects(!effects)}
-                  label={m.workshop_bin_mesh_preview_effects_label()}
-                />
-              )}
-              <SkinEffectsMenu
-                document={document}
-                asset={asset}
-                skin={entry}
-                clip={chosen === BIND_POSE ? "" : chosen}
-                clipName={chosenClip?.name ?? null}
-                idle={idle}
-                cues={cues}
-                pose={pose}
-                scale={scale}
-              />
-              <ArmatureMenu />
-              {overlaid && (
-                <PhysicsMenu
-                  rate={simulates ? simulatedRate : null}
-                  onRateChange={setSimulatedRate}
-                />
-              )}
-              <ShadersToggle />
-              <SoundToggle unresolved={sound.unresolved} />
-              <BakeTangentsButton
-                document={document}
-                entry={entry}
-                asset={asset}
-                mesh={skin.mesh?.asset ?? null}
-              />
-              <SubmeshMenu
-                submeshes={submeshes}
-                hidden={hidden}
-                overridden={shown.size > 0}
-                onShow={setShown}
-                onReset={resetShown}
-              />
-            </div>
-            <ControlDivider />
-            <div className="flex shrink-0 items-center gap-0.5">
-              <ViewModeMenu />
-              <CameraMenu />
-              <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
-            </div>
-            <ControlDivider />
-            <IconButton
-              aria-label={m.workshop_bin_preview_hide_ui_action()}
-              icon={<EyeSlashIcon />}
-              onClick={() => setControlsHidden(true)}
-              tooltip={m.workshop_bin_preview_hide_ui_hint()}
-            />
-          </ViewportControls>
+          <SkinTransport
+            ref={transportBox}
+            clock={clock}
+            duration={duration}
+            playing={playing}
+            speed={speed}
+            clips={listed}
+            clip={chosen}
+            steps={steps}
+            parameter={values === null || at === null ? null : { values, value: at }}
+            onParameterChange={setParameter}
+            onPlayingChange={setPlaying}
+            onScrubbingChange={setScrubbing}
+            onSpeedChange={setSpeed}
+            onClipChange={setPicked}
+          />
         )}
       </div>
-
-      {!controlsHidden && (
-        <SkinTransport
-          clock={clock}
-          duration={duration}
-          playing={playing}
-          speed={speed}
-          clips={listed}
-          clip={chosen}
-          steps={steps}
-          parameter={values === null || at === null ? null : { values, value: at }}
-          onParameterChange={setParameter}
-          onPlayingChange={setPlaying}
-          onScrubbingChange={setScrubbing}
-          onSpeedChange={setSpeed}
-          onClipChange={setPicked}
-        />
-      )}
     </>
   );
 }
@@ -756,70 +873,82 @@ function groupMaps(choices: readonly BackdropChoice[]): MapGroup[] {
 /** The map behind the subject as a switch with its choices attached. */
 function BackdropToggle() {
   const backdrop = usePreviewBackdrop();
-  const particles = usePreviewBackdropParticles();
-  const events = usePreviewBackdropEvents();
-  const structures = usePreviewBackdropStructures();
-  const sky = usePreviewBackdropSky();
-  const setDisplay = useSetPreviewDisplay();
   const maps = useBackdropMaps();
   /* Turning the backdrop off drops which map it drew, so the switch hands the same map
      back rather than returning to the first one in the install. */
   const last = useRef<MapPath | null>(null);
   if (backdrop !== null) last.current = backdrop;
 
-  const choices = maps.data ?? [];
-  const groups = useMemo(() => groupMaps(maps.data ?? []), [maps.data]);
-  const opening = last.current ?? choices[0]?.map ?? null;
-  const pick = (map: unknown) => setDisplay({ previewBackdrop: map as MapPath | null });
+  const opening = last.current ?? maps.data?.[0]?.map ?? null;
+  const setBackdrop = useSetPreviewDisplay();
 
   return (
     <SplitToggle
       label={m.workshop_bin_preview_backdrop_label()}
       pressed={backdrop !== null}
       icon={<MountainsIcon />}
-      onClick={() => setDisplay({ previewBackdrop: backdrop === null ? opening : null })}
+      onClick={() => setBackdrop({ previewBackdrop: backdrop === null ? opening : null })}
       menuLabel={m.workshop_bin_preview_backdrop_menu_label()}
     >
       <Menu.Content align="end" data-ui="BackdropMenu" className="w-52">
-        {choices.length === 0 && (
-          <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
-        )}
-        <Menu.RadioGroup value={backdrop} onValueChange={pick}>
-          <Menu.RadioItem value={null}>
-            {m.workshop_bin_preview_backdrop_none_label()}
-          </Menu.RadioItem>
-        </Menu.RadioGroup>
-        {groups.map((group) => (
-          <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
-        ))}
-        <Menu.Separator />
-        <Menu.CheckboxItem
-          checked={particles}
-          onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
-        >
-          {m.workshop_bin_preview_backdrop_particles_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={particles && events}
-          disabled={!particles}
-          onCheckedChange={(checked) => setDisplay({ previewBackdropEvents: checked })}
-        >
-          {m.workshop_bin_preview_backdrop_events_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={structures}
-          onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
-        >
-          {m.workshop_bin_preview_backdrop_structures_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={sky}
-          onCheckedChange={(checked) => setDisplay({ previewBackdropSky: checked })}
-        >
-          {m.workshop_bin_preview_backdrop_sky_label()}
-        </Menu.CheckboxItem>
+        <BackdropItems />
       </Menu.Content>
     </SplitToggle>
+  );
+}
+
+/** The maps and the switches of the backdrop, which the rail's split control and the View menu list. */
+export function BackdropItems() {
+  const backdrop = usePreviewBackdrop();
+  const particles = usePreviewBackdropParticles();
+  const events = usePreviewBackdropEvents();
+  const structures = usePreviewBackdropStructures();
+  const sky = usePreviewBackdropSky();
+  const setDisplay = useSetPreviewDisplay();
+  const maps = useBackdropMaps();
+
+  const choices = maps.data ?? [];
+  const groups = useMemo(() => groupMaps(maps.data ?? []), [maps.data]);
+  const pick = (map: unknown) => setDisplay({ previewBackdrop: map as MapPath | null });
+
+  return (
+    <>
+      {choices.length === 0 && (
+        <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
+      )}
+      <Menu.RadioGroup value={backdrop} onValueChange={pick}>
+        <Menu.RadioItem value={null}>{m.workshop_bin_preview_backdrop_none_label()}</Menu.RadioItem>
+      </Menu.RadioGroup>
+      {groups.map((group) => (
+        <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
+      ))}
+      <Menu.Separator />
+      <Menu.CheckboxItem
+        checked={particles}
+        onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
+      >
+        {m.workshop_bin_preview_backdrop_particles_label()}
+      </Menu.CheckboxItem>
+      <Menu.CheckboxItem
+        checked={particles && events}
+        disabled={!particles}
+        onCheckedChange={(checked) => setDisplay({ previewBackdropEvents: checked })}
+      >
+        {m.workshop_bin_preview_backdrop_events_label()}
+      </Menu.CheckboxItem>
+      <Menu.CheckboxItem
+        checked={structures}
+        onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
+      >
+        {m.workshop_bin_preview_backdrop_structures_label()}
+      </Menu.CheckboxItem>
+      <Menu.CheckboxItem
+        checked={sky}
+        onCheckedChange={(checked) => setDisplay({ previewBackdropSky: checked })}
+      >
+        {m.workshop_bin_preview_backdrop_sky_label()}
+      </Menu.CheckboxItem>
+    </>
   );
 }
 

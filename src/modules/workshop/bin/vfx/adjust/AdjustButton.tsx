@@ -1,5 +1,5 @@
 import { ArrowCounterClockwiseIcon, SlidersIcon } from "@phosphor-icons/react";
-import { type ReactNode, use, useEffect } from "react";
+import { type ReactNode, use, useEffect, useState } from "react";
 
 import {
   Button,
@@ -14,7 +14,9 @@ import {
 import { m } from "@/i18n";
 
 import { type ColorStop, gradientCss } from "../../values/utils/valueRows";
+import { useReadOnlyReason, useShownPaneCommands } from "../hooks/usePaneOffers";
 import { VfxRunContext } from "../playback/state/run";
+import { VFX_COMMAND, VFX_PANE } from "../utils/vfxCommands";
 import { isNoAdjust, NO_ADJUST, shiftHue } from "./adjustModel";
 import { useAdjustPreview } from "./adjustPreview";
 import { useAdjustApply } from "./useAdjustApply";
@@ -56,6 +58,15 @@ export function AdjustButton() {
   /* A popover that unmounts open calls no `onOpenChange`. */
   useEffect(() => () => reset?.(NO_ADJUST), [reset]);
 
+  const [open, setOpen] = useState(false);
+  const readOnly = useReadOnlyReason();
+  useShownPaneCommands(VFX_PANE.adjust, {
+    [VFX_COMMAND.adjust]: {
+      run: preview === null || apply === null ? null : () => setOpen(true),
+      reason: readOnly,
+    },
+  });
+
   if (preview === null || apply === null) return null;
 
   const { adjust, setAdjust } = preview;
@@ -65,8 +76,10 @@ export function AdjustButton() {
 
   return (
     <Popover.Root
-      onOpenChange={(open) => {
-        if (!open) setAdjust(NO_ADJUST);
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setAdjust(NO_ADJUST);
       }}
     >
       <Tooltip content={label}>

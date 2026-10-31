@@ -1,66 +1,19 @@
-import {
-  ArrowsOutCardinalIcon,
-  CheckCircleIcon,
-  CheckSquareIcon,
-  CheckSquareOffsetIcon,
-  CursorClickIcon,
-  CursorIcon,
-  EyeIcon,
-  FrameCornersIcon,
-  GaugeIcon,
-  HandGrabbingIcon,
-  HandPointingIcon,
-  HandTapIcon,
-  type Icon,
-  PauseIcon,
-  PlayIcon,
-  ProhibitIcon,
-  ProhibitInsetIcon,
-  SparkleIcon,
-  StackIcon,
-  TextAaIcon,
-} from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { GaugeIcon, PauseIcon, PlayIcon } from "@phosphor-icons/react";
 
 import { IconButton, Menu, Slider, Tooltip } from "@/components";
 import { m } from "@/i18n";
 
 import { PREVIEW_KEYS } from "../canvas/previewKeys";
+import {
+  BUTTON_STATE_CHOICES,
+  BUTTON_STATE_OWN,
+  PREVIEW_TOOLS,
+  type PreviewTool,
+} from "../canvas/previewTools";
 import type { ButtonState } from "../engine/model/buttons";
 import { useAtlasPreviewActions, useFrameSettings } from "../state/atlasPreview";
 import { KeyHint } from "./KeyHint";
 import { ScreenMenu } from "./ScreenMenu";
-
-/** The menu value of each button's own state, which no state field spells. */
-const OWN = "own";
-
-/**
- * What the button state menu offers: each button's own state, then each state forced on every
- * button, with the glyph that stands for it and its name.
- */
-const BUTTON_STATES: readonly (readonly [ButtonState | typeof OWN, Icon, () => string])[] = [
-  [OWN, CursorClickIcon, m.workshop_bin_atlas_state_own_label],
-  ["DefaultStateElements", CursorIcon, m.workshop_bin_atlas_state_default_label],
-  ["HoverStateElements", HandPointingIcon, m.workshop_bin_atlas_state_hover_label],
-  ["ClickedStateElements", HandGrabbingIcon, m.workshop_bin_atlas_state_clicked_label],
-  ["SelectedStateElements", CheckSquareIcon, m.workshop_bin_atlas_state_selected_label],
-  [
-    "SelectedHoverStateElements",
-    CheckSquareOffsetIcon,
-    m.workshop_bin_atlas_state_selected_hover_label,
-  ],
-  [
-    "SelectedClickedStateElements",
-    CheckCircleIcon,
-    m.workshop_bin_atlas_state_selected_clicked_label,
-  ],
-  ["InactiveStateElements", ProhibitIcon, m.workshop_bin_atlas_state_inactive_label],
-  [
-    "InactiveSelectedStateElements",
-    ProhibitInsetIcon,
-    m.workshop_bin_atlas_state_inactive_selected_label,
-  ],
-];
 
 const LIVE_STEP = 0.01;
 
@@ -73,8 +26,7 @@ const LIVE_STEP = 0.01;
  * progress and clock. Each icon's tooltip names its canvas key.
  */
 export function CanvasToolbar() {
-  const { interact, safeZone, showDisabled, effects, samples, stackScenes, live, playing } =
-    useFrameSettings();
+  const { live, playing } = useFrameSettings();
   const actions = useAtlasPreviewActions();
   const Clock = playing ? PauseIcon : PlayIcon;
   const clockLabel = playing
@@ -88,58 +40,16 @@ export function CanvasToolbar() {
       aria-label={m.workshop_bin_atlas_toolbar_label()}
       className="flex min-w-0 flex-1 items-center gap-1 select-none"
     >
-      <ToggleTool
-        label={m.workshop_bin_atlas_transform_label()}
-        shortcut={PREVIEW_KEYS.transform}
-        on={!interact}
-        icon={<ArrowsOutCardinalIcon weight="bold" className="size-4" />}
-        onToggle={actions.chooseTransform}
-      />
-      <ToggleTool
-        label={m.workshop_bin_atlas_interact_label()}
-        shortcut={PREVIEW_KEYS.interact}
-        on={interact}
-        icon={<HandTapIcon weight="bold" className="size-4" />}
-        onToggle={actions.toggleInteract}
-      />
+      <ToggleTool tool={PREVIEW_TOOLS.transform} />
+      <ToggleTool tool={PREVIEW_TOOLS.interact} />
       <Divider />
       <ScreenMenu />
       <Divider />
-      <ToggleTool
-        label={m.workshop_bin_atlas_safe_zone_label()}
-        shortcut={PREVIEW_KEYS.safeZone}
-        on={safeZone}
-        icon={<FrameCornersIcon weight="bold" className="size-4" />}
-        onToggle={actions.toggleSafeZone}
-      />
-      <ToggleTool
-        label={m.workshop_bin_atlas_show_disabled_label()}
-        shortcut={PREVIEW_KEYS.showDisabled}
-        on={showDisabled}
-        icon={<EyeIcon weight="bold" className="size-4" />}
-        onToggle={actions.toggleShowDisabled}
-      />
-      <ToggleTool
-        label={m.workshop_bin_atlas_effects_label()}
-        shortcut={PREVIEW_KEYS.effects}
-        on={effects}
-        icon={<SparkleIcon weight="bold" className="size-4" />}
-        onToggle={actions.toggleEffects}
-      />
-      <ToggleTool
-        label={m.workshop_bin_atlas_samples_label()}
-        shortcut={PREVIEW_KEYS.samples}
-        on={samples}
-        icon={<TextAaIcon weight="bold" className="size-4" />}
-        onToggle={actions.toggleSamples}
-      />
-      <ToggleTool
-        label={m.workshop_bin_atlas_stack_scenes_label()}
-        shortcut={PREVIEW_KEYS.stackScenes}
-        on={stackScenes}
-        icon={<StackIcon weight="bold" className="size-4" />}
-        onToggle={actions.toggleStackScenes}
-      />
+      <ToggleTool tool={PREVIEW_TOOLS.safeZone} />
+      <ToggleTool tool={PREVIEW_TOOLS.showDisabled} />
+      <ToggleTool tool={PREVIEW_TOOLS.effects} />
+      <ToggleTool tool={PREVIEW_TOOLS.samples} />
+      <ToggleTool tool={PREVIEW_TOOLS.stackScenes} />
       <Divider />
       <ButtonStateMenu />
       <span className="ml-auto flex shrink-0 items-center gap-1">
@@ -174,23 +84,20 @@ function Divider() {
   return <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-surface-700" />;
 }
 
-interface ToggleToolProps {
-  readonly label: string;
-  readonly shortcut: string;
-  readonly on: boolean;
-  readonly icon: ReactNode;
-  readonly onToggle: () => void;
-}
-
 /** An icon that switches one preview setting, tinted while it is on. */
-function ToggleTool({ label, shortcut, on, icon, onToggle }: ToggleToolProps) {
+function ToggleTool({ tool }: { tool: PreviewTool }) {
+  const settings = useFrameSettings();
+  const actions = useAtlasPreviewActions();
+  const { Glyph, shortcut } = tool;
+  const label = tool.title();
+
   return (
     <IconButton
       aria-label={label}
-      pressed={on}
+      pressed={tool.on(settings)}
       aria-keyshortcuts={shortcut}
-      icon={icon}
-      onClick={onToggle}
+      icon={<Glyph weight="bold" className="size-4" />}
+      onClick={actions[tool.action]}
       tooltip={<KeyHint label={label} shortcut={shortcut} />}
     />
   );
@@ -203,8 +110,9 @@ function ToggleTool({ label, shortcut, on, icon, onToggle }: ToggleToolProps) {
 function ButtonStateMenu() {
   const { buttonState } = useFrameSettings();
   const { setButtonState } = useAtlasPreviewActions();
-  const value = buttonState ?? OWN;
-  const [, Glyph, name] = BUTTON_STATES.find(([id]) => id === value) ?? BUTTON_STATES[0];
+  const value = buttonState ?? BUTTON_STATE_OWN;
+  const [, Glyph, name] =
+    BUTTON_STATE_CHOICES.find(([id]) => id === value) ?? BUTTON_STATE_CHOICES[0];
   const label = m.workshop_bin_atlas_state_value({ state: name() });
 
   return (
@@ -222,11 +130,11 @@ function ButtonStateMenu() {
       <Menu.Content align="start">
         <Menu.RadioGroup
           value={value}
-          onValueChange={(next: ButtonState | typeof OWN) =>
-            setButtonState(next === OWN ? null : next)
+          onValueChange={(next: ButtonState | typeof BUTTON_STATE_OWN) =>
+            setButtonState(next === BUTTON_STATE_OWN ? null : next)
           }
         >
-          {BUTTON_STATES.map(([id, StateGlyph, stateName]) => (
+          {BUTTON_STATE_CHOICES.map(([id, StateGlyph, stateName]) => (
             <Menu.RadioItem
               key={id}
               value={id}

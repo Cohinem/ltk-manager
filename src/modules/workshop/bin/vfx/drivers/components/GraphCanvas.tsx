@@ -13,7 +13,6 @@ import {
   type XYPosition,
 } from "@xyflow/react";
 import {
-  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   use,
   useCallback,
@@ -28,6 +27,7 @@ import { ContextMenu } from "@/components";
 
 import { runEmitterKey, selectedEmitters } from "../../clipboard/emitterKeys";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
+import { pressedKey } from "../../utils/vfxKeys";
 import { BoardMotion } from "../utils/boardMotion";
 import type { GraphLayout } from "../utils/driverLayout";
 import { chainThrough, reach } from "../utils/graphChain";
@@ -35,6 +35,16 @@ import { CANVAS_TONE } from "../utils/graphTones";
 import { PreviewViewStore } from "../utils/previewViews";
 import type { GraphItem } from "../utils/systemGraph";
 import { CONNECTION_PROPS, useCanvasAdds } from "./canvasAdds";
+import {
+  ADD_KEYS,
+  BOX_KEY,
+  inControl,
+  PAN_BUTTONS,
+  PRO_OPTIONS,
+  SELECTION_STYLE,
+  typing,
+  useAnchoredActions,
+} from "./canvasInput";
 import { type CanvasNode, canvasPosition, layoutNodes, withMoves } from "./canvasNodes";
 import { ChildrenNodeView, ChildSystemNodeView } from "./ChildNodes";
 import { ComponentNodeView } from "./ComponentNode";
@@ -43,7 +53,6 @@ import { MasterNodeView, StructNodeView } from "./EmitterNodes";
 import { EmitterPreviewLayer } from "./EmitterPreview";
 import { FileNodeView } from "./FileNode";
 import {
-  type GraphActions,
   GraphActionsContext,
   LoopedSurfacesContext,
   type MenuRow,
@@ -52,6 +61,7 @@ import {
   SolePick,
   SolePickContext,
 } from "./graphActions";
+import { useGraphCommands } from "./graphCommands";
 import { GraphControls } from "./GraphControls";
 import {
   changesOverTime,
@@ -168,23 +178,7 @@ function Canvas({
       });
     }
   }, [placedNodes, setNodes, flow]);
-  const anchored = useMemo<GraphActions | null>(
-    () =>
-      actions === null
-        ? null
-        : {
-            ...actions,
-            toggleCollapsed: (id) => {
-              anchor.current = id;
-              actions.toggleCollapsed(id);
-            },
-            collapseOthers: (item) => {
-              anchor.current = item.id;
-              actions.collapseOthers(item);
-            },
-          },
-    [actions],
-  );
+  const anchored = useAnchoredActions(actions, anchor);
   /* Stable, since React Flow writes a new handler into its store and wakes every subscriber. */
   const onChange = useCallback(
     (changes: NodeChange<CanvasNode>[]) => {
@@ -313,6 +307,26 @@ function Canvas({
     void flow.fitView({ ...FIT_VIEW, nodes: shown });
   };
 
+  const paneFocus = useGraphCommands({
+    actions: anchored,
+    clipboard,
+    structure,
+    selection,
+    pickedEmitter,
+    pickedItem,
+    pickedMaster: adds.pickedMaster,
+    onSelectAll: selectAll,
+    onQuickAdd: adds.openAtMiddle,
+    onFit: () => void flow.fitView(FIT_VIEW),
+    onFrame: frame,
+    onCollapseAll,
+    onResetLayout: resetLayout,
+    previewed,
+    onPreviewedChange,
+    looped,
+    onLoopedChange: setLooped,
+  });
+
   return (
     <GraphActionsContext value={anchored}>
       <QuickAddContext value={adds.host}>
@@ -321,6 +335,7 @@ function Canvas({
             <LoopedSurfacesContext value={looped}>
               <ContextMenu.Root>
                 <ContextMenu.Trigger
+                  {...paneFocus}
                   ref={box}
                   data-ui="GraphCanvas"
                   /* Focusable so a click on the canvas takes the keyboard, which Select all reads. */
@@ -352,11 +367,11 @@ function Canvas({
                       return;
                     }
 
-                    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+                    if (pressedKey(event, "selectAll")) {
                       event.preventDefault();
                       selectAll(true);
                     }
-                    if (event.key === "Escape") selectAll(false);
+                    if (pressedKey(event, "selectNone")) selectAll(false);
                   }}
                 >
                   <style>{wires}</style>
@@ -426,40 +441,5 @@ function Canvas({
         </RowMenuContext>
       </QuickAddContext>
     </GraphActionsContext>
-  );
-}
-
-const PRO_OPTIONS = { hideAttribution: true } as const;
-
-/** The buttons a drag on empty canvas pans with: the primary and the middle. */
-const PAN_BUTTONS = [0, 1];
-
-/** The key a drag on empty canvas holds to draw a selection box instead of panning. */
-const BOX_KEY = "Shift";
-
-/** The keys a click or a box holds to add to the selection rather than replace it. */
-const ADD_KEYS = ["Shift", "Control", "Meta"];
-
-/* DS-TOKEN: the selection box and the box around a picked group, in the accent. */
-const SELECTION_STYLE = {
-  "--xy-selection-background-color": "color-mix(in srgb, var(--color-accent-500) 10%, transparent)",
-  "--xy-selection-border": "1px solid color-mix(in srgb, var(--color-accent-400) 70%, transparent)",
-} as CSSProperties;
-
-/**
- * Whether a pointer lands in a node's fields or controls, where two quick presses nudge a
- * value twice rather than reveal the node's row.
- */
-function inControl(target: EventTarget): boolean {
-  return target instanceof Element && target.closest(CONTROLS) !== null;
-}
-
-const CONTROLS = ".nodrag, button, input, select, textarea, [role='spinbutton'], [role='slider']";
-
-/** Whether a key lands in a field of a node, whose own keys Select all must leave alone. */
-function typing(target: EventTarget): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.closest("input, textarea, select") !== null)
   );
 }

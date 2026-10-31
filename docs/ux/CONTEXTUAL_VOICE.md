@@ -12,6 +12,7 @@ A class view, its sections and its sandbox are in docs/ux/BIN_EDITOR.md, under "
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-10-31 | Draw the menu bar in the tab's row, and add Save, Undo and Redo        |
 | 2026-10-30 | Author chance, weight and random choice from the list                  |
 | 2026-10-30 | Add the menu bar, and lay the rules out as a cue sheet                 |
 | 2026-10-30 | Name the event tree of a bank in place of its Voices view              |
@@ -42,18 +43,20 @@ v First encounter  EnemyEncounter  15 rules  cooldown 15 s  ! 1 unresolved      
 
 ### Header
 
-The header has two rows. The first row holds the menu bar, the filter, the unresolved count, the
+The header has two rows. The tab's row holds the menu bar. The first row holds the filter, the unresolved count, the
 shared mark and `mObjectPath`. The second row sets what the names resolve as, the shared cooldown and the trigger that a play
 simulates.
 
 - The menu bar is the one of the audio file document, per "Menu bar" in docs/ux/AUDIO.md, with the
-  commands of this view. Alt or F10 moves focus to it from anywhere in the view.
+  commands of this view. File, Edit and View also carry the items of the object tab, per
+  "Menu bar" in docs/ux/BIN_EDITOR.md. Alt or F10 moves focus to it from anywhere in the view.
 
   | Menu     | Items                                                                                                                      |
   | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-  | Edit     | Duplicate, Delete. Move up, Move down. Copy short name. Select all                                                         |
+  | File     | Save. The items of the object tab                                                                                          |
+  | Edit     | Undo, Redo. Duplicate, Delete. Move up, Move down. Copy short name. Select all. The items of the object tab                |
   | Insert   | Add rule                                                                                                                   |
-  | View     | Inspector as a switch. Expand all, Collapse all. Keys and gestures                                                         |
+  | View     | The layout and Properties. Inspector as a switch. Expand all, Collapse all. Keys and gestures                              |
   | Playback | Play or stop, Play all, Stop all. Loop as a switch. Volume up, Volume down, the volume                                     |
   | Voice    | Add chance, Remove chance, Pick a random rule as a switch. Create event..., Show in bank, Show in tree. Copy for this skin |
 

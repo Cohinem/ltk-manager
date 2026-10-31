@@ -74,19 +74,33 @@ export function useGeometryDocument(
   const held = useRef(asset);
   held.current = asset;
 
-  const write = useCallback(async () => {
+  /* A second request during a write joins it, because each write bakes the whole map. */
+  const writing = useRef<Promise<boolean> | null>(null);
+  const write = useCallback(() => {
+    if (writing.current !== null) return writing.current;
+
     const open = latest.current;
     const { materials, path } = aim.current;
-    if (open === null || !open.dirty) return true;
-    if (materials === null || path === null) return false;
+    if (open === null || !open.dirty) return Promise.resolve(true);
+    if (materials === null || path === null) return Promise.resolve(false);
 
-    const result = await api.bin.mapGeometrySave(open.id, materials, path);
-    if (!result.ok) {
-      toast.error(m.workshop_bin_map_geometry_save_failed_title(), errorSummary(result.error));
-      return false;
-    }
-    if (latest.current?.id === open.id) setState({ ...latest.current, dirty: false });
-    return true;
+    const started = api.bin
+      .mapGeometrySave(open.id, materials, path)
+      .then((result) => {
+        if (!result.ok) {
+          toast.error(m.workshop_bin_map_geometry_save_failed_title(), errorSummary(result.error));
+          return false;
+        }
+
+        if (latest.current?.id === open.id) setState({ ...latest.current, dirty: false });
+        return true;
+      })
+      .finally(() => {
+        writing.current = null;
+      });
+    writing.current = started;
+
+    return started;
   }, [toast]);
 
   useEffect(() => {

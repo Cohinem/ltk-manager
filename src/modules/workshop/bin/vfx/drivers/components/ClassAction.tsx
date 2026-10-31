@@ -12,7 +12,7 @@ import { usePrimitivePick } from "../../inspector/components/PrimitivePicker";
 import { SHAPE_CLASSES, SHAPE_FIELD } from "../../inspector/utils/emissionSource";
 import { PRIMITIVE_FIELD, PRIMITIVES } from "../../inspector/utils/primitives";
 import { isPrimitive } from "../utils/driverLayout";
-import type { StructItem } from "../utils/graphItems";
+import type { GraphItem, StructItem } from "../utils/graphItems";
 import { holderRow } from "../utils/holderRow";
 import { GraphActionsContext, NO_DOCUMENT } from "./graphActions";
 
@@ -109,6 +109,73 @@ function PointerAction({ item, holder }: { item: StructItem; holder: BinRow }) {
       ))}
     </ActionMenu>
   );
+}
+
+/** One class that a struct can take. A null hash clears the pointer. */
+export interface ClassChoice {
+  readonly hash: string | null;
+  readonly label: string;
+  readonly current: boolean;
+}
+
+/** The classes that the menu bar lists for a node, and the edit that picks one. */
+export interface NodeClassChoices {
+  readonly choices: readonly ClassChoice[];
+  readonly pick: (hash: string | null) => void;
+}
+
+/**
+ * Returns the classes that `item` can take, as `ClassAction` lists them.
+ *
+ * Returns null if `item` holds no single class, or if the view takes no edit.
+ */
+export function useClassChoices(item: GraphItem | null): NodeClassChoices | null {
+  const actions = use(GraphActionsContext);
+  const editProperty = use(LeafEditContext)?.editProperty;
+  const struct = item?.type === "struct" && item.shape === "struct" ? item : null;
+  const primitive = struct !== null && isPrimitive(struct);
+  const shape = struct?.field === SHAPE_FIELD;
+  const classes = useQuery({
+    ...binQueries.itemClasses(
+      actions?.document ?? NO_DOCUMENT,
+      actions?.entry ?? "",
+      struct?.wire ?? "",
+    ),
+    enabled: struct !== null && !primitive && !shape && actions !== null,
+  });
+
+  const field = primitive ? PRIMITIVE_FIELD : struct?.field;
+  const entry = actions?.entry ?? "";
+  if (struct === null || editProperty === undefined || field == null || entry === "") return null;
+
+  const listed = (hash: string | null, label: string): ClassChoice => ({
+    hash,
+    label,
+    current: hash === struct.classHash,
+  });
+
+  let choices: ClassChoice[];
+  if (primitive) {
+    choices = PRIMITIVES.map((each) => listed(each.hash, each.label()));
+  } else if (shape) {
+    choices = [
+      listed(null, m.workshop_bin_vfx_primitive_unset_label()),
+      ...SHAPE_CLASSES.map((each) => listed(each.hash, each.label())),
+    ];
+  } else {
+    choices = (classes.data ?? []).map((each) => listed(each.hash, each.name ?? each.hash));
+  }
+
+  return {
+    choices,
+    pick: (hash) => {
+      if (hash === struct.classHash) return;
+
+      void editProperty(holderRow(entry, struct.holder), field, [
+        { type: "replacePointer", path: "", class: hash },
+      ]);
+    },
+  };
 }
 
 function ActionMenu({

@@ -21,6 +21,7 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { objectDocument } from "../../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOpenDocumentAs } from "../../../state";
+import { CANVAS_KEYS } from "../canvas/canvasKeys";
 import { labelOf } from "../engine/model/layers";
 import { exportedSprite } from "../engine/model/sprites";
 import { sceneOf } from "../engine/model/tree";
@@ -91,7 +92,7 @@ export function ElementMenu({
         <>
           <ContextMenu.Item
             icon={<CornersOutIcon />}
-            shortcut={canvas ? "F" : undefined}
+            shortcut={canvas ? CANVAS_KEYS.frame : undefined}
             onClick={() => requestFrame(key, target.key)}
           >
             {m.workshop_bin_atlas_frame_action()}
@@ -191,7 +192,7 @@ export function ElementMenu({
           {target !== undefined && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<ArrowsInIcon />}
-            shortcut="0"
+            shortcut={CANVAS_KEYS.fit}
             onClick={() => requestFrame(key, null)}
           >
             {m.workshop_bin_atlas_fit_action()}
@@ -199,7 +200,7 @@ export function ElementMenu({
           {selected !== null && (
             <ContextMenu.Item
               icon={<SelectionSlashIcon />}
-              shortcut="Esc"
+              shortcut={CANVAS_KEYS.clear}
               onClick={() => select(key, null)}
             >
               {m.workshop_bin_atlas_clear_selection_action()}

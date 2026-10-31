@@ -30,13 +30,10 @@ const DEF_VALUE = "\u0000def";
 export function PermutationMenu({ document, entry }: { document: BinDocumentId; entry: string }) {
   const picked = usePickedDefines(document, entry);
   const read = useQuery(useShaderReadOptions(document, entry, true)).data ?? null;
-  const pick = usePreviewDefinesStore((state) => state.pick);
-  const clear = usePreviewDefinesStore((state) => state.clear);
 
   const declared = (read?.declared ?? []).filter((define) => !STUDIO_DEFINES.has(define.name));
   if (declared.length === 0) return null;
 
-  const key = previewKey(document, entry);
   const count = Object.keys(picked).length;
   const label =
     count > 0
@@ -59,39 +56,64 @@ export function PermutationMenu({ document, entry }: { document: BinDocumentId; 
         }
       />
       <Menu.Content align="end" data-ui="PermutationMenu" className="max-h-96 w-64 overflow-y-auto">
-        {count > 0 && (
-          <>
-            <Menu.Item onClick={() => clear(key)}>
-              {m.workshop_bin_shader_permutation_reset_action()}
-            </Menu.Item>
-            <Menu.Separator />
-          </>
-        )}
-        {declared.map((define) => (
-          <Menu.SubmenuRoot key={define.name}>
-            <Menu.SubmenuTrigger>
-              <span className="font-mono text-mono-row">{define.name}</span>
-            </Menu.SubmenuTrigger>
-            <Menu.SubmenuContent data-ui="PermutationMenu:values">
-              <Menu.RadioGroup
-                value={picked[define.name] ?? DEF_VALUE}
-                onValueChange={(value) =>
-                  pick(key, define.name, value === DEF_VALUE ? null : (value as string))
-                }
-              >
-                <Menu.RadioItem value={DEF_VALUE}>
-                  {m.workshop_bin_shader_permutation_default_label()}
-                </Menu.RadioItem>
-                {define.values.map((value) => (
-                  <Menu.RadioItem key={value} value={value}>
-                    <span className="font-mono text-mono-row">{value || EMPTY_VALUE}</span>
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Menu.SubmenuContent>
-          </Menu.SubmenuRoot>
-        ))}
+        <PermutationItems document={document} entry={entry} />
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+/**
+ * The reset and the defines of `PermutationMenu`, which a menu bar also draws.
+ * Shows a disabled item if the def declares no define.
+ */
+export function PermutationItems({ document, entry }: { document: BinDocumentId; entry: string }) {
+  const picked = usePickedDefines(document, entry);
+  const read = useQuery(useShaderReadOptions(document, entry, true)).data ?? null;
+  const pick = usePreviewDefinesStore((state) => state.pick);
+  const clear = usePreviewDefinesStore((state) => state.clear);
+
+  const declared = (read?.declared ?? []).filter((define) => !STUDIO_DEFINES.has(define.name));
+  if (declared.length === 0) {
+    return <Menu.Item disabled>{m.workshop_bin_menu_shader_defines_empty()}</Menu.Item>;
+  }
+
+  const key = previewKey(document, entry);
+  const count = Object.keys(picked).length;
+
+  return (
+    <>
+      {count > 0 && (
+        <>
+          <Menu.Item onClick={() => clear(key)}>
+            {m.workshop_bin_shader_permutation_reset_action()}
+          </Menu.Item>
+          <Menu.Separator />
+        </>
+      )}
+      {declared.map((define) => (
+        <Menu.SubmenuRoot key={define.name}>
+          <Menu.SubmenuTrigger>
+            <span className="font-mono text-mono-row">{define.name}</span>
+          </Menu.SubmenuTrigger>
+          <Menu.SubmenuContent data-ui="PermutationMenu:values">
+            <Menu.RadioGroup
+              value={picked[define.name] ?? DEF_VALUE}
+              onValueChange={(value) =>
+                pick(key, define.name, value === DEF_VALUE ? null : (value as string))
+              }
+            >
+              <Menu.RadioItem value={DEF_VALUE}>
+                {m.workshop_bin_shader_permutation_default_label()}
+              </Menu.RadioItem>
+              {define.values.map((value) => (
+                <Menu.RadioItem key={value} value={value}>
+                  <span className="font-mono text-mono-row">{value || EMPTY_VALUE}</span>
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.SubmenuContent>
+        </Menu.SubmenuRoot>
+      ))}
+    </>
   );
 }

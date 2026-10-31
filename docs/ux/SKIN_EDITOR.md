@@ -14,6 +14,7 @@ the plan of the pose modifiers and sockets is docs/plans/pose-dynamics-preview.m
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-31 | Add the skin and animation graph menu bars                               |
 | 2026-10-28 | Draw a skin's character inking in the preview                            |
 | 2026-10-22 | Add the Conditions section, and apply a condition in the preview         |
 | 2026-10-15 | Add, rebone and remove idle effects in the VFX section                   |
@@ -94,7 +95,42 @@ Inspector takes ownership when its tab or content receives focus.
 
 **The preview takes the viewer's keys**, the camera menu with Fit, the axis gizmo and the speed
 detents, per "The viewer". Its clip plays on its own clock under its own transport, and it has
-no timeline.
+no timeline. The keys answer while focus is anywhere in the preview or its transport.
+
+## Menu bar
+
+A skin and an `AnimationGraphData` each draw the menu bar of "Menu bar" in docs/ux/BIN_EDITOR.md.
+The bar mirrors the rail, the transport, the toolbars and the context menus, which all stay. An
+item shows the key that the preview answers, because the key handler and the menu read one table.
+
+| Menu      | Items of a skin                                                                                                                                                      |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File      | Bake tangents, for a skin in a project layer                                                                                                                         |
+| View      | View mode, Camera, Frame the character. Map backdrop, Visibility, Sun, Post effects. Move, Stage, Midlane. Armature, Joint names, Shaders, Sound, Submeshes. Hide UI |
+| Animation | Play or pause, Restart. The frame steps and the six-frame steps, Focus playhead. Slower, Faster, Playback speed. Clip, Parameter                                     |
+| Skin      | Effects, Open effect. Add effect, Remove effect. Add condition, Remove condition, Apply in the preview                                                               |
+| Physics   | The overlay and its parts, the simulated frame rate. Add pose modifier, Add socket, Selected joint. Previous, Next, Simulate in the preview, Remove                  |
+| Spells    | Focus spell filter, Preview spell, Back to the spell list. Create, Open, Preview, Save and Remove ability. Cast, Replay, Speed, Range guides                         |
+
+An `AnimationGraphData` adds one Clip menu: Focus clip filter and the map of the pane, Sort clips
+by, Open animation, Open animation to the side, and Weigh mask. Its view has no viewport or
+transport, so a click on a clip row selects the row that Open animation acts on and poses nothing.
+
+A command that does not apply stays listed and disabled, with its reason under its words where the
+menu item shows one:
+
+- In Properties, each command of the layout reads "Applies in the Skin view".
+- If a pane is closed, a command of that pane names the pane to open. In the narrow stack, a
+  command of a pane that only the shell draws reads that the tab must be wider.
+- If the document takes no edit, each edit names the reason of the document.
+- A command that waits for a pick names the pick, such as "Select a joint".
+
+Hide UI hides the preview's controls and leaves the keys in force, so Esc is listed under Gestures.
+Sun, Post effects and Visibility open the popup of the rail's control, so they apply while the
+rail shows them. Add effect focuses the picker of the VFX section, and Remove effect lists the idle
+effects. The effects of a condition are edited in its row. Cast, Replay, Speed and Range guides
+apply while the preview pane shows the ability, per "The viewport follows the pane the reader
+uses".
 
 ## The spells pane
 

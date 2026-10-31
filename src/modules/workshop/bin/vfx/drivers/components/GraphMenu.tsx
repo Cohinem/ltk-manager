@@ -20,6 +20,7 @@ import { m } from "@/i18n";
 import { ResetMenuItem } from "../../../classes/components/ResetMenuItem";
 import { RevertMenuItem } from "../../../documents/components/ChangeMark";
 import type { EmitterRef } from "../../clipboard/emitterCopy";
+import { vfxShortcut } from "../../utils/vfxKeys";
 import { isForce, nodeRemoval } from "../utils/nodeEdits";
 import { itemClass } from "../utils/nodeText";
 import type { GraphItem } from "../utils/systemGraph";
@@ -119,6 +120,24 @@ const FOLDING: ReadonlySet<GraphItem["type"]> = new Set([
   "children",
 ]);
 
+/** Returns `true` if `item` collapses its inputs. */
+export function itemFolds(item: GraphItem): boolean {
+  return (
+    item.type === "master" ||
+    item.type === "system" ||
+    (FOLDING.has(item.type) && item.ports.length > 0)
+  );
+}
+
+/** Returns the words of Delete on `item`, which name what it takes out of the file. */
+export function structureRemoveLabel(item: GraphItem): string {
+  if (nodeRemoval(item)?.type === "property") return m.workshop_bin_reset_default_action();
+  if (item.type === "system") return m.workshop_bin_child_remove_action();
+  if (isForce(item)) return m.workshop_bin_force_remove_action();
+
+  return m.workshop_bin_remove_item_action();
+}
+
 function ItemActions({
   item,
   onFrame,
@@ -132,10 +151,7 @@ function ItemActions({
   const copy = useCopyToClipboard();
 
   const reveal = item.wire === "" ? null : (actions?.reveal ?? null);
-  const folds =
-    item.type === "master" ||
-    item.type === "system" ||
-    (FOLDING.has(item.type) && item.ports.length > 0);
+  const folds = itemFolds(item);
   const collapsed = actions?.collapsed.has(item.id) ?? false;
   const toggleLabel = collapsed
     ? m.workshop_bin_graph_expand_action()
@@ -199,10 +215,6 @@ function StructureItems({ item }: { item: GraphItem }) {
   if (append === null && duplicate === null && remove === null) return null;
 
   const resets = nodeRemoval(item)?.type === "property";
-  let removeLabel = m.workshop_bin_remove_item_action();
-  if (isForce(item)) removeLabel = m.workshop_bin_force_remove_action();
-  if (item.type === "system") removeLabel = m.workshop_bin_child_remove_action();
-  if (resets) removeLabel = m.workshop_bin_reset_default_action();
   const removeIcon = resets ? <ArrowCounterClockwiseIcon /> : <TrashIcon />;
 
   return (
@@ -214,13 +226,22 @@ function StructureItems({ item }: { item: GraphItem }) {
         </ContextMenu.Item>
       )}
       {duplicate !== null && (
-        <ContextMenu.Item icon={<CopySimpleIcon />} shortcut="Ctrl+D" onClick={duplicate}>
+        <ContextMenu.Item
+          icon={<CopySimpleIcon />}
+          shortcut={vfxShortcut("duplicate")}
+          onClick={duplicate}
+        >
           {m.workshop_bin_graph_duplicate_action()}
         </ContextMenu.Item>
       )}
       {remove !== null && (
-        <ContextMenu.Item icon={removeIcon} shortcut="Del" variant="danger" onClick={remove}>
-          {removeLabel}
+        <ContextMenu.Item
+          icon={removeIcon}
+          shortcut={vfxShortcut("remove")}
+          variant="danger"
+          onClick={remove}
+        >
+          {structureRemoveLabel(item)}
         </ContextMenu.Item>
       )}
     </>

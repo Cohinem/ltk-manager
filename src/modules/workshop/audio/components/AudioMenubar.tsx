@@ -1,8 +1,9 @@
 import { FolderSimplePlusIcon } from "@phosphor-icons/react";
-import { Fragment, type ReactNode, type RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
-import { ExperimentalChip, Menu, Menubar, type MenubarMenu, Tooltip } from "@/components";
+import { ExperimentalChip, Menubar, type MenubarMenu, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { type CommandMenuItem, CommandMenuItems } from "@/modules/editor";
 
 import { usePreviewVolume } from "../state/previewTransport";
 import {
@@ -72,7 +73,7 @@ export function AudioMenubar({
     id: menu.id,
     title: MENU_TITLES[menu.id](),
     className: MENU_CLASSES[menu.id],
-    content: <MenuEntries entries={menu.entries} slots={slots} titles={titles} />,
+    content: <CommandMenuItems items={menuItems(menu.entries, slots, titles)} />,
   }));
 
   return (
@@ -102,97 +103,68 @@ function ExperimentalMark() {
   );
 }
 
-interface MenuEntriesProps {
-  readonly entries: readonly AudioMenuEntry[];
-  readonly slots: Partial<Readonly<Record<AudioMenuSlot, ReactNode>>>;
-  readonly titles: Partial<Readonly<Record<AudioCommandId, string>>>;
-}
-
-/** The items of one built menu or submenu. */
-function MenuEntries({ entries, slots, titles }: MenuEntriesProps) {
+/** Returns the shared menu items of `entries`, with the words, the glyph and the slots of each. */
+function menuItems(
+  entries: readonly AudioMenuEntry[],
+  slots: Partial<Readonly<Record<AudioMenuSlot, ReactNode>>>,
+  titles: Partial<Readonly<Record<AudioCommandId, string>>>,
+): CommandMenuItem[] {
   const title = (command: AudioMenuCommand) => titles[command.id] ?? commandTitle(command.id);
 
-  return entries.map((entry, at) => {
+  return entries.map((entry): CommandMenuItem => {
     switch (entry.kind) {
       case "separator":
-        return <Menu.Separator key={`separator:${at}`} />;
+        return entry;
       case "slot":
-        return <Fragment key={entry.slot}>{slots[entry.slot]}</Fragment>;
-      case "command":
-        return <CommandItem key={entry.command.id} command={entry.command} title={title} />;
+        return { kind: "slot", id: entry.slot, node: slots[entry.slot] };
+      case "command": {
+        const { command } = entry;
+        return {
+          kind: "command",
+          id: command.id,
+          title: title(command),
+          icon: <CommandIcon id={command.id} />,
+          shortcut: command.shortcut ?? undefined,
+          run: command.run,
+          reason: command.reason ?? undefined,
+          danger: command.id === "remove",
+        };
+      }
       case "check": {
         const { command } = entry;
-        return (
-          <Menu.CheckboxItem
-            key={command.id}
-            icon={<CommandIcon id={command.id} />}
-            shortcut={command.shortcut ?? undefined}
-            checked={command.checked}
-            disabled={command.run === null}
-            onCheckedChange={() => command.run?.()}
-          >
-            {title(command)}
-          </Menu.CheckboxItem>
-        );
+        return {
+          kind: "check",
+          id: command.id,
+          title: title(command),
+          icon: <CommandIcon id={command.id} />,
+          shortcut: command.shortcut ?? undefined,
+          checked: command.checked,
+          run: command.run,
+        };
       }
-      case "radio": {
-        const value = entry.commands.find((command) => command.checked)?.id ?? null;
-        return (
-          <Menu.RadioGroup
-            key={entry.commands.map((command) => command.id).join("|")}
-            value={value}
-            onValueChange={(next) => entry.commands.find((command) => command.id === next)?.run?.()}
-          >
-            {entry.commands.map((command) => (
-              <Menu.RadioItem
-                key={command.id}
-                value={command.id}
-                shortcut={command.shortcut ?? undefined}
-                disabled={command.run === null}
-              >
-                {title(command)}
-              </Menu.RadioItem>
-            ))}
-          </Menu.RadioGroup>
-        );
-      }
+      case "radio":
+        return {
+          kind: "radio",
+          id: entry.commands.map((command) => command.id).join("|"),
+          value: entry.commands.find((command) => command.checked)?.id ?? null,
+          options: entry.commands.map((command) => ({
+            value: command.id,
+            title: title(command),
+            shortcut: command.shortcut ?? undefined,
+            disabled: command.run === null,
+          })),
+          onPick: (next) => entry.commands.find((command) => command.id === next)?.run?.(),
+        };
       case "submenu":
-        return (
-          <Menu.SubmenuRoot key={entry.id}>
-            <Menu.SubmenuTrigger icon={<FolderSimplePlusIcon className="size-4" />}>
-              {SUBMENU_TITLES[entry.id]()}
-            </Menu.SubmenuTrigger>
-            <Menu.SubmenuContent>
-              <MenuEntries entries={entry.entries} slots={slots} titles={titles} />
-            </Menu.SubmenuContent>
-          </Menu.SubmenuRoot>
-        );
+        return {
+          kind: "submenu",
+          id: entry.id,
+          title: SUBMENU_TITLES[entry.id](),
+          icon: <FolderSimplePlusIcon className="size-4" />,
+          items: menuItems(entry.entries, slots, titles),
+        };
     }
   });
-}
-
-interface CommandItemProps {
-  readonly command: AudioMenuCommand;
-  readonly title: (command: AudioMenuCommand) => string;
-}
-
-/** One command as a menu item, with its glyph, its key and the reason it is disabled. */
-function CommandItem({ command, title }: CommandItemProps) {
-  const run = command.run;
-
-  return (
-    <Menu.Item
-      icon={<CommandIcon id={command.id} />}
-      shortcut={command.shortcut ?? undefined}
-      variant={command.id === "remove" ? "danger" : "default"}
-      disabled={run === null}
-      reason={command.reason}
-      /* The menu is still closing, and it hands focus back first. */
-      onClick={() => run !== null && setTimeout(run, 0)}
-    >
-      {title(command)}
-    </Menu.Item>
-  );
 }
 
 function CommandIcon({ id }: { id: AudioCommandId }) {

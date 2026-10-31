@@ -3,24 +3,18 @@ import type { ReactNode } from "react";
 
 import { IconButton } from "@/components";
 import { m } from "@/i18n";
-import type { MapChunk } from "@/lib/tauri";
 
 import { useMapScene } from "../state/mapScene";
-import { itemId } from "../utils/mapOutline";
 
 /**
- * What the outliner offers for the placeables the reader selected here or in the viewport:
+ * What the outliner offers for the meshes and placeables selected here or in the viewport:
  * their count, and a button to frame, hide, show or let go of them all.
  */
-export function SelectionBar({ chunks }: { chunks: readonly MapChunk[] }) {
-  const { selected, select, setHidden, focusOn } = useMapScene();
+export function SelectionBar({ onFrame }: { onFrame: (() => void) | null }) {
+  const { selected, select, setHidden } = useMapScene();
   if (selected.size === 0) return null;
 
   const ids = [...selected];
-  const frame = () => {
-    const middle = centroid(chunks, selected);
-    if (middle !== null) focusOn({ id: `selection:${ids.join(",")}`, position: middle });
-  };
 
   return (
     <div
@@ -30,7 +24,7 @@ export function SelectionBar({ chunks }: { chunks: readonly MapChunk[] }) {
       <span className="min-w-0 flex-1 truncate text-meta text-accent-300">
         {m.workshop_bin_map_selection_count_label({ count: selected.size })}
       </span>
-      <BarButton label={m.workshop_bin_map_selection_frame_action()} onClick={frame}>
+      <BarButton label={m.workshop_bin_map_selection_frame_action()} onClick={() => onFrame?.()}>
         <CrosshairIcon weight="bold" className="size-3.5" />
       </BarButton>
       <BarButton
@@ -65,25 +59,4 @@ function BarButton({
   children: ReactNode;
 }) {
   return <IconButton icon={children} onClick={onClick} label={label} />;
-}
-
-/** The middle of the selected placeables' places in the map's space, and null for none found. */
-function centroid(
-  chunks: readonly MapChunk[],
-  selected: ReadonlySet<string>,
-): [number, number, number] | null {
-  const sum = [0, 0, 0];
-  let count = 0;
-  for (const chunk of chunks) {
-    for (const item of chunk.items) {
-      if (!selected.has(itemId(chunk.entry, item.key))) continue;
-
-      item.position.forEach((value, axis) => {
-        sum[axis] = (sum[axis] ?? 0) + (value ?? 0);
-      });
-      count += 1;
-    }
-  }
-  if (count === 0) return null;
-  return [(sum[0] ?? 0) / count, (sum[1] ?? 0) / count, (sum[2] ?? 0) / count];
 }

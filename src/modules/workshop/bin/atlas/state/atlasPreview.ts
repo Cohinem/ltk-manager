@@ -376,6 +376,13 @@ export function useViewVariant(view: string): string | null {
   return useAtlasPreviewStore((state) => state.views[view]?.variant ?? null);
 }
 
+const NO_SELECTION: readonly string[] = [];
+
+/** Every selected element of `view`, the primary one last. */
+export function useViewSelection(view: string): readonly string[] {
+  return useAtlasPreviewStore((state) => state.views[view]?.selection ?? NO_SELECTION);
+}
+
 export function useHovered(): string | null {
   return useAtlasPreviewStore((state) => state.hovered);
 }

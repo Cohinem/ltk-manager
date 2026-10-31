@@ -130,11 +130,6 @@ export interface MapSceneState {
   /** The chunk a new placeable goes into, by entry, and null for the chunk of the selection. */
   readonly target: string | null;
   readonly setTarget: (chunk: string | null) => void;
-  /**
-   * The transforms a gizmo drag gives the placeables it moves, by `itemId`, and null outside a
-   * drag. A committed drag keeps them until the outline reads the edit back.
-   */
-  readonly dragged: DraggedTransforms | null;
   readonly setDragged: (dragged: DraggedTransforms | null) => void;
   /** The `.mapgeo` open for edits, and null while the map takes no edits or it opens. */
   readonly geometryDocument: MapGeometryState | null;
@@ -202,7 +197,18 @@ export interface MapSceneState {
 
 const MapSceneContext = createContext<MapSceneState | null>(null);
 
+/* Apart from the scene because a gizmo drag changes it per frame, and the menu bar reads the scene. */
+const MapDraggedContext = createContext<DraggedTransforms | null>(null);
+
 const NONE: ReadonlySet<string> = new Set();
+
+/**
+ * The transforms a gizmo drag gives the placeables it moves, by `itemId`, and null outside a
+ * drag. A committed drag keeps them until the outline reads the edit back.
+ */
+export function useMapDragged(): DraggedTransforms | null {
+  return use(MapDraggedContext);
+}
 
 /** The scene of the map in view, which a pane that draws or lists a map is always under. */
 export function useMapScene(): MapSceneState {
@@ -521,7 +527,6 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       setPlaceClass,
       target,
       setTarget,
-      dragged,
       setDragged,
       renaming,
       setRenaming,
@@ -566,7 +571,6 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       snap,
       placeClass,
       target,
-      dragged,
       renaming,
       reimport,
       sunHandle,
@@ -592,11 +596,13 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
 
   return (
     <MapSceneContext value={scene}>
-      {materialsFile !== null && (
-        /* Keyed, so a change of map lets the last handle go before the next answers. */
-        <MaterialsOpener key={assetKey(materialsFile)} asset={materialsFile} onOpen={setOpen} />
-      )}
-      {children}
+      <MapDraggedContext value={dragged}>
+        {materialsFile !== null && (
+          /* Keyed, so a change of map lets the last handle go before the next answers. */
+          <MaterialsOpener key={assetKey(materialsFile)} asset={materialsFile} onOpen={setOpen} />
+        )}
+        {children}
+      </MapDraggedContext>
     </MapSceneContext>
   );
 }

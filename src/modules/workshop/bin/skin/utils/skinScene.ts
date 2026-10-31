@@ -36,6 +36,9 @@ import type { ParticleCue } from "./clipEvents";
 /** The value the clip picker holds for the skeleton standing in its bind pose. */
 export const BIND_POSE = "bind";
 
+/** The decimals a parameter tick's label is written to where its value is not whole. */
+const PARAMETER_DECIMALS = 1;
+
 /** `SequencerClipData`, the one kind whose children play one after another. */
 const SEQUENCER = "SequencerClipData";
 
@@ -124,6 +127,19 @@ function resolvePlaylist(
 /** The clip a preview opens on, the first idle one without regard to case. */
 export function openingClip(clips: readonly GraphClip[]): GraphClip | null {
   return clips.find((clip) => clip.name.toLowerCase().startsWith("idle")) ?? null;
+}
+
+/** Returns the clip of `clips` that poses the skin: `picked`, the opening clip, or the bind pose. */
+export function chosenClipHash(clips: readonly GraphClip[], picked: string | null): string {
+  if (picked === BIND_POSE || clips.some((clip) => clip.hash === picked))
+    return picked ?? BIND_POSE;
+
+  return openingClip(clips)?.hash ?? BIND_POSE;
+}
+
+/** Returns a pair's value as its tick reads: whole where it is whole, else to one decimal. */
+export function parameterLabel(value: number): string {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(PARAMETER_DECIMALS);
 }
 
 /** The key the texture a submesh no override names is loaded under. */
