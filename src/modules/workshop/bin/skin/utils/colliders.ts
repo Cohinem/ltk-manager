@@ -21,12 +21,13 @@ const EXTENSION = ".colliders";
 
 /**
  * The game path a chain's shapes are saved at where the chain names no file: beside the
- * skeleton, under the skeleton's name. Null for a skin whose skeleton has no path.
+ * skeleton, under the skeleton's name and the skin object `entry`, because skins can share a
+ * skeleton and a save replaces the whole file. Null for a skin whose skeleton has no path.
  */
-export function colliderPathOf(skin: SkinModel): string | null {
+export function colliderPathOf(skin: Pick<SkinModel, "skeleton">, entry: string): string | null {
   const skeleton = skin.skeleton?.path ?? "";
   if (!skeleton.includes("/")) return null;
-  return skeleton.replace(/\.[^./]*$/, "") + EXTENSION;
+  return `${skeleton.replace(/\.[^./]*$/, "")}.${entry}${EXTENSION}`;
 }
 
 /** Where every joint of a skeleton stands in the bind pose, kept per skeleton. */

@@ -69,6 +69,17 @@ fn texture_reports_mesh_path() {
 }
 
 #[test]
+fn roughness_metallic_ao_texture_reports_mesh_path() {
+    let skin = bin(
+        "SkinMeshDataProperties",
+        "RoughnessMetallicAoTexture",
+        values::String::from(MESH),
+    );
+
+    assert_eq!(found(&[(SKIN_BIN, &skin)]).len(), 1);
+}
+
+#[test]
 fn texture_skips_image_path() {
     let skin = bin(
         "VfxEmitterDefinitionData",

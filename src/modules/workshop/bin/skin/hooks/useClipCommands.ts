@@ -17,6 +17,9 @@ import {
   CLIP_SORT_LIST,
   listCommands,
 } from "../utils/skinCommands";
+import { chosenClipHash, playableClips } from "../utils/skinScene";
+
+const NO_CLIPS: readonly GraphClip[] = [];
 
 /** Returns the document of the animation file of `clip`, and null if the clip reaches no file. */
 export function clipDocument(clip: GraphClip | null) {
@@ -39,13 +42,20 @@ export function useWeighMask(): (mask: string) => void {
   };
 }
 
-/** Offers the open of the selected clip and the masks of `graph` to the bar. */
-export function useClipPaneCommands(graph: AnimationGraph | undefined): void {
+/**
+ * Offers the open of the selected clip and the masks of `graph` to the bar.
+ *
+ * With a `previewed` graph, the clip the preview opens on counts as selected before any pick.
+ */
+export function useClipPaneCommands(graph: AnimationGraph | undefined, previewed: boolean): void {
   const choice = use(SkinChoiceContext);
   const open = useOpenDocumentAs();
   const weigh = useWeighMask();
 
-  const picked = graph?.clips.find((clip) => clip.hash === choice?.picked) ?? null;
+  const clips = graph?.clips ?? NO_CLIPS;
+  const selected = choice?.picked ?? null;
+  const posed = previewed ? chosenClipHash(playableClips(clips), selected) : selected;
+  const picked = clips.find((clip) => clip.hash === posed) ?? null;
   const file = clipDocument(picked);
   const reason =
     picked === null

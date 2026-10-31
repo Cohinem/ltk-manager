@@ -3,12 +3,43 @@ import { describe, expect, it } from "vitest";
 import type { LayerFilesChanged } from "@/lib/tauri";
 
 import { previewKeys } from "../../api/queries";
-import { infoChangedBy } from "../layerChanges";
+import { assetReadChangedBy, infoChangedBy } from "../layerChanges";
 
 const CHANGE: LayerFilesChanged = {
   project: "C:/mods/smolder",
   files: [{ layer: "base", path: "smolder.wad.client/assets/Icon.tex" }],
 };
+
+describe("assetReadChangedBy", () => {
+  const changed = {
+    kind: "layer",
+    project: "C:/mods/smolder",
+    layer: "base",
+    path: "smolder.wad.client/assets/skin.SKN",
+  } as const;
+
+  it("matches a viewport buffer and a clip header of the file, however its path is cased", () => {
+    const change = { ...CHANGE, files: [{ layer: "base", path: changed.path.toLowerCase() }] };
+
+    expect(assetReadChangedBy(["viewport", "mesh", changed], change)).toBe(true);
+    expect(assetReadChangedBy(["skin-clip-header", changed], change)).toBe(true);
+  });
+
+  it("leaves another file, a map buffer and a game chunk alone", () => {
+    const change = { ...CHANGE, files: [{ layer: "base", path: changed.path }] };
+
+    expect(assetReadChangedBy(["viewport", "mesh", { ...changed, layer: "chroma" }], change)).toBe(
+      false,
+    );
+    expect(assetReadChangedBy(["viewport", "map", changed], change)).toBe(false);
+    expect(
+      assetReadChangedBy(
+        ["viewport", "mesh", { kind: "gameChunk", wad: "a.wad.client", pathHash: "01" }],
+        change,
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("infoChangedBy", () => {
   it("matches the info of a file the change names, however its path is cased", () => {

@@ -75,7 +75,7 @@ export function PhysicsPane({ view, entry }: PhysicsPaneProps) {
 function Loaded({ view, entry }: { view: ViewContext; entry: string }) {
   const { document } = view;
   const bind = useSkinBind(document, entry);
-  const shapes = useColliderFiles(bind.skin ?? undefined);
+  const shapes = useColliderFiles(bind.skin ?? undefined, entry);
   const colliders = useColliderEdit(document, entry, bind.skin ?? undefined);
   const scope = useMemo<PhysicsScope | null>(() => {
     if (bind.skin === null) return null;

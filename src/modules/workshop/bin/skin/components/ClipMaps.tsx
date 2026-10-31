@@ -1,4 +1,4 @@
-import { type ReactNode, use } from "react";
+import { type ReactNode, use, useCallback } from "react";
 
 import { DataTable, type DataTableColumn, DataTableCells, DataTableHeaders } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks";
@@ -141,7 +141,15 @@ function Rows<T extends { hash: string }>({
   detail,
 }: RowsProps<T>) {
   const choice = use(SkinChoiceContext);
-  const marked = choice?.marked?.tab === tab ? choice.marked.hash : null;
+  const mark = choice?.marked ?? null;
+  const marked = mark?.tab === tab ? mark.hash : null;
+  /* New for each jump, so the row scrolls in once per jump and not on each render. */
+  const scrollIn = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (mark !== null) element?.scrollIntoView?.({ block: "nearest" });
+    },
+    [mark],
+  );
 
   return (
     <DataTable
@@ -185,12 +193,7 @@ function Rows<T extends { hash: string }>({
               const row = tableRow.original;
               const expanded = detail !== undefined && (choice?.isExpanded(tab, row.hash) ?? false);
               return (
-                <div
-                  key={row.hash}
-                  ref={(element) => {
-                    if (marked === row.hash) element?.scrollIntoView?.({ block: "nearest" });
-                  }}
-                >
+                <div key={row.hash} ref={marked === row.hash ? scrollIn : undefined}>
                   <div
                     role={onPick === undefined ? undefined : "button"}
                     tabIndex={onPick === undefined ? undefined : 0}
@@ -205,6 +208,9 @@ function Rows<T extends { hash: string }>({
                     )}
                     onClick={() => onPick?.(row)}
                     onKeyDown={(event) => {
+                      /* A chip and the caret inside the row answer their own keys. */
+                      if (event.target !== event.currentTarget) return;
+
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
                         onPick?.(row);

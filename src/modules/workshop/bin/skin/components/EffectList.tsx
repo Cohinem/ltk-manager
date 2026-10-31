@@ -13,11 +13,10 @@ import {
 import { EFFECT } from "../../classes/utils/classLayouts";
 import { usePaneCommands } from "../../menus/state/paneCommands";
 import { nameHash } from "../../shared/utils/binHash";
-import type { LeafEdit } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
 import { ChildAddPicker } from "../../vfx/children/ChildAddPicker";
 import { childQueries } from "../../vfx/children/useChildren";
-import { useEffectAdd } from "../hooks/useEffectAdd";
+import { useEffectAdd, useSkinRowEdits } from "../hooks/useEffectAdd";
 import { type EffectListPath, IDLE_LIST, resolverKey } from "../utils/effectEdits";
 import {
   listCommands,
@@ -50,6 +49,9 @@ export interface EffectListProps {
 export function EffectList({ view, scope, path, effects, pages, count }: EffectListProps) {
   const { resources, edit, resolver, joints } = scope;
   const addHost = useRef<HTMLDivElement>(null);
+  const rowEdits = useSkinRowEdits();
+  /* An effect is added on a joint, and a row with no joint list cannot pick one afterwards. */
+  const addable = resolver !== null && joints.length > 0;
 
   return (
     <>
@@ -58,8 +60,13 @@ export function EffectList({ view, scope, path, effects, pages, count }: EffectL
           effects={effects}
           pages={pages}
           resources={resources}
-          removeItem={edit?.removeItem ?? null}
-          addHost={resolver === null ? null : addHost}
+          removeItem={edit === null ? null : (rowEdits?.removeItem ?? null)}
+          addHost={addable ? addHost : null}
+          addReason={
+            resolver === null
+              ? m.workshop_bin_menu_skin_resolver_reason()
+              : m.workshop_bin_menu_skin_joints_reason()
+          }
         />
       )}
       <EffectRows
@@ -69,7 +76,7 @@ export function EffectList({ view, scope, path, effects, pages, count }: EffectL
         edit={edit}
         joints={joints}
       />
-      {resolver !== null && (
+      {addable && (
         <AddEffect
           host={addHost}
           view={view}
@@ -77,7 +84,7 @@ export function EffectList({ view, scope, path, effects, pages, count }: EffectL
           count={count}
           resolver={resolver}
           resources={resources}
-          bone={joints[0] ?? ""}
+          bone={joints[0]}
         />
       )}
     </>
@@ -103,9 +110,11 @@ interface IdleEffectCommandsProps {
   readonly effects: readonly BinRow[];
   readonly pages: LayoutPages;
   readonly resources: ReadonlyMap<string, ResourceTarget>;
-  readonly removeItem: NonNullable<LeafEdit["removeItem"]> | null;
+  readonly removeItem: ((row: BinRow) => void) | null;
   /** The box of the picker that adds an effect, and null where the effects take none. */
   readonly addHost: RefObject<HTMLDivElement | null> | null;
+  /** Why the effects take no add while `addHost` is null. */
+  readonly addReason: string;
 }
 
 /** Offers the add and the removes of the idle effects to the bar, which the Skin menu lists. */
@@ -115,6 +124,7 @@ function IdleEffectCommands({
   resources,
   removeItem,
   addHost,
+  addReason,
 }: IdleEffectCommandsProps) {
   usePaneCommands("skin.effects.idle", {
     [SKIN_ADD_EFFECT_COMMAND]: {
@@ -122,13 +132,13 @@ function IdleEffectCommands({
         addHost === null
           ? null
           : () => requestAnimationFrame(() => addHost.current?.querySelector("input")?.focus()),
-      reason: m.workshop_bin_menu_skin_resolver_reason(),
+      reason: addReason,
     },
     ...listCommands(
       SKIN_REMOVE_EFFECT_LIST,
       effects.map((effect) => ({
         title: effectTitle(effect, pages, resources),
-        run: removeItem === null ? null : () => void removeItem(effect),
+        run: removeItem === null ? null : () => removeItem(effect),
       })),
     ),
   });

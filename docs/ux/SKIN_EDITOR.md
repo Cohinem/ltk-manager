@@ -14,6 +14,7 @@ the plan of the pose modifiers and sockets is docs/plans/pose-dynamics-preview.m
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-31 | Correct clip, condition, material and socket behaviour                   |
 | 2026-10-31 | Add the skin and animation graph menu bars                               |
 | 2026-10-28 | Draw a skin's character inking in the preview                            |
 | 2026-10-22 | Add the Conditions section, and apply a condition in the preview         |
@@ -85,8 +86,8 @@ alone. The death fade of the material's `dynamicMaterial` is not drawn.
 
 **The inspector and the character point at each other.** The pointer on a material override
 dims every submesh but the one it dresses, and a click on the character dims the same way and
-scrolls that submesh's override into view, marked while it holds. A click that misses the
-character lets go. The ray is cast on the click alone, because casting it on every move of the
+scrolls that submesh's override into view, marked while it holds. The pointer leaving an override
+returns to the clicked submesh. A click that misses the character lets go. The ray is cast on the click alone, because casting it on every move of the
 pointer would skin the whole mesh each time.
 
 **The viewport follows the pane the reader uses.** Clips and Inspector restore the character
@@ -239,9 +240,11 @@ around it. The slider is the ruler the library sizes its cards with, a tick labe
 pair's value and the held one lit, and a drag lands on the nearest tick, because a value between
 two pairs plays the same clip as the nearer of them and offers nothing of its own. Every other
 composite plays the first child that reaches a file, which stands in for the pick the engine
-makes at runtime from a condition or a chance. The picker's tooltip names the atomic clip
-playing while it differs from the pick, and a child chip under a parametric clip carries the
-value it plays at. A clip that reaches no file is not offered and its row poses nothing.
+makes at runtime from a condition or a chance, and an event controlled selector tries its default
+clip first. The picker's tooltip names the atomic clip playing while it differs from the pick, and
+a child chip under a parametric clip carries the value it plays at. A clip that reaches no file
+on this machine is not offered and its row poses nothing. A pick of another clip opens that clip
+on its first pair's value. The row of the clip that the preview opened on is marked before any pick.
 
 **The clip's events play with it.** A submesh visibility event hides and shows what it names
 from its start frame, matched to the `.skn`'s submeshes by hash, and one with an end frame puts
@@ -309,8 +312,8 @@ file declares its resolver.
 system of the file, then each system that a resolver of the file maps. A pick appends an effect
 on the skeleton's first joint, keyed to the system. The effect takes the key that the resolver
 maps to the system. If no key maps to it, the add writes a key named after the last segment of
-the system's path, numbered from 2 if another system holds that name. In a file that the project
-holds, the add is one undo step. In a declared game bin, each write is its own step, so the
+the system's path, numbered from 2 if another system holds that name. The picker waits for the
+skeleton, because an effect is added on a joint. In a file that the project holds, the add is one undo step. In a declared game bin, each write is its own step, so the
 game's keys and effects stay out of the layer.
 
 **A row picks its bone from the skeleton.** The bone cell is a joint combobox, and a remove
@@ -346,7 +349,11 @@ condition is applied when the skin opens. The switch on a row draws the conditio
 their joints and applies its submesh changes over the skin's own and the clip's: the show sets
 of the applied conditions are joined, and a submesh in any hide set is hidden. The Submeshes
 menu still overrides the result, and the effects switch hides the condition's effects with the
-idle effects. The choice writes nothing and lasts as long as the tab.
+idle effects. The choice writes nothing and lasts as long as the tab. A change of the number of
+conditions clears every switch, because the switches are keyed by index, and a change of the number
+of pose modifiers clears the Physics pane's preview eyes for the same reason.
+
+**A skin with no conditions still offers Add condition**, so the first condition creates the list.
 
 **An effect's system is read from the file that declares it.** Most skins keep their systems in
 the shared bins they link, and a skin can map a key to another skin's system. A condition's
@@ -359,7 +366,8 @@ A skin's shell holds a Material pane, per ADR-0047, above the inspector. It draw
 the skin draws with as the tables of "The material shell", beside the character that material
 dresses, so an edit is judged on the mesh its textures were painted for. Clicking a submesh on
 the character shows that submesh's material, and the pane's own list picks any other until the
-next click. The character shows an edit only under the game's shaders, so the pane offers to
+next click. A submesh whose override names only a texture draws with no material, and only an
+override that names PBR maps alone keeps the skin's material. The character shows an edit only under the game's shaders, so the pane offers to
 turn them on while they are off. A material another file declares says so in place of the
 tables.
 
@@ -458,7 +466,8 @@ pauses the clip, so a drag is measured on the pose it started on. A release writ
 drag left: a move writes `PositionOffset`, with any frozen axis taken into account, and a turn writes
 `RotationOffset`. A press that moves nothing writes nothing. A world socket has no rotation, and a
 frozen angle comes from the bind pose, which no offset reaches by itself, so such a socket offers no
-turn and says why. The handle follows the unit while the unit is dragged.
+turn and says why. During a drag the preview's keys do nothing, apart from Ctrl and Esc. A drag whose
+frozen axes leave the position unsolvable, at a turn near a quarter off the bind pose, writes nothing.
 
 A socket's parent joint is a hash in the file, which a reader cannot type. Its field is a
 list of the skeleton's joints by name, narrowed by what is typed in it.
@@ -480,7 +489,8 @@ two clicks in the viewport name both ends.
 
 A chain's fields list its colliders: a sphere with its joint, radius and offset off the joint,
 and a capsule with its two joints and a radius per end. The colliders are a file of their own,
-which the first one creates beside the skeleton and names on the chain, in the skin's layer or,
+which the first one creates beside the skeleton, under the skeleton's name and the skin object's
+hash so that skins with one skeleton keep their shapes apart, and names on the chain, in the skin's layer or,
 for a declared skin, the layer its declarations are written to. The file is outside the
 document's undo. Their lines are laid out as field rows and are not rows: a number saves the
 file when its field is left, and text that is no number, or a radius under zero, is marked and

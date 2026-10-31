@@ -118,7 +118,11 @@ function Section({ section, pages, view }: SectionProps) {
   const open = useSectionOpen(id) ?? true;
   const toggle = useToggleSection();
   const title = section.title();
-  const empty = section.rows.length === 0 && section.defaults.length === 0;
+  /* The conditions widget holds the add that creates its list, so it draws with no list. */
+  const empty =
+    section.rows.length === 0 &&
+    section.defaults.length === 0 &&
+    section.widget !== "condition-rows";
   const count = empty ? null : sectionCount(section, pages);
 
   if (section.headless) {

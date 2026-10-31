@@ -62,6 +62,24 @@ describe("socketOffsets", () => {
     expect(rounded(found?.position ?? [], 2)).toEqual([3, -4, 5]);
   });
 
+  it("answers null if a frozen axis leaves the position solve near singular", () => {
+    /* The head turned almost a quarter about Z, so the live Y row runs along the frozen X row. */
+    const turn = new Float64Array(4);
+    eulerQuatInto(turn, 0, [0, 0, 89.999]);
+    const head = composeInto(new Float32Array(16), [0, 100, 0], turn, [1, 1, 1]) as Float32Array;
+    const unturned = skeletonOf(joint("Root", -1, [0, 0, 0]), joint("Head", 0, [0, 100, 0]));
+
+    const found = socketOffsets(
+      single({ freezePosition: [true, false, false] }),
+      head,
+      bindWorld(unturned, parentsOf(unturned)),
+      [40, 500, 0],
+      [0, 0, 0, 1],
+    );
+
+    expect(found).toBeNull();
+  });
+
   it("answers no rotation for a socket with a frozen angle", () => {
     const socket = single({ position: [1, 2, 3], freezeRotation: [true, false, false] });
 

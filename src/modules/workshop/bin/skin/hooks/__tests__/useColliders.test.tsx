@@ -82,7 +82,7 @@ function mount(model: SkinModel, held: readonly (readonly [AssetRef, ColliderFil
   );
   const hook = renderHook(
     ({ shown }: { shown: SkinModel }) => ({
-      files: useColliderFiles(shown),
+      files: useColliderFiles(shown, ENTRY),
       edit: useColliderEdit(DOCUMENT, ENTRY, shown),
     }),
     { wrapper, initialProps: { shown: model } },
@@ -172,7 +172,7 @@ describe("useColliderEdit", () => {
     expect(send.mock.calls[0][0].at(-1)).toEqual({
       type: "setLeaf",
       path: expect.any(String),
-      value: { type: "string", value: FILE },
+      value: { type: "string", value: `ASSETS/Characters/Ahri/Skins/Base/Ahri.${ENTRY}.colliders` },
     });
     expect(shapes()).toEqual(sphere(2));
   });

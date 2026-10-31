@@ -60,6 +60,9 @@ const HANDLE_SIZE = 0.7;
 const SNAP_UNITS = 5;
 const SNAP_TURN = (15 * Math.PI) / 180;
 
+/** The keys a drag still listens to, which turn the snap on and off. */
+const SNAP_KEYS: ReadonlySet<string> = new Set(["Control", "Meta"]);
+
 /** The parts of the gizmo that a cancelled drag writes. `dragging` and `axis` end the drag. */
 interface DragState {
   dragging: boolean;
@@ -72,8 +75,8 @@ interface DragState {
  * "The physics pane" in docs/ux/SKIN_EDITOR.md. The handle stands in the scene's own space
  * and not under the character's mirrored group, since the gizmo turns the wrong way under
  * a mirror. So the socket's place is carried out to the scene each frame, and a drag's
- * result is carried back to the skeleton's space on release. Ctrl snaps a drag, and Esc puts
- * the handle back and writes nothing.
+ * result is carried back to the skeleton's space on release. Ctrl snaps a drag, Esc puts the
+ * handle back and writes nothing, and every other key is stopped until the release.
  */
 export function SocketGizmo({
   pose,
@@ -134,10 +137,15 @@ export function SocketGizmo({
   useEffect(() => {
     const cancel = (event: KeyboardEvent) => {
       const from = grab.current;
-      if (event.key !== "Escape" || from === null || held === null) return;
+      if (from === null || held === null || SNAP_KEYS.has(event.key)) return;
 
-      /* Captured, so the same Esc does not also reach the preview's own keys. */
+      /* Captured, so no key of the preview moves the clock or the mode that the release reads. */
       event.stopPropagation();
+      if (event.key !== "Escape") {
+        event.preventDefault();
+        return;
+      }
+
       grab.current = null;
       held.position.copy(from.position);
       held.quaternion.copy(from.quaternion);

@@ -115,7 +115,7 @@ function useJointActions({
   before,
 }: JointActionsProps): JointAction[] {
   const send = useDynamicsEdit(entry);
-  const shapes = useColliderFiles(skin);
+  const shapes = useColliderFiles(skin, entry);
   const colliders = useColliderEdit(document, entry, skin);
   if (send === null) return [];
 

@@ -3,6 +3,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ReactNode,
+  createContext,
   memo,
   use,
   useCallback,
@@ -28,6 +29,7 @@ import { m } from "@/i18n";
 import type { AnimationGraph, GraphClip } from "@/lib/tauri";
 import { measureRow, twMerge } from "@/utils";
 
+import { instantScroll } from "../../../shared/utils/instantScroll";
 import { FoldCaret } from "../../shared/components/FoldCaret";
 import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
@@ -38,9 +40,9 @@ import {
   useClipSortCommands,
 } from "../hooks/useClipCommands";
 import type { GraphSource } from "../hooks/useGraphSource";
-import { SkinChoiceContext } from "../state/skinChoice";
+import { type ClipMark, SkinChoiceContext } from "../state/skinChoice";
 import { CLIP_TABS } from "../utils/skinCommands";
-import { playableClips } from "../utils/skinScene";
+import { chosenClipHash, playableClips } from "../utils/skinScene";
 import { shownColumns } from "./ClipColumns";
 import { ClipContextMenu } from "./ClipContextMenu";
 import { ClipDetail } from "./ClipDetail";
@@ -77,7 +79,7 @@ export function ClipsPane({ source, joints, previewed = true }: ClipsPaneProps) 
   const choice = use(SkinChoiceContext);
   const graph = useQuery(skinQueries.graph(source.document, source.graph));
   const tab = choice?.tab ?? "clips";
-  useClipPaneCommands(graph.data);
+  useClipPaneCommands(graph.data, previewed);
 
   if (source.graph === null) return <Notice text={m.workshop_bin_section_none_empty()} />;
   if (graph.error !== null) return <Notice text={m.workshop_bin_clip_graph_failed_empty()} />;
@@ -185,10 +187,11 @@ function ClipTable({
 
   useClipSortCommands(columns, sorting, setSorting);
 
-  const playable = useMemo(
-    () => new Set(playableClips(graph.clips).map((clip) => clip.hash)),
-    [graph.clips],
-  );
+  const playableList = useMemo(() => playableClips(graph.clips), [graph.clips]);
+  const playable = useMemo(() => new Set(playableList.map((clip) => clip.hash)), [playableList]);
+  /* The preview's opening clip poses it before any pick, so its row is marked as well. */
+  const picked = choice?.picked ?? null;
+  const posed = previewed ? chosenClipHash(playableList, picked) : picked;
   const tableColumns = useMemo<DataTableColumn<ClipTableRow>[]>(
     () =>
       columns.map((column) => ({
@@ -239,7 +242,9 @@ function ClipTable({
       }}
     >
       {(table) => (
-        <VirtualClips table={table} source={source} playable={previewed ? playable : null} />
+        <PosedClip value={posed}>
+          <VirtualClips table={table} source={source} playable={previewed ? playable : null} />
+        </PosedClip>
       )}
     </DataTable>
   );
@@ -249,9 +254,12 @@ type ClipTableRow = GraphClip & { fps: number | undefined };
 
 const ClipCells = memo(DataTableCells<ClipTableRow>);
 
+/** The clip the preview poses, which a memoized cell reads apart from its row. */
+const PosedClip = createContext<string | null>(null);
+
 function ClipPlaying({ hash }: { hash: string }) {
-  const choice = use(SkinChoiceContext);
-  if (choice?.picked !== hash) return null;
+  if (use(PosedClip) !== hash) return null;
+
   return (
     <PlayIcon
       weight="fill"
@@ -273,6 +281,7 @@ function VirtualClips({
   playable: ReadonlySet<string> | null;
 }) {
   const choice = use(SkinChoiceContext);
+  const posed = use(PosedClip);
   const rows = table.getRowModel().rows;
   const scroller = useRef<HTMLDivElement>(null);
   const [menuClip, setMenuClip] = useState<GraphClip | null>(null);
@@ -291,17 +300,23 @@ function VirtualClips({
     scrollPaddingStart: headerHeight,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
     measureElement: measureRow,
+    scrollToFn: instantScroll,
   });
   useRemeasure(virtualizer, rowHeight);
 
-  const picked = choice?.picked ?? null;
   const marked = choice?.marked?.tab === "clips" ? choice.marked.hash : null;
-  /* A jump lands on its row, and a jump to the same row twice lands there again. */
+  /* A jump lands on its row once, and a jump to the same row twice lands there again. Later
+     changes of the rows, such as a typed filter or an edit, leave the scroll alone. */
   const mark = choice?.marked ?? null;
+  const landed = useRef<ClipMark | null>(null);
   useEffect(() => {
-    if (mark === null || mark.tab !== "clips") return;
+    if (mark === null || mark.tab !== "clips" || landed.current === mark) return;
+
     const index = rows.findIndex((row) => row.id === mark.hash);
-    if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+    if (index < 0) return;
+
+    landed.current = mark;
+    virtualizer.scrollToIndex(index, { align: "auto" });
   }, [mark, rows, virtualizer]);
 
   return (
@@ -346,7 +361,7 @@ function VirtualClips({
                   style={{ transform: `translateY(${item.start - headerHeight}px)` }}
                 >
                   <ClipRow
-                    posing={picked === clip.hash}
+                    posing={posed === clip.hash}
                     marked={marked === clip.hash}
                     expanded={expanded}
                     onToggle={() => choice?.toggleExpanded("clips", clip.hash)}
@@ -399,6 +414,9 @@ function ClipRow({ children, posing, marked, expanded, onToggle, onClick }: Clip
       )}
       onClick={onClick}
       onKeyDown={(event) => {
+        /* A chip and the caret inside the row answer their own keys. */
+        if (event.target !== event.currentTarget) return;
+
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();

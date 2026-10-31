@@ -29,7 +29,10 @@ import { chooseHost, hostKey, useHostChoice } from "../state/hostChoice";
 
 const NO_CLIPS: readonly GraphClip[] = [];
 const NO_TEXTURES: ReadonlyMap<string, AssetRef> = new Map();
-const SKIN = nameHash("SkinCharacterDataProperties");
+const SKINS: ReadonlySet<string> = new Set([
+  nameHash("SkinCharacterDataProperties"),
+  nameHash("TftSkinCharacterDataProperties"),
+]);
 
 const NO_SKINS: readonly BinRow[] = [];
 
@@ -53,7 +56,7 @@ export function useHostSkin() {
   const skins = useMemo(
     () =>
       (roots.data ?? NO_SKINS).filter(
-        (row) => row.value.type === "struct" && row.value.classHash === SKIN,
+        (row) => row.value.type === "struct" && SKINS.has(row.value.classHash),
       ),
     [roots.data],
   );

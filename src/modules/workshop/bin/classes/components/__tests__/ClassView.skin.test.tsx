@@ -20,6 +20,12 @@ import { nameHash } from "../../../shared/utils/binHash";
 import { skinLayout } from "../../utils/classLayouts";
 import { ClassView } from "../ClassView";
 
+const skinBind = vi.hoisted(() => ({
+  current: { skin: null, pose: null, notice: "No skeleton" } as unknown,
+}));
+
+vi.mock("../../../skin/hooks/useSkinBind", () => ({ useSkinBind: () => skinBind.current }));
+
 const ENTRY = "0x2a1f3c7d";
 const SKIN = nameHash("SkinCharacterDataProperties");
 const RESOLVER = "0x11223344";
@@ -603,6 +609,18 @@ describe("ClassView over an editable skin", () => {
     return sent.at(-1);
   }
 
+  afterEach(() => {
+    skinBind.current = { skin: null, pose: null, notice: "No skeleton" };
+  });
+
+  function loadSkeleton() {
+    skinBind.current = {
+      skin: {},
+      pose: { skeleton: { joints: [{ name: "Root" }] } },
+      notice: null,
+    };
+  }
+
   async function pick(name: RegExp) {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("combobox", { name: "Add effect" }));
@@ -611,6 +629,7 @@ describe("ClassView over an editable skin", () => {
   }
 
   it("adds an effect and a resolver key for a system that the resolver does not map", async () => {
+    loadSkeleton();
     renderSkin(true);
     await screen.findByRole("button", { name: SYSTEM_PATH });
 
@@ -624,6 +643,7 @@ describe("ClassView over an editable skin", () => {
   });
 
   it("adds an effect under the key that maps its system", async () => {
+    loadSkeleton();
     renderSkin(true);
     await screen.findByRole("button", { name: SYSTEM_PATH });
 
@@ -637,6 +657,13 @@ describe("ClassView over an editable skin", () => {
       path: `[2].${at("effectKey")}`,
       value: { type: "hash", text: EFFECT_KEY },
     });
+  });
+
+  it("offers no effect add while the skin has no joint to add it on", async () => {
+    renderSkin(true);
+
+    await screen.findByRole("button", { name: SYSTEM_PATH });
+    expect(screen.queryByRole("combobox", { name: "Add effect" })).toBeNull();
   });
 
   it("removes an effect from the skin's list", async () => {

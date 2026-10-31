@@ -1374,7 +1374,7 @@ fn every_kind_names_its_children_in_field_order() {
         [key("Attack1", true), key("Idle1", true)]
     );
     assert_eq!(children("Both"), [key("Idle1", true)]);
-    assert_eq!(children("Taunt"), [key("Run", true), key("Idle1", true)]);
+    assert_eq!(children("Taunt"), [key("Idle1", true), key("Run", true)]);
     assert_eq!(children("Stance"), [key("Idle1", true), key("Run", true)]);
     assert_eq!(children("Form"), [key("Idle1", true), key("Attack1", true)]);
 
@@ -1565,8 +1565,8 @@ fn every_child_field_hash_is_its_name() {
         ("mFalseConditionClipName", None),
         ("mConditionFloatPairDataList", Some("mClipName")),
         ("mClipNameList", None),
-        ("SelectorPairDataList", Some("ClipName")),
         ("DefaultClipName", None),
+        ("SelectorPairDataList", Some("ClipName")),
         ("ChildClipName", None),
         ("Transitions", Some("TargetClipName")),
         ("SwitchIntPairDataList", Some("ClipName")),
