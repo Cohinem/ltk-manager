@@ -2077,7 +2077,9 @@ export type DefineSource =
 /**  Picked in a shader def's preview, which writes nothing to the def. */
 "preview" | 
 /**  Set by the engine for the emitter that draws an engine particle shader. */
-"emitter";
+"emitter" | 
+/**  Set by the engine for the maps that a skin names. */
+"skin";
 
 /**  One dependency a `PROP` names, as its path and its brex spelling. */
 export type Dependency = {
@@ -2282,9 +2284,10 @@ export type Ending = {
 export type EnginePass = 
 /**
  *  The pass a skinned submesh draws with where its skin names no material, with
- *  `LIT_UBER` translated, over the shader cache `document` resolves against.
+ *  the `LIT_UBER` permutation of `shading` translated, over the shader cache `document`
+ *  resolves against.
  */
-{ kind: "defaultSkinned"; document: BinDocumentId } | 
+{ kind: "defaultSkinned"; document: BinDocumentId; shading: SkinnedShading } | 
 /**
  *  An engine particle shader's pass for the defines an emitter sets, over the shader
  *  cache `document` resolves against, and the install's alone where it is none.
@@ -5092,6 +5095,10 @@ export type MapSun = {
 	fogStartEnd: [(number | null), (number | null)],
 	/**  `fogEmissiveRemap`. */
 	fogEmissiveRemap: number | null,
+	/**  `HdrEnvDiffuseScale`, which scales the image-based light of a physically based shader. */
+	hdrEnvDiffuseScale: number | null,
+	/**  `PbrSunAdditionalScale`, which scales the sun of a physically based shader. */
+	pbrSunAdditionalScale: number | null,
 };
 
 /**  One map an object draws, and the skin that names it. */
@@ -8748,6 +8755,15 @@ export type SkinOutline = {
 	 */
 	material: OutlineMaterial | null,
 };
+
+/**  The `LIT_UBER` permutation that the maps of a skin select. */
+export type SkinnedShading = 
+/**  A colour texture and an emissive mask. */
+"base" | 
+/**  `FEATURE_ROUGHNESS_METALLIC`, which samples no emissive mask. */
+"roughnessMetallic" | 
+/**  `FEATURE_ROUGHNESS_METALLIC` and `FEATURE_TANGENT`, which read the mesh's tangents. */
+"roughnessMetallicNormal";
 
 /**  Why a property edit does not apply, as `ltk_game_data` names it. */
 export type SkipReason = "missingObject" | "missingProperty" | "nullPointer" | "cannotDescend" | "notIndexable" | "indexOutOfRange" | "invalidKey" | "keyNotFound" | "typeMismatch" | "invalidPath" | "untypable" | "unknownClass" | "pinMismatch" | "signOnScalar" | "containerAbsent" | "removalUnmatched" | "kindMismatch" | "outOfRange" | "precisionLoss" | "arityMismatch" | "referenceMissingEntry" | "referenceUnresolved" | "unknown";

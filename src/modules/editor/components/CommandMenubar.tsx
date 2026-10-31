@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, type RefObject, useMemo, useRef } from "react";
+import { Fragment, type ReactNode, type RefObject, useId, useMemo, useRef } from "react";
 
 import { Menu, Menubar, type MenubarMenu } from "@/components";
 
@@ -7,9 +7,11 @@ import {
   type CommandMenu,
   type CommandMenuCommand,
   type CommandMenuEntry,
+  type CommandMenuItem,
   compactMenuItems,
   compactMenus,
   flattenMenuCommands,
+  reasonRuns,
 } from "../utils/commandMenu";
 
 interface CommandMenubarProps {
@@ -87,60 +89,82 @@ function useMenuPalette(
   useDocumentCommands(documentId, offered);
 }
 
-/** The items of one built menu or submenu. */
+/**
+ * The items of one built menu or submenu.
+ *
+ * A run of items that one disabled reason covers draws the reason once, as a note above the run.
+ */
 export function CommandMenuItems({ items }: { items: readonly CommandMenuEntry[] }) {
-  return compactMenuItems(items).map((item, at) => {
-    switch (item.kind) {
-      case "separator":
-        return <Menu.Separator key={`separator:${at}`} />;
-      case "slot":
-        return <Fragment key={item.id}>{item.node}</Fragment>;
-      case "command":
-        return <CommandItem key={item.id} command={item} />;
-      case "check":
-        return (
-          <Menu.CheckboxItem
-            key={item.id}
-            icon={item.icon}
-            shortcut={item.shortcut}
-            checked={item.checked}
-            disabled={item.run === null}
-            onCheckedChange={() => item.run?.()}
-          >
-            {item.title}
-          </Menu.CheckboxItem>
-        );
-      case "radio":
-        return (
-          <Menu.RadioGroup
-            key={item.id}
-            value={item.value}
-            onValueChange={(next) => item.onPick(next as string)}
-          >
-            {item.options.map((option) => (
-              <Menu.RadioItem
-                key={option.value}
-                value={option.value}
-                icon={option.icon}
-                shortcut={option.shortcut}
-                disabled={option.disabled}
-              >
-                {option.title}
-              </Menu.RadioItem>
-            ))}
-          </Menu.RadioGroup>
-        );
-      case "submenu":
-        return (
-          <Menu.SubmenuRoot key={item.id}>
-            <Menu.SubmenuTrigger icon={item.icon}>{item.title}</Menu.SubmenuTrigger>
-            <Menu.SubmenuContent className={item.className}>
-              <CommandMenuItems items={item.items} />
-            </Menu.SubmenuContent>
-          </Menu.SubmenuRoot>
-        );
-    }
+  const noteId = useId();
+  const kept = compactMenuItems(items);
+  const runs = reasonRuns(kept);
+
+  return kept.map((item, at) => {
+    const drawn = <CommandMenuRow item={item} />;
+    const run = runs.find(({ first, last }) => first <= at && at <= last);
+    const key = item.kind === "separator" ? `separator:${at}` : item.id;
+    if (run === undefined) return <Fragment key={key}>{drawn}</Fragment>;
+
+    const id = `${noteId}:${run.first}`;
+
+    return (
+      <Fragment key={key}>
+        {at === run.first && <Menu.Note id={id}>{run.reason}</Menu.Note>}
+        <Menu.ReasonScope reason={run.reason} id={id}>
+          {drawn}
+        </Menu.ReasonScope>
+      </Fragment>
+    );
   });
+}
+
+/** One item of a built menu or submenu. */
+function CommandMenuRow({ item }: { item: CommandMenuItem }) {
+  switch (item.kind) {
+    case "separator":
+      return <Menu.Separator />;
+    case "slot":
+      return item.node;
+    case "command":
+      return <CommandItem command={item} />;
+    case "check":
+      return (
+        <Menu.CheckboxItem
+          icon={item.icon}
+          shortcut={item.shortcut}
+          checked={item.checked}
+          disabled={item.run === null}
+          onCheckedChange={() => item.run?.()}
+        >
+          {item.title}
+        </Menu.CheckboxItem>
+      );
+    case "radio":
+      return (
+        <Menu.RadioGroup value={item.value} onValueChange={(next) => item.onPick(next as string)}>
+          {item.options.map((option) => (
+            <Menu.RadioItem
+              key={option.value}
+              value={option.value}
+              icon={option.icon}
+              shortcut={option.shortcut}
+              disabled={option.disabled}
+            >
+              {option.title}
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      );
+    case "submenu":
+      return (
+        <Menu.SubmenuRoot>
+          <Menu.SubmenuTrigger icon={item.icon}>{item.title}</Menu.SubmenuTrigger>
+          <Menu.SubmenuContent className={item.className}>
+            <CommandMenuItems items={item.items} />
+          </Menu.SubmenuContent>
+        </Menu.SubmenuRoot>
+      );
+  }
 }
 
 /** One command as a menu item, with its glyph, its key and the reason it is disabled. */

@@ -141,7 +141,7 @@ export function Viewport({
   const characterLight = useMemo<CharacterLight>(() => ({ grid, sun: light }), [grid, light]);
   const edges = edgesOf(viewMode, wireOverlay);
   const view = useMemo(
-    () => ({ mode: viewMode, edges, edgeColour: colors.wire }),
+    () => ({ mode: viewMode, edges, edgeColour: colors.edge }),
     [viewMode, edges, colors],
   );
   const host = useCanvasHost(active, renderer === "shared");
@@ -226,7 +226,7 @@ export function Viewport({
                 visibility={backdropVisibility ?? map.visibility}
                 viewMode={viewMode}
                 edges={edges}
-                edgeColour={colors.wire}
+                edgeColour={colors.edge}
               />
             </>
           )}

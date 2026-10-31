@@ -38,6 +38,10 @@ const FOG_ALTERNATE_COLOR: BinHash = named("fogAlternateColor");
 const FOG_START_AND_END: BinHash = named("fogStartAndEnd");
 /// `MapSunProperties.fogEmissiveRemap`.
 const FOG_EMISSIVE_REMAP: BinHash = named("fogEmissiveRemap");
+/// `MapSunProperties.HdrEnvDiffuseScale`.
+const HDR_ENV_DIFFUSE_SCALE: BinHash = named("HdrEnvDiffuseScale");
+/// `MapSunProperties.PbrSunAdditionalScale`.
+const PBR_SUN_ADDITIONAL_SCALE: BinHash = named("PbrSunAdditionalScale");
 
 /// A map's sun, sky and fog, as its `MapSunProperties` states them.
 ///
@@ -73,6 +77,10 @@ pub struct MapSun {
     pub fog_start_end: [f32; 2],
     /// `fogEmissiveRemap`.
     pub fog_emissive_remap: f32,
+    /// `HdrEnvDiffuseScale`, which scales the image-based light of a physically based shader.
+    pub hdr_env_diffuse_scale: f32,
+    /// `PbrSunAdditionalScale`, which scales the sun of a physically based shader.
+    pub pbr_sun_additional_scale: f32,
 }
 
 impl Default for MapSun {
@@ -92,6 +100,8 @@ impl Default for MapSun {
             fog_alternate_color: [0.1, 0.1, 0.2, 1.0],
             fog_start_end: [0.0, -2000.0],
             fog_emissive_remap: 1.9,
+            hdr_env_diffuse_scale: 3.0,
+            pbr_sun_additional_scale: 10.0,
         }
     }
 }
@@ -123,6 +133,10 @@ fn sun_of(fields: &Fields) -> MapSun {
         fog_start_end: vector2(fields.get(&FOG_START_AND_END)).unwrap_or(stated.fog_start_end),
         fog_emissive_remap: float(fields.get(&FOG_EMISSIVE_REMAP))
             .unwrap_or(stated.fog_emissive_remap),
+        hdr_env_diffuse_scale: float(fields.get(&HDR_ENV_DIFFUSE_SCALE))
+            .unwrap_or(stated.hdr_env_diffuse_scale),
+        pbr_sun_additional_scale: float(fields.get(&PBR_SUN_ADDITIONAL_SCALE))
+            .unwrap_or(stated.pbr_sun_additional_scale),
     }
 }
 

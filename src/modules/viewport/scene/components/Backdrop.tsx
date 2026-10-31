@@ -34,6 +34,7 @@ import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/rende
 import { createRetainedCache, useRetained } from "../../shared/utils/retainedCache";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
 import { type DrawGroup, type MeshRun, runsInView } from "../utils/backdropRuns";
+import { createEdgeGeometry, edgeIndexOf, writeEdgeGroups } from "../utils/edgeGeometry";
 import { type GrassTextures, grassTextureFor } from "../utils/grassTint";
 import { KEEPS_GROUP_ORDER, type OrderedGroup } from "../utils/sharedRenderer";
 import type { SunLight } from "../utils/sunLight";
@@ -102,7 +103,12 @@ interface Written {
   token: object | null;
   /** The runs in view at the last write, reused as the output of the next. */
   readonly runs: MeshRun[];
+  /** The edge geometry that the last write reached, and null for none. */
+  edges: BufferGeometry | null;
 }
+
+/** The attributes the map's line segments read. */
+const EDGE_ATTRIBUTES = ["position"];
 
 /**
  * How far past its bounds a mesh is still drawn, in engine units.
@@ -132,7 +138,7 @@ function covers(slots: MaterialPreview | null | undefined): boolean {
  * group points at the material its submesh names, doubled where a mesh disables backface
  * culling, since a material is shared between flagged and unflagged meshes. A material
  * with a translated program draws under it, the stock one standing in where none did.
- * The edges of a wireframe mode are a second mesh over the same groups.
+ * The edges of a wireframe mode are line segments that follow the same groups.
  */
 export function Backdrop({
   map,
@@ -289,9 +295,29 @@ export function Backdrop({
   const bound = surfaces.bound;
   const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
 
+  const drawsEdges = edges !== "none";
+  const edgeIndex = useMemo(
+    () =>
+      drawsEdges
+        ? edgeIndexOf(
+            map.indices,
+            map.positions,
+            /* Every submesh, so a visibility change finds its edges written. */
+            map.submeshes,
+          )
+        : null,
+    [drawsEdges, map],
+  );
+  const edgeGeometry = useDisposable(
+    () => (edgeIndex === null ? null : createEdgeGeometry(geometry, edgeIndex, EDGE_ATTRIBUTES)),
+    [edgeIndex, geometry],
+  );
   const edgeMaterial = useDisposable(
-    () => (edges === "none" ? null : createEdgeMaterial(edgeColour, edges)),
-    [edges, edgeColour],
+    () =>
+      edges === "none" || edgeIndex === null
+        ? null
+        : createEdgeMaterial(edgeColour, edges, edgeIndex.spacing),
+    [edges, edgeColour, edgeIndex],
   );
   /* One entry per material, so the edges draw the same groups the surfaces do. */
   const edgeMaterials = useMemo(
@@ -306,6 +332,7 @@ export function Backdrop({
     projection: new Matrix4(),
     token: null,
     runs: [],
+    edges: null,
   });
 
   /* The groups are the meshes in view, nearest first, so they are written again when the
@@ -328,6 +355,7 @@ export function Backdrop({
     const last = written.current;
     const stale =
       last.drawn !== drawn ||
+      last.edges !== edgeGeometry ||
       last.token !== geometry.userData.written ||
       !last.projection.equals(PROJECTION);
     if (stale) {
@@ -336,7 +364,11 @@ export function Backdrop({
         INVERSE.copy(mesh.matrixWorld).invert(),
       );
       writeGroups(geometry, runsInView(drawn.runs, SEEN, EYE, last.runs));
+      if (edgeGeometry !== null && edgeIndex !== null) {
+        writeEdgeGroups(edgeGeometry, geometry.groups, edgeIndex.ranges);
+      }
 
+      last.edges = edgeGeometry;
       last.drawn = drawn;
       last.projection.copy(PROJECTION);
       last.token = geometry.userData.written as object;
@@ -413,9 +445,9 @@ export function Backdrop({
         }}
         ref={held}
       />
-      {edgeMaterials !== null && (
-        <mesh
-          geometry={geometry}
+      {edgeMaterials !== null && edgeGeometry !== null && (
+        <lineSegments
+          geometry={edgeGeometry}
           material={edgeMaterials}
           renderOrder={STAGE_ORDER}
           frustumCulled={false}

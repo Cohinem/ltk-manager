@@ -16,7 +16,7 @@ import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/
 import {
   BIND_POSE,
   bindingOf,
-  drawsPbr,
+  shadingOf,
   jointRig,
   nearestValue,
   openingClip,
@@ -410,21 +410,43 @@ describe("dataTextureAssets and bindingOf", () => {
   });
 });
 
-describe("drawsPbr", () => {
-  it("holds for a submesh with no material whose skin names a roughness map", () => {
-    const pbr = skin({ roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null } });
+describe("shadingOf", () => {
+  const held = (path: string) => ({ path, asset: chunk(path) });
 
-    expect(drawsPbr(pbr, "Body")).toBe(true);
-    expect(drawsPbr(skin(), "Body")).toBe(false);
+  it("selects the base permutation without a roughness map this machine holds", () => {
+    const absent = skin({ roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null } });
+
+    expect(shadingOf(skin(), "Body", true)).toBe("base");
+    expect(shadingOf(absent, "Body", true)).toBe("base");
   });
 
-  it("does not hold for a submesh a material draws", () => {
-    const covered = skin({
-      roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null },
-      material: material("0x1", null),
+  it("selects the normal feature only with a normal map and tangents", () => {
+    const rma = skin({ roughnessMetallicAoTexture: held("body_rma.tex") });
+    const both = skin({
+      roughnessMetallicAoTexture: held("body_rma.tex"),
+      normalMapTexture: held("body_nm.tex"),
     });
 
-    expect(drawsPbr(covered, "Body")).toBe(false);
+    expect(shadingOf(rma, "Body", true)).toBe("roughnessMetallic");
+    expect(shadingOf(both, "Body", false)).toBe("roughnessMetallic");
+    expect(shadingOf(both, "Body", true)).toBe("roughnessMetallicNormal");
+  });
+
+  it("reads the override's maps before the skin's", () => {
+    const hat = skin({
+      overrides: [
+        {
+          submesh: "Hat",
+          texture: null,
+          material: null,
+          roughnessMetallicAoTexture: held("hat_rma.tex"),
+          normalMapTexture: null,
+        },
+      ],
+    });
+
+    expect(shadingOf(hat, "hat", true)).toBe("roughnessMetallic");
+    expect(shadingOf(hat, "Body", true)).toBe("base");
   });
 });
 

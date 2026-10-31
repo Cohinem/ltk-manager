@@ -88,6 +88,7 @@ export function useInsertMenu(scope: MenuScope): CommandMenu {
       {
         kind: "slot",
         id: "insert.template",
+        reason: readOnly ?? viewReason,
         node: (
           <TemplateSubmenu
             place={{

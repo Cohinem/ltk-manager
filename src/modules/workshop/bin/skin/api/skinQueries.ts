@@ -10,6 +10,7 @@ import {
   type MaterialProgram,
   type PassProgram,
   type SkinModel,
+  type SkinnedShading,
 } from "@/lib/tauri";
 import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
@@ -43,18 +44,18 @@ export const skinQueries = {
       retry: false,
     }),
   /**
-   * The engine's default program for a submesh its skin names no material for, read
-   * through `document`, and nothing for a null document.
+   * The `shading` permutation of the engine's default program for a submesh its skin names no
+   * material for, read through `document`, and nothing for a null document.
    */
-  defaultProgram: (document: BinDocumentId | null) =>
+  defaultProgram: (document: BinDocumentId | null, shading: SkinnedShading) =>
     queryOptions<PassProgram, AppError>({
-      queryKey: ["skin-default-program", document],
+      queryKey: ["skin-default-program", document, shading],
       queryFn:
         document === null
           ? skipToken
           : async () =>
               unwrapForQuery(
-                await api.bin.readDefaultSkinnedProgram(document, { lowQuality: false }),
+                await api.bin.readDefaultSkinnedProgram(document, shading, { lowQuality: false }),
               ),
       staleTime: Infinity,
       retry: false,

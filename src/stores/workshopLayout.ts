@@ -78,6 +78,8 @@ interface PreviewDisplay {
   previewArmature: boolean;
   /** A character's materials draw with the game's own shaders, translated. */
   previewShaders: boolean;
+  /** A skin's `CharacterOutlineCategory` outline is drawn around it. */
+  previewOutlines: boolean;
   /** Each joint's name is written beside its dot. */
   previewJointNames: boolean;
   /** A skin's dynamics and sockets are drawn over it, as far as the three below allow. */
@@ -302,6 +304,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewArmature: false,
   previewShaders: false,
   previewJointNames: false,
+  previewOutlines: true,
   previewPhysics: true,
   previewSimulatedJoints: true,
   previewColliders: true,
@@ -560,6 +563,7 @@ export const usePreviewEffectsQuality = () =>
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
 export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);
+export const usePreviewOutlines = () => useWorkshopLayoutStore((s) => s.previewOutlines);
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewPhysics = () => useWorkshopLayoutStore((s) => s.previewPhysics);
 export const usePreviewSimulatedJoints = () =>

@@ -1,19 +1,16 @@
-import { ArrowsClockwiseIcon, ArrowsOutCardinalIcon } from "@phosphor-icons/react";
-import { use, useMemo } from "react";
+import { useMemo } from "react";
 
-import { IconButton, InputDefaultContext, Tooltip } from "@/components";
-import { m } from "@/i18n";
+import { InputDefaultContext } from "@/components";
 import type { BinRow, Socket } from "@/lib/tauri";
 
 import { FieldRow } from "../../classes/components/ClassCells";
 import { absentRow, type FieldSlot } from "../../vfx/inspector/components/StructFields";
 import { defaultField } from "../../vfx/inspector/utils/emitterGroups";
 import { useDynamicsEdit } from "../hooks/useDynamicsEdit";
-import { SkinChoiceContext } from "../state/skinChoice";
 import { FIELD } from "../utils/dynamicsFields";
 import { dynamicsLabel } from "../utils/dynamicsLabels";
 import { jointLabel } from "../utils/dynamicsModel";
-import { socketParentEdits, socketTurns } from "../utils/socketEdits";
+import { socketParentEdits } from "../utils/socketEdits";
 import { JointPicker } from "./JointPicker";
 import { Fields, usePhysicsScope, ValueSlot } from "./PhysicsCells";
 
@@ -47,44 +44,6 @@ export function SocketFields({ row, socket }: SocketFieldsProps) {
   };
 
   return <Fields row={row} special={special} />;
-}
-
-/** Whether the viewport's gizmo moves the picked socket or turns it. */
-export function SocketGizmoMode({ socket }: { socket: Socket }) {
-  const choice = use(SkinChoiceContext);
-  if (choice === null || socket.kind === "other") return null;
-
-  const turns = socketTurns(socket);
-  const turn = (
-    <IconButton
-      size="row"
-      pressed={turns && choice.socketMode === "rotate"}
-      icon={<ArrowsClockwiseIcon />}
-      label={m.workshop_bin_physics_socket_rotate_label()}
-      tooltip={turns}
-      disabled={!turns}
-      onClick={() => choice.setSocketMode("rotate")}
-    />
-  );
-
-  return (
-    <>
-      <IconButton
-        size="row"
-        pressed={!turns || choice.socketMode === "translate"}
-        icon={<ArrowsOutCardinalIcon />}
-        label={m.workshop_bin_physics_socket_move_label()}
-        onClick={() => choice.setSocketMode("translate")}
-      />
-      {turns && turn}
-      {!turns && (
-        /* A disabled button takes no pointer, so the reason hangs on a span around it. */
-        <Tooltip content={m.workshop_bin_physics_socket_rotate_none_hint()}>
-          <span className="flex">{turn}</span>
-        </Tooltip>
-      )}
-    </>
-  );
 }
 
 interface ParentJointProps {

@@ -12,6 +12,7 @@ import {
 
 import { skinQueries } from "../api/skinQueries";
 import {
+  type DefaultPrograms,
   defaultProgramAssets,
   defaultProgramOf,
   drawsDefaultProgram,
@@ -35,13 +36,15 @@ const NO_PASSES: readonly SubmeshProgram[] = [];
  * The translated passes of each submesh of `skin`, read from `document`, in draw order.
  *
  * A submesh with a material draws with every pass of its material that translated, and a
- * submesh without one with the engine's default program. The answer is empty for every
- * submesh while `shaders` is off.
+ * submesh without one with the engine's default program in the permutation its maps select.
+ * `tangents` says whether the mesh carries the tangents a normal map's permutation reads. The
+ * answer is empty for every submesh while `shaders` is off.
  */
 export function useSkinPrograms(
   document: BinDocumentId,
   skin: SkinModel,
   shaders: boolean,
+  tangents: boolean,
 ): (submesh: string) => readonly SubmeshProgram[] {
   const hashes = useMemo(() => (shaders ? materialHashes(skin) : NO_HASHES), [shaders, skin]);
   const programs = useQuery(skinQueries.programs(document, hashes)).data ?? NO_PROGRAMS;
@@ -49,7 +52,21 @@ export function useSkinPrograms(
   const textures = useAssetTextures(assets, RAW_TEXTURES);
 
   const defaults = shaders && drawsDefaultProgram(skin);
-  const fallback = useQuery(skinQueries.defaultProgram(defaults ? document : null)).data ?? null;
+  const pbr = defaults && namesAsset(skin, "roughnessMetallicAoTexture");
+  const normal = pbr && tangents && namesAsset(skin, "normalMapTexture");
+  const base = useQuery(skinQueries.defaultProgram(defaults ? document : null, "base")).data;
+  const rma = useQuery(skinQueries.defaultProgram(pbr ? document : null, "roughnessMetallic")).data;
+  const rmaNormal = useQuery(
+    skinQueries.defaultProgram(normal ? document : null, "roughnessMetallicNormal"),
+  ).data;
+  const fallbacks = useMemo<DefaultPrograms>(
+    () => ({
+      base: base ?? null,
+      roughnessMetallic: rma ?? null,
+      roughnessMetallicNormal: rmaNormal ?? null,
+    }),
+    [base, rma, rmaNormal],
+  );
   const fallbackAssets = useMemo(
     () => (defaults ? defaultProgramAssets(skin) : NO_ASSETS),
     [defaults, skin],
@@ -64,11 +81,19 @@ export function useSkinPrograms(
       const passes = programsOf(skin, programs, textures, submesh);
       if (passes.length > 0) return passes;
 
-      const standIn = defaultProgramOf(skin, fallback, fallbackTextures, submesh);
+      const standIn = defaultProgramOf(skin, fallbacks, fallbackTextures, submesh, tangents);
       return standIn === null ? NO_PASSES : [standIn];
     },
-    [shaders, skin, programs, textures, fallback, fallbackTextures],
+    [shaders, skin, programs, textures, fallbacks, fallbackTextures, tangents],
   );
+}
+
+/** Whether the skin or one of its overrides names a held texture in `field`. */
+function namesAsset(
+  skin: SkinModel,
+  field: "roughnessMetallicAoTexture" | "normalMapTexture",
+): boolean {
+  return [skin, ...skin.overrides].some((owner) => Boolean(owner[field]?.asset));
 }
 
 /** `textures` with a black emissive mask where the skin names no emissive texture. */

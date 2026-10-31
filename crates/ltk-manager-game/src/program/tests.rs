@@ -372,12 +372,14 @@ fn the_default_skinned_program_is_lit_uber_with_a_texture_per_submesh() {
 
     let default = read_default_skinned_program(
         &(),
+        SkinnedShading::Base,
         ProgramOptions::default(),
         &TranslationCache::default(),
         &mut read,
     );
 
     assert_eq!(default.pass.shader.as_deref(), Some(LIT_UBER_NAME));
+    assert!(default.pass.defines.is_empty());
     let names: Vec<&str> = default
         .pass
         .textures
@@ -393,4 +395,39 @@ fn the_default_skinned_program_is_lit_uber_with_a_texture_per_submesh() {
                 .to_owned(),
         }
     );
+}
+
+#[test]
+fn the_default_skinned_program_selects_the_features_of_its_shading() {
+    let mut read =
+        |asset: &AssetRef| -> AppResult<Vec<u8>> { panic!("nothing is located: {asset:?}") };
+
+    let default = read_default_skinned_program(
+        &(),
+        SkinnedShading::RoughnessMetallicNormal,
+        ProgramOptions::default(),
+        &TranslationCache::default(),
+        &mut read,
+    );
+
+    let defines: Vec<(&str, &str)> = default
+        .pass
+        .defines
+        .iter()
+        .map(|define| (define.name.as_str(), define.value.as_str()))
+        .collect();
+    assert_eq!(
+        defines,
+        [
+            ("FEATURE_ROUGHNESS_METALLIC", "1"),
+            ("FEATURE_TANGENT", "1"),
+        ]
+    );
+    let names: Vec<&str> = default
+        .pass
+        .textures
+        .iter()
+        .map(|texture| texture.name.as_str())
+        .collect();
+    assert_eq!(names, [LIT_UBER_DIFFUSE, LIT_UBER_RMA, LIT_UBER_NORMAL]);
 }

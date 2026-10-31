@@ -216,6 +216,8 @@ pub enum DefineSource {
     Preview,
     /// Set by the engine for the emitter that draws an engine particle shader.
     Emitter,
+    /// Set by the engine for the maps that a skin names.
+    Skin,
 }
 
 /// A static switch the shader reads as a `$Globals` float rather than a define.

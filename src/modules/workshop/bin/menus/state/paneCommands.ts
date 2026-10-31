@@ -1,4 +1,12 @@
-import { createContext, use, useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 /** One command that a pane offers the menu bar of its object tab. */
 export interface PaneCommand {
@@ -131,11 +139,24 @@ export function usePaneCommands(source: string, commands: PaneCommands): PaneFoc
   return { onFocusCapture: focus, onPointerDownCapture: focus };
 }
 
-/** Returns the offer of each of `ids` that a pane of the enclosing tab makes now. */
+/**
+ * Returns a function that reads the offer of a command id that a pane of the enclosing tab makes.
+ *
+ * The function changes with each change of the commands, because the React Compiler keeps a call
+ * of it until its identity changes.
+ */
 export function usePaneCommandLookup(): (id: string) => PaneCommand | null {
   const hub = use(PaneCommandsContext);
-  useSyncExternalStore(hub?.subscribe ?? noSubscription, hub?.version ?? noVersion);
+  const version = useSyncExternalStore(hub?.subscribe ?? noSubscription, hub?.version ?? noVersion);
 
+  return useMemo(() => lookupAt(hub, version), [hub, version]);
+}
+
+/** Returns a reader of `hub`, a new one for each `version` of its commands. */
+function lookupAt(
+  hub: PaneCommandHub | null,
+  _version: number,
+): (id: string) => PaneCommand | null {
   return (id) => hub?.resolve(id) ?? null;
 }
 

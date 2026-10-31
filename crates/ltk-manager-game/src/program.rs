@@ -48,6 +48,46 @@ pub const LIT_UBER_DIFFUSE: &str = "DIFFUSE_MAP";
 /// The skin's emissive texture. Its green channel replaces the grid light of a texel.
 pub const LIT_UBER_EMISSIVE: &str = "EMISSIVE_MAP";
 
+/// The skin's `RoughnessMetallicAoTexture`, `RMA_MAP__TX` in the bytecode.
+pub const LIT_UBER_RMA: &str = "RMA_MAP";
+
+/// The skin's `normalMapTexture`, `NORMAL_MAP__TX` in the bytecode.
+pub const LIT_UBER_NORMAL: &str = "NORMAL_MAP";
+
+/// The `LIT_UBER` permutation that the maps of a skin select.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum SkinnedShading {
+    /// A colour texture and an emissive mask.
+    #[default]
+    Base,
+    /// `FEATURE_ROUGHNESS_METALLIC`, which samples no emissive mask.
+    RoughnessMetallic,
+    /// `FEATURE_ROUGHNESS_METALLIC` and `FEATURE_TANGENT`, which read the mesh's tangents.
+    RoughnessMetallicNormal,
+}
+
+impl SkinnedShading {
+    /// The defines that select the permutation.
+    const fn features(self) -> &'static [&'static str] {
+        match self {
+            Self::Base => &[],
+            Self::RoughnessMetallic => &["FEATURE_ROUGHNESS_METALLIC"],
+            Self::RoughnessMetallicNormal => &["FEATURE_ROUGHNESS_METALLIC", "FEATURE_TANGENT"],
+        }
+    }
+
+    /// The textures that the permutation samples by name.
+    const fn textures(self) -> &'static [&'static str] {
+        match self {
+            Self::Base => &[LIT_UBER_DIFFUSE, LIT_UBER_EMISSIVE],
+            Self::RoughnessMetallic => &[LIT_UBER_DIFFUSE, LIT_UBER_RMA],
+            Self::RoughnessMetallicNormal => &[LIT_UBER_DIFFUSE, LIT_UBER_RMA, LIT_UBER_NORMAL],
+        }
+    }
+}
+
 /// An engine particle shader pair, which the mesh an emitter resolves and its uv mode pick.
 ///
 /// The `particle_shaders` example finds each file in an installed shader cache.
@@ -666,23 +706,32 @@ fn material_program(
 /// The pass the engine draws a skinned submesh with where its skin names no material,
 /// with its program.
 ///
-/// The pass is `LIT_UBER`'s base permutation, without the normal, gloss or roughness maps
-/// that select its other features. Its textures name no asset. Each submesh binds its
-/// colour texture and the skin's emissive texture by name.
+/// The pass is the `LIT_UBER` permutation that `shading` selects. Its textures name no asset.
+/// Each submesh binds the permutation's textures by name.
 pub fn read_default_skinned_program(
     assets: &dyn AssetLookup,
+    shading: SkinnedShading,
     options: ProgramOptions,
     translations: &TranslationCache,
     read: &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
 ) -> PassProgram {
     let pass = ResolvedPass {
         shader: Some(LIT_UBER_NAME.to_owned()),
-        defines: Vec::new(),
+        defines: shading
+            .features()
+            .iter()
+            .map(|name| Define {
+                name: (*name).to_owned(),
+                value: "1".to_owned(),
+                source: DefineSource::Skin,
+            })
+            .collect(),
         runtime_switches: Vec::new(),
-        textures: [LIT_UBER_DIFFUSE, LIT_UBER_EMISSIVE]
-            .into_iter()
+        textures: shading
+            .textures()
+            .iter()
             .map(|name| PassTexture {
-                name: name.to_owned(),
+                name: (*name).to_owned(),
                 texture: None,
                 source: TextureSource::Fallback,
                 sampler: SamplerState::default(),

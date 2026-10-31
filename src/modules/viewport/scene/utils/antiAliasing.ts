@@ -1,8 +1,9 @@
 /**
- * How a viewport smooths its edges once the frame is drawn.
+ * How a viewport smooths its edges once the frame is drawn, over the drawing buffer's
+ * multisampling.
  *
- * The game draws without multisampling and offers only FXAA, as `[Performance] EnableFXAA`.
- * SMAA is the 1x MEDIUM preset the game ships shaders for but never runs.
+ * The game offers only FXAA, as `[Performance] EnableFXAA`. SMAA is the 1x MEDIUM preset the game
+ * ships shaders for but never runs.
  */
 export type AntiAliasing = "off" | "fxaa" | "smaa";
 
