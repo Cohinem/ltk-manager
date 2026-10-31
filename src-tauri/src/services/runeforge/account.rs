@@ -13,7 +13,7 @@ use super::state;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::running_version;
 use crate::services::shared::off_thread;
-use crate::state::{persist_settings, SettingsState};
+use crate::state::{persist_settings, AuthorProfile, SettingsState};
 
 /// The RuneForge connection as the Settings section shows it.
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -103,10 +103,114 @@ fn write_account(app: &AppHandle, account: Option<ConnectedAccount>) -> AppResul
     let state = app.state::<SettingsState>();
     let settings = {
         let mut settings = state.0.lock();
+
+        if let Some(account) = &account {
+            sync_linked_profile(&mut settings.author_profiles, account);
+        }
+
         settings.runeforge = account;
         settings.clone()
     };
 
     persist_settings(app, &settings)?;
     Ok(())
+}
+
+/// Renames the author profile linked to `account` to the name of the account.
+///
+/// Skips the rename if the account has no name or if another profile has that name.
+fn sync_linked_profile(profiles: &mut [AuthorProfile], account: &ConnectedAccount) {
+    let name = account
+        .display_name
+        .as_deref()
+        .filter(|name| !name.is_empty())
+        .unwrap_or(&account.username);
+
+    if name.is_empty() {
+        return;
+    }
+
+    let Some(linked) = profiles
+        .iter()
+        .position(|profile| profile.runeforge_user_id.as_deref() == Some(account.user_id.as_str()))
+    else {
+        return;
+    };
+
+    let lowered = name.to_lowercase();
+    let taken = profiles
+        .iter()
+        .enumerate()
+        .any(|(index, profile)| index != linked && profile.name.to_lowercase() == lowered);
+
+    if !taken {
+        profiles[linked].name = name.to_string();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn profile(id: &str, name: &str, runeforge_user_id: Option<&str>) -> AuthorProfile {
+        AuthorProfile {
+            id: id.to_string(),
+            name: name.to_string(),
+            role: None,
+            runeforge_user_id: runeforge_user_id.map(str::to_string),
+        }
+    }
+
+    fn account(display_name: Option<&str>, username: &str) -> ConnectedAccount {
+        ConnectedAccount {
+            user_id: "user-1".to_string(),
+            username: username.to_string(),
+            display_name: display_name.map(str::to_string),
+            token_prefix: "BmuoIFAi".to_string(),
+            scopes: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn sync_linked_profile_renames_linked_profile() {
+        let mut profiles = vec![
+            profile("a", "Old", Some("user-1")),
+            profile("b", "Other", None),
+        ];
+
+        sync_linked_profile(&mut profiles, &account(Some("New"), "new"));
+
+        assert_eq!(profiles[0].name, "New");
+        assert_eq!(profiles[1].name, "Other");
+    }
+
+    #[test]
+    fn sync_linked_profile_falls_back_to_username() {
+        let mut profiles = vec![profile("a", "Old", Some("user-1"))];
+
+        sync_linked_profile(&mut profiles, &account(Some(""), "new"));
+
+        assert_eq!(profiles[0].name, "new");
+    }
+
+    #[test]
+    fn sync_linked_profile_skips_name_of_another_profile() {
+        let mut profiles = vec![
+            profile("a", "Old", Some("user-1")),
+            profile("b", "NEW", None),
+        ];
+
+        sync_linked_profile(&mut profiles, &account(Some("New"), "new"));
+
+        assert_eq!(profiles[0].name, "Old");
+    }
+
+    #[test]
+    fn sync_linked_profile_skips_profile_of_another_user() {
+        let mut profiles = vec![profile("a", "Old", Some("user-2"))];
+
+        sync_linked_profile(&mut profiles, &account(Some("New"), "new"));
+
+        assert_eq!(profiles[0].name, "Old");
+    }
 }

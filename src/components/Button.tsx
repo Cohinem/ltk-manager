@@ -121,7 +121,7 @@ const lookClasses: Record<ButtonVariant, Partial<Record<ButtonTone, ButtonLookCl
 };
 
 const baseClasses =
-  "relative inline-flex items-center justify-center font-medium rounded-md transition-colors cursor-pointer select-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed";
+  "relative inline-flex items-center justify-center font-medium whitespace-nowrap rounded-md transition-colors cursor-pointer select-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed";
 
 const spinnerSize: Record<ButtonSize, SpinnerSize> = {
   xs: 14,

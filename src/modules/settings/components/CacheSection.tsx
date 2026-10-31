@@ -209,7 +209,7 @@ export function CacheSection() {
             Hash tables give game files their readable names. The cache is shared with other
             LeagueToolkit tools on this machine.
           </p>
-          <p className="truncate font-mono text-xs text-surface-500" title={status.dir}>
+          <p className="truncate font-mono text-xs text-surface-400" title={status.dir}>
             {status.dir}
           </p>
         </div>
@@ -239,7 +239,7 @@ export function CacheSection() {
                     {downloadSizeLabel(updates.downloadBytes)}
                   </Badge>
                 )}
-                {updates?.upToDate && <span className="text-xs text-surface-500">Up to date</span>}
+                {updates?.upToDate && <span className="text-xs text-surface-400">Up to date</span>}
               </div>
               {/* Inset on the card, not the page: DS-GROUND. */}
               <ul className="flex flex-col rounded-lg bg-surface-950/40 px-3 py-1">
@@ -250,11 +250,11 @@ export function CacheSection() {
                     title={sourceLabel(table)}
                   >
                     <span className="text-surface-200">{tableLabel(table.id)}</span>
-                    <span className="text-xs text-surface-500">
+                    <span className="text-xs text-surface-400">
                       {table.entries.toLocaleString()} entries
                     </span>
                     {table.version && (
-                      <span className="text-xs text-surface-500 tabular-nums">
+                      <span className="text-xs text-surface-400 tabular-nums">
                         {table.version}
                         {behind.has(table.id) && ` → ${behind.get(table.id)!.want}`}
                       </span>
@@ -271,12 +271,12 @@ export function CacheSection() {
               </ul>
               {/* Beside the list rather than in it: the schema is not a table
                   and carries none of the columns the rows draw. */}
-              <p className="text-xs text-surface-500" title={hashSourceLabel(status.schema)}>
+              <p className="text-xs text-surface-400" title={hashSourceLabel(status.schema)}>
                 {SCHEMA_LABEL} {schemaLabel(status.schema)}
                 {updates?.schemaBehind && ` → ${schemaLabel(updates.schemaBehind)}`}
               </p>
               {status.missing.length > 0 && (
-                <p className="text-xs text-surface-500">
+                <p className="text-xs text-surface-400">
                   Not downloaded yet: {status.missing.map(tableLabel).join(", ")}.
                 </p>
               )}

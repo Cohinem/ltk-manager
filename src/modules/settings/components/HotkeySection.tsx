@@ -1,5 +1,4 @@
-import { XIcon } from "@phosphor-icons/react";
-import { Keyboard } from "lucide-react";
+import { KeyboardIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button, ButtonGroup, IconButton, SectionCard, useToast } from "@/components";
@@ -16,12 +15,11 @@ export function HotkeySection() {
   const settings = useLoadedSettings();
   const update = useUpdateSettings();
   return (
-    <SectionCard title="Hotkeys" icon={<Keyboard className="size-5" />}>
-      <p className="text-sm text-surface-400">
-        System-wide keyboard shortcuts that work even when the app is not focused. Useful for
-        quickly reloading mods while testing in-game.
-      </p>
-
+    <SectionCard
+      title="Hotkeys"
+      icon={<KeyboardIcon className="size-5" />}
+      description="System-wide keyboard shortcuts that work even when the app is not focused. Useful for quickly reloading mods while testing in-game."
+    >
       <SettingRows>
         <HotkeyRow
           setting="reloadModsHotkey"
@@ -153,7 +151,7 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
           ) : (
             <Button
               variant="outline"
-              left={<Keyboard className="size-3.5" />}
+              left={<KeyboardIcon className="size-3.5" />}
               onClick={() => startCapture()}
               loading={isPending}
             >

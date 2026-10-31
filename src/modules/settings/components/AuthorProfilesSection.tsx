@@ -1,5 +1,6 @@
 import {
   CheckIcon,
+  LinkBreakIcon,
   PencilSimpleIcon,
   PlusIcon,
   StarIcon,
@@ -7,6 +8,7 @@ import {
   UsersThreeIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import {
@@ -15,14 +17,19 @@ import {
   EmptyState,
   Field,
   IconButton,
+  Inline,
   ListEditor,
   type ListEditorAction,
+  RuneforgeIcon,
   SectionCard,
   useToast,
 } from "@/components";
+import { m } from "@/i18n";
 import type { AuthorProfile } from "@/lib/tauri";
+import { runeforgeQueries } from "@/modules/runeforge/api";
 
 import { useLoadedSettings, useUpdateSettings } from "../api";
+import { type AccountProfileSuggestion, accountProfileSuggestion } from "../authorProfileLink";
 
 /** A cap the UI imposes on itself - settings will hold as many as it is given. */
 const MAX_PROFILES = 5;
@@ -40,6 +47,7 @@ export function AuthorProfilesSection() {
   const update = useUpdateSettings();
   const [draft, setDraft] = useState<Draft | null>(null);
   const { toast } = useToast();
+  const account = useQuery(runeforgeQueries.status()).data?.account;
 
   const profiles = settings.authorProfiles ?? [];
   const defaultId = settings.defaultAuthorProfileId;
@@ -52,6 +60,7 @@ export function AuthorProfilesSection() {
   const rows = buildRows(profiles, draft);
   /* Counted off the rows so an unsaved one takes up its place before it is committed. */
   const atLimit = rows.length >= MAX_PROFILES;
+  const suggestion = accountProfileSuggestion(profiles, account, atLimit);
 
   function beginAdd() {
     if (atLimit) return;
@@ -70,7 +79,7 @@ export function AuthorProfilesSection() {
 
     const role = draft.role.trim() || null;
     const updated = draft.isNew
-      ? [...profiles, { id: draft.id, name, role }]
+      ? [...profiles, { id: draft.id, name, role, runeforgeUserId: null }]
       : profiles.map((profile) => (profile.id === draft.id ? { ...profile, name, role } : profile));
 
     setDraft(null);
@@ -118,6 +127,33 @@ export function AuthorProfilesSection() {
     update({ defaultAuthorProfileId: defaultId === profile.id ? null : profile.id });
   }
 
+  function setLink(profile: AuthorProfile, runeforgeUserId: string | null) {
+    update({
+      authorProfiles: profiles.map((p) => (p.id === profile.id ? { ...p, runeforgeUserId } : p)),
+    });
+  }
+
+  function acceptSuggestion(accepted: AccountProfileSuggestion) {
+    if (!account) return;
+
+    if (accepted.kind === "link") {
+      setLink(accepted.profile, account.userId);
+      return;
+    }
+
+    update({
+      authorProfiles: [
+        ...profiles,
+        {
+          id: crypto.randomUUID(),
+          name: accepted.name,
+          role: null,
+          runeforgeUserId: account.userId,
+        },
+      ],
+    });
+  }
+
   const actions: ListEditorAction<AuthorProfile>[] = [
     {
       placement: "leading",
@@ -125,6 +161,12 @@ export function AuthorProfilesSection() {
       label: (profile) => (defaultId === profile.id ? "Clear default" : "Set as default"),
       pinned: (profile) => defaultId === profile.id,
       onSelect: toggleDefault,
+    },
+    {
+      icon: <LinkBreakIcon weight="bold" className="size-4" />,
+      label: m.settings_author_profile_runeforge_unlink_action(),
+      hidden: (profile) => !account || profile.runeforgeUserId !== account.userId,
+      onSelect: (profile) => setLink(profile, null),
     },
     {
       icon: <PencilSimpleIcon weight="bold" className="size-4" />,
@@ -145,17 +187,19 @@ export function AuthorProfilesSection() {
       icon={<UsersThreeIcon className="size-5" />}
       description="Saved author identities you can reuse across projects."
       action={
-        <div className="flex items-center gap-2">
-          <ProfileCount used={rows.length} />
-          <Button
-            variant="outline"
-            left={<PlusIcon weight="bold" className="size-4" />}
-            onClick={beginAdd}
-            disabled={atLimit}
-          >
-            Add Profile
-          </Button>
-        </div>
+        rows.length > 0 && (
+          <div className="flex items-center gap-2">
+            <ProfileCount used={rows.length} />
+            <Button
+              variant="outline"
+              left={<PlusIcon weight="bold" className="size-4" />}
+              onClick={beginAdd}
+              disabled={atLimit}
+            >
+              Add profile
+            </Button>
+          </div>
+        )
       }
     >
       <ListEditor
@@ -165,7 +209,11 @@ export function AuthorProfilesSection() {
         actions={actions}
         onActivate={beginEdit}
         renderItem={(profile) => (
-          <ProfileRow profile={profile} isDefault={defaultId === profile.id} />
+          <ProfileRow
+            profile={profile}
+            isDefault={defaultId === profile.id}
+            isLinked={!!account && profile.runeforgeUserId === account.userId}
+          />
         )}
         renderEditor={() => {
           if (!draft) return null;
@@ -186,17 +234,31 @@ export function AuthorProfilesSection() {
             title="No profiles yet"
             description="Add your author profile, and use it by default."
             action={
-              <Button
-                variant="tonal"
-                left={<PlusIcon weight="bold" className="size-4" />}
-                onClick={beginAdd}
-              >
-                Add Profile
-              </Button>
+              <Inline gap={2} justify="center" wrap>
+                {suggestion && (
+                  <SuggestionButton suggestion={suggestion} onAccept={acceptSuggestion} />
+                )}
+                <Button
+                  variant={suggestion ? "outline" : "tonal"}
+                  left={<PlusIcon weight="bold" className="size-4" />}
+                  onClick={beginAdd}
+                >
+                  Add profile
+                </Button>
+              </Inline>
             }
           />
         }
-        footer={<ProfilesHint atLimit={atLimit} hasDefault={!!defaultId} count={rows.length} />}
+        footer={
+          <>
+            {suggestion && rows.length > 0 && (
+              <Inline>
+                <SuggestionButton suggestion={suggestion} onAccept={acceptSuggestion} quiet />
+              </Inline>
+            )}
+            <ProfilesHint atLimit={atLimit} hasDefault={!!defaultId} count={rows.length} />
+          </>
+        }
       />
     </SectionCard>
   );
@@ -205,7 +267,10 @@ export function AuthorProfilesSection() {
 /** The unsaved row renders in place, so it joins the list before it exists in settings. */
 function buildRows(profiles: AuthorProfile[], draft: Draft | null): AuthorProfile[] {
   if (!draft?.isNew) return profiles;
-  return [...profiles, { id: draft.id, name: draft.name, role: draft.role || null }];
+  return [
+    ...profiles,
+    { id: draft.id, name: draft.name, role: draft.role || null, runeforgeUserId: null },
+  ];
 }
 
 function hasDuplicateName(profiles: AuthorProfile[], draft: Draft | null): boolean {
@@ -214,7 +279,37 @@ function hasDuplicateName(profiles: AuthorProfile[], draft: Draft | null): boole
   return profiles.some((profile) => profile.id !== draft.id && profile.name.toLowerCase() === name);
 }
 
-function ProfileRow({ profile, isDefault }: { profile: AuthorProfile; isDefault: boolean }) {
+interface SuggestionButtonProps {
+  suggestion: AccountProfileSuggestion;
+  onAccept: (suggestion: AccountProfileSuggestion) => void;
+  /** Draws the button as a `ghost`, for the footer of a list that already has rows. */
+  quiet?: boolean;
+}
+
+function SuggestionButton({ suggestion, onAccept, quiet = false }: SuggestionButtonProps) {
+  const label =
+    suggestion.kind === "add"
+      ? m.settings_author_profile_runeforge_add_action({ name: suggestion.name })
+      : m.settings_author_profile_runeforge_link_action({ name: suggestion.profile.name });
+
+  return (
+    <Button
+      variant={quiet ? "ghost" : "tonal"}
+      left={<RuneforgeIcon className="size-4" />}
+      onClick={() => onAccept(suggestion)}
+    >
+      {label}
+    </Button>
+  );
+}
+
+interface ProfileRowProps {
+  profile: AuthorProfile;
+  isDefault: boolean;
+  isLinked: boolean;
+}
+
+function ProfileRow({ profile, isDefault, isLinked }: ProfileRowProps) {
   return (
     <div className="flex min-w-0 flex-col">
       <div className="flex min-w-0 items-center gap-2">
@@ -226,6 +321,11 @@ function ProfileRow({ profile, isDefault }: { profile: AuthorProfile; isDefault:
             Default
           </Badge>
         )}
+        {isLinked && (
+          <Badge icon={<RuneforgeIcon className="size-3" />} className="shrink-0">
+            {m.settings_author_profile_runeforge_label()}
+          </Badge>
+        )}
       </div>
       <RoleLine role={profile.role} />
     </div>
@@ -233,7 +333,7 @@ function ProfileRow({ profile, isDefault }: { profile: AuthorProfile; isDefault:
 }
 
 function RoleLine({ role }: { role: string | null }) {
-  if (!role) return <span className="truncate text-xs text-surface-500">No role set</span>;
+  if (!role) return <span className="truncate text-xs text-surface-400">No role set</span>;
   return <span className="truncate text-xs text-surface-400 select-text">{role}</span>;
 }
 
@@ -314,7 +414,7 @@ function DefaultStar({ active }: { active: boolean }) {
 function ProfileCount({ used }: { used: number }) {
   if (used === 0) return null;
   return (
-    <span className="text-xs text-surface-500 tabular-nums">
+    <span className="text-xs text-surface-400 tabular-nums">
       {used}/{MAX_PROFILES}
     </span>
   );
@@ -330,11 +430,11 @@ function ProfilesHint({
   count: number;
 }) {
   if (atLimit) {
-    return <p className="px-2 text-xs text-surface-500">Remove a profile to add another.</p>;
+    return <p className="px-2 text-xs text-surface-400">Remove a profile to add another.</p>;
   }
   if (hasDefault || count === 0) return null;
   return (
-    <p className="px-2 text-xs text-surface-500">
+    <p className="px-2 text-xs text-surface-400">
       Set a default profile to fill new projects with it automatically.
     </p>
   );

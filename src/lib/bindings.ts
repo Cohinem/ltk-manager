@@ -464,6 +464,8 @@ export type AuthorProfile = {
 	id: string,
 	name: string,
 	role: string | null,
+	/**  The id of the RuneForge user that this profile follows, or `None` if it is not linked. */
+	runeforgeUserId: string | null,
 };
 
 /**  One bin that declares a bank unit. */

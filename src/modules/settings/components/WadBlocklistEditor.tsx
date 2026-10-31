@@ -268,7 +268,7 @@ function ExactAddRow({
         </p>
       )}
       {noWadsAvailable && (
-        <p className="text-xs text-surface-500">No WAD files were found under DATA.</p>
+        <p className="text-xs text-surface-400">No WAD files were found under DATA.</p>
       )}
     </div>
   );
@@ -386,12 +386,12 @@ function RegexAddRow({
           </p>
         ))
         .with({ trimmed: "" }, () => (
-          <p className="text-xs text-surface-500">
+          <p className="text-xs text-surface-400">
             Case-insensitive. Matches each WAD filename individually.
           </p>
         ))
         .with({ valid: true, availableWadsReady: false }, () => (
-          <p className="text-xs text-surface-500">Valid regex (preview unavailable).</p>
+          <p className="text-xs text-surface-400">Valid regex (preview unavailable).</p>
         ))
         .with({ valid: true, matchCount: P.number }, ({ matchCount: n }) => (
           <p className="text-xs text-surface-400">
@@ -435,13 +435,13 @@ function BlocklistRow({
             {entry.value}
           </span>
           {canExpand && (
-            <Disclosure.Trigger className="flex shrink-0 items-center gap-0.5 text-xs text-surface-500 hover:text-surface-300">
+            <Disclosure.Trigger className="flex shrink-0 items-center gap-0.5 text-xs text-surface-400 hover:text-surface-300">
               <Disclosure.Caret className="size-3 text-current" />
               {matches.length} matched
             </Disclosure.Trigger>
           )}
           {matches !== null && matches.length === 0 && (
-            <span className="shrink-0 text-xs text-surface-500">· no matches</span>
+            <span className="shrink-0 text-xs text-surface-400">· no matches</span>
           )}
         </div>
         <IconButton icon={<XIcon />} onClick={onRemove} aria-label={`Remove ${entry.value}`} />
