@@ -16,7 +16,7 @@ import {
   placeableControllerEdits,
   splitSelection,
 } from "../utils/visibilityAuthoring";
-import { useGeometryMeshes } from "./useGeometryMeshes";
+import { useSelectedMeshes } from "./useSelectedMeshes";
 
 const NO_CHUNKS: readonly MapChunk[] = [];
 
@@ -46,7 +46,7 @@ export interface VisibilityAuthoring {
 /** The visibility authoring actions over the map scene in view. */
 export function useVisibilityAuthoring(): VisibilityAuthoring {
   const { editable, apply, editGeometry, selected, select, setHidden, materials } = useMapScene();
-  const { meshes } = useGeometryMeshes();
+  const { meshes } = useSelectedMeshes();
   const chunks = useQuery(mapQueries.outline(materials)).data ?? NO_CHUNKS;
 
   const assign = useCallback(

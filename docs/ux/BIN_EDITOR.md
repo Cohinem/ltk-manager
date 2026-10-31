@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-31 | Add a menu bar to every object tab, in place of the kebab and Panes      |
 | 2026-10-15 | Draw the sprite sheet in the Texture group, and pick its frames on it    |
 | 2026-10-15 | Duplicate an object as a new one from its own tab                        |
 | 2026-10-15 | Create, duplicate and remove objects in a bin the project holds          |
@@ -816,7 +817,7 @@ install's copy and a layer's sit side by side, and the layout is the diff.
 The object's properties, from depth zero. The header is the object, and no row repeats it.
 
 ```
-│ ◈ Resources · Aatrox.wad/…/skin0.bin  SkinCharacterDataProperties                         ⋮ │
+│ File Edit View  Aatrox.wad/…/skin0.bin > SkinCharacterDataProperties                         │
 │ ├ skinClassification            u32          1                                               │
 │ ├ championSkinName              string       "Justicar Aatrox"                               │
 │ ├ ▸ skinMeshProperties          embed        SkinMeshDataProperties                          │
@@ -826,11 +827,11 @@ The object's properties, from depth zero. The header is the object, and no row r
 The facts sit at the trailing edge of the tab row, the [document chrome](PROJECT_EDITOR.md#document-chrome)
 rule of one row per leaf.
 
-| Fact  | Reads                                                                  |
-| ----- | ---------------------------------------------------------------------- |
-| Class | The class the declaration carries, as a [card](#the-class-card)        |
-| Mode  | The layout or Properties, where the class has a [layout](#class-views) |
-| Kebab | The object's and the class's actions, per `DS-GLYPH-ROLE`              |
+| Fact  | Reads                                                                       |
+| ----- | --------------------------------------------------------------------------- |
+| Class | The class the declaration carries, as a [card](#the-class-card)             |
+| Mode  | The layout or Properties, where the class has a [layout](#class-views)      |
+| Menu  | The object's, the class's and the view's actions, per [Menu bar](#menu-bar) |
 
 The other files declaring the object are in the [Sandbox options](#the-sandbox), which lead
 the row.
@@ -838,23 +839,59 @@ the row.
 The row carries no property count. The tree under it is the count, one row per property, and a
 tally of what is already on screen is a fact the reader reads twice.
 
-**The row holds what the reader looks at, and the kebab holds what they do.** The class, the mode
-and the kebab stay at every width. A toolbar never wraps or scrolls, because a second row costs
-the tree a row of content at the width that has the least of it, and a control that has scrolled
-out of a row is a control nobody finds.
+**The row holds what the reader looks at, and the menu bar holds what they do.** The class and the
+mode stay at every width. A toolbar never wraps or scrolls, because a second row costs the tree a
+row of content at the width that has the least of it, and a control that has scrolled out of a row
+is a control nobody finds.
 
-The kebab is where the header's actions live, because a header is the one place a name sits with
-no row under it to right-click. It leads with Show in file, which opens the declaring file's tab
-scrolled to the object, and Collapse all, which shuts every folder of the properties tree and is
-disabled while the tab draws a layout. It carries Find all references, Copy class name and Copy class
-hash for the class, and Copy path and Copy hash for the object.
-Its click builds the index.
+### Menu bar
 
-In a document that takes edits, the kebab also carries Duplicate as new object. A dialog asks
-for the name, which starts as `Mods/<mod>/<the object's last segment>`. The copy lands in the same
-file as one undo step, as the file tab's own Duplicate as new object lands, and opens in its own
-tab. A name the file holds is refused under the field, and the dialog stays open. This is how a
-shipped particle system becomes a variant of the modder's own while the game's stays as it is.
+Every object tab leads its row with a menu bar. It is the shared `Menubar` of `src/components`,
+drawn from a table of commands by `CommandMenubar` in `src/modules/editor`. A view builds its table
+from the state it reads, so an item shows what applies now and a key the handler answers. The bar
+mounts inside the scope of the view that it serves and portals into the `menubar` slot of the row.
+
+| Menu | Items that every view has                                                                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File | Save. The view's file actions. Reload after a conflict, Show in file, Duplicate as new object, Declare edits                                                            |
+| Edit | Undo, Redo. The view's edits. Find object references, Find class references. The Copy submenu of the path, the declaration, the hash, the class name and the class hash |
+| View | The layout and Properties, as a choice. The view's items. The Panes submenu of a shell, Collapse all. Keys and gestures                                                 |
+
+| Class                                                           | Menus                                                     | Described in                              |
+| --------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------- |
+| A class without a layout                                        | File, Edit, View                                          | This section                              |
+| `StaticMaterialDef`                                             | File, Edit, View, Preview                                 | [The material shell](#the-material-shell) |
+| `CustomShaderDef`                                               | File, Edit, View, Preview, Shader                         | [The material shell](#the-material-shell) |
+| `VfxSystemDefinitionData`                                       | File, Edit, Insert, View, Playback, Emitter, Graph, Curve | docs/ux/VFX_GRAPH.md                      |
+| `SkinCharacterDataProperties`, `TftSkinCharacterDataProperties` | File, Edit, View, Animation, Skin, Physics, Spells        | docs/ux/SKIN_EDITOR.md                    |
+| `AnimationGraphData`                                            | File, Edit, View, Clip                                    | docs/ux/SKIN_EDITOR.md                    |
+| `Map`, `MapSkin`, `MapContainer`                                | File, Edit, Insert, Tools, View, Map                      | docs/ux/MAP_EDITOR.md                     |
+| `ViewController` subclasses, `UiPropertyLoadable`               | File, Edit, Insert, View, Canvas, Arrange                 | docs/plans/atlas-ui-editor.md             |
+| `UiElementIData` subclasses                                     | File, Edit, View, Canvas, Arrange                         | docs/plans/atlas-ui-editor.md             |
+| `GameFontDescription`                                           | File, Edit, View, Preview                                 | docs/plans/atlas-ui-editor.md             |
+| `ContextualActionData`                                          | The bar of the audio document                             | docs/ux/CONTEXTUAL_VOICE.md               |
+
+The bar follows "Menu bar" in docs/ux/AUDIO.md: the WAI-ARIA pattern, Alt or F10 to reach it, a
+chosen item returning focus to where it was, and the titles moving from the end into one overflow
+menu in a narrow row. A menu keeps its titles in Properties, in a narrow pane and in a read-only
+document. An item that does not apply there is disabled, and it shows the reason under its words
+where the reader cannot see it. An item that the class can never have is left out.
+
+The bar lists what the viewport rails, the toolbars and the context menus offer, and those stay
+where they are. Keys and gestures opens a sheet of each key that the bar shows, by menu. The
+palette lists the bar's commands while the tab is open.
+
+A pane offers the commands that read its own state through `usePaneCommands`. Where two panes offer
+one command, such as Delete in the Graph and in the timeline, the item acts on the pane the reader
+last focused and its words name the target.
+
+### Duplicate as new object
+
+In a document that takes edits, the File menu carries Duplicate as new object. A dialog asks for the
+name, which starts as `Mods/<mod>/<the object's last segment>`. The copy lands in the same file as
+one undo step, as the file tab's own Duplicate as new object lands, and opens in its own tab. A name
+the file holds is refused under the field, and the dialog stays open. This is how a shipped particle
+system becomes a variant of the modder's own while the game's stays as it is.
 
 ### How it opens
 
@@ -1046,7 +1083,7 @@ building. A card carries no hash: Copy class hash is on [the row menu](#the-row-
 class no table names shows its hash as its name.
 
 The class name's actions are on [the row menu](#the-row-menu) where a row carries it, and on the
-object tab's kebab where no row does.
+object tab's Edit menu where no row does.
 
 The card sends the fields to the wiki rather than listing them. `meta-wiki.leaguetoolkit.dev`
 serves a page per class at its lowercased name, and that page carries every property with its
@@ -1120,9 +1157,9 @@ attribution. The About section credits the wiki.
 For a top-level class the index answers at once. Every declaration carrying the class hash is a
 row, grouped by file. An embedded class and an object's incoming links are answers of the walk,
 which the References document describes. Find references sits on every menu an object has, on the
-menu of a row whose value carries a class, and on the object tab's kebab.
+menu of a row whose value carries a class, and in the object tab's Edit menu.
 
-The row a menu opens on decides which question it asks. An object row and the object tab's kebab
+The row a menu opens on decides which question it asks. An object row and the object tab's Edit menu
 ask for the objects of the class, and an `embed` or a `pointer` row asks for every value of the
 class at any depth.
 
@@ -1421,8 +1458,8 @@ through Properties.
 The material, the skin, the particle system and the animation graph are the registered
 layouts, with the value rows beside them.
 
-A layout draws no Used by. Reverse references are the walk's, and Find all references on the
-kebab is the affordance until it ships.
+A layout draws no Used by. Reverse references are the walk's, and Find class references in the
+Edit menu is the affordance until it ships.
 
 ### The skin shell
 
@@ -1502,7 +1539,7 @@ where they were.
 
 ```
 +----------------------------------------------------------------------------------+
-| VfxSystemDefinitionData  Ahri_Base_Q_mis > Orb [0]   [System|Properties] [Panes] |
+| VfxSystemDefinitionData  Ahri_Base_Q_mis > Orb [0]   [System|Properties]         |
 +------------------------------------------------------+---------------------------+
 | PREVIEW  [Ground][Midlane][Gizmo][Stats][Cam v][Fit] | INSPECTOR                 |
 |                                      [Ground Auto v] | [Emission][Birth][Scale]  |
@@ -1665,6 +1702,13 @@ the session and is never written to the def. The shape is bound to one bone for 
 **A define list that the cache does not hold draws the nearest compiled permutation.** The corner
 lists every define that the search set and removed. A def with no compiled permutation within three changes
 draws the error color, and the corner gives the reason.
+
+**The menu bar of a material.** The Preview menu holds On a shape where a skin of the file draws the
+material, Shape, Turntable, Ground, Camera, View mode and Fit. Shape, Turntable and Ground apply
+while the material draws on a shape. A `CustomShaderDef` adds the Shader menu, which holds the
+material that the preview draws through, Reset permutation and one submenu per define that its TOCs
+declare. The menu reads the def while it is open, and it shows a disabled item if no material links
+the def or the def declares no define.
 
 ### How the panes are arranged
 
@@ -3531,7 +3575,7 @@ at once and the project gains no file. The plan and the list of templates are
 
 ### Adjusting a system
 
-Adjust sits beside the Panes menu of an editable particle shell. Its popover holds a hue slider
+Adjust sits at the end of the row of an editable particle shell, and in the Edit menu. Its popover holds a hue slider
 from -180 to 180 degrees, a scale slider from 0.25× to 4×, a reset and Apply.
 
 **The preview follows the sliders before anything is written.** Apply writes both adjustments as

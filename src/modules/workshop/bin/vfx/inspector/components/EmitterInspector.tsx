@@ -38,10 +38,12 @@ import { useValueItems } from "../../drivers/hooks/useValueItems";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
+import { useReadOnlyReason, useShownPaneCommands } from "../../hooks/usePaneOffers";
 import { VfxRunContext } from "../../playback/state/run";
 import { STENCIL_FIELD } from "../../stencil/stencilEdits";
 import { StencilNotes } from "../../stencil/StencilNotes";
 import { StencilMaskProperty, StencilModeProperty } from "../../stencil/StencilProperty";
+import { VFX_COMMAND, VFX_PANE } from "../../utils/vfxCommands";
 import { useEmitters } from "../state/emitterChoice";
 import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
 import { SHAPE_FIELD, SURFACE_FIELD } from "../utils/emissionSource";
@@ -167,6 +169,13 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const filtered = filterEmitterGroups(groups, search);
   const jumpTo = useAddedJump(groups);
   const holder = addable && target !== "system" ? card?.row : undefined;
+  const readOnly = useReadOnlyReason();
+  useShownPaneCommands(VFX_PANE.inspector, {
+    [VFX_COMMAND.addProperty]: {
+      run: holder === undefined ? null : () => setAdding(true),
+      reason: readOnly ?? m.workshop_bin_menu_vfx_emitter_reason(),
+    },
+  });
   const hasMatches =
     filtered.some((group) => group.rows.length > 0 || group.defaults.length > 0) ||
     (forces.visible && forces.forces.some((force) => forceMatches(force, search))) ||

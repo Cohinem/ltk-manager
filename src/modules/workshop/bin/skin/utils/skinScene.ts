@@ -10,6 +10,7 @@ import type {
   MaterialProgram,
   NamedAsset,
   SkinModel,
+  SkinnedShading,
   SkinOutline,
   SubmeshOverride,
   VfxSystem,
@@ -36,13 +37,16 @@ import type { ParticleCue } from "./clipEvents";
 /** The value the clip picker holds for the skeleton standing in its bind pose. */
 export const BIND_POSE = "bind";
 
+/** The decimals a parameter tick's label is written to where its value is not whole. */
+const PARAMETER_DECIMALS = 1;
+
 /** `SequencerClipData`, the one kind whose children play one after another. */
 const SEQUENCER = "SequencerClipData";
 
 /** `ParametricClipData`, whose children each play at a value of one parameter. */
 export const PARAMETRIC = "ParametricClipData";
 
-/** The clips a preview poses with: every one whose playlist reaches a file. */
+/** The clips a preview poses with: every one whose playlist reaches a file on this machine. */
 export function playableClips(clips: readonly GraphClip[]): GraphClip[] {
   const byHash = clipsByHash(clips);
   return clips.filter((clip) => resolvePlaylist(clip, byHash, null, new Set()).length > 0);
@@ -106,7 +110,7 @@ function resolvePlaylist(
   parameter: number | null,
   above: Set<string>,
 ): GraphClip[] {
-  if (clip.animation !== null) return [clip];
+  if (clip.animation !== null) return clip.animation.asset ? [clip] : [];
   if (above.has(clip.hash)) return [];
   above.add(clip.hash);
   const steps: GraphClip[] = [];
@@ -126,6 +130,19 @@ export function openingClip(clips: readonly GraphClip[]): GraphClip | null {
   return clips.find((clip) => clip.name.toLowerCase().startsWith("idle")) ?? null;
 }
 
+/** Returns the clip of `clips` that poses the skin: `picked`, the opening clip, or the bind pose. */
+export function chosenClipHash(clips: readonly GraphClip[], picked: string | null): string {
+  if (picked === BIND_POSE || clips.some((clip) => clip.hash === picked))
+    return picked ?? BIND_POSE;
+
+  return openingClip(clips)?.hash ?? BIND_POSE;
+}
+
+/** Returns a pair's value as its tick reads: whole where it is whole, else to one decimal. */
+export function parameterLabel(value: number): string {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(PARAMETER_DECIMALS);
+}
+
 /** The key the texture a submesh no override names is loaded under. */
 const BASE_TEXTURE = "";
 
@@ -142,15 +159,15 @@ function materialKey(material: MaterialPreview): string {
 }
 
 /** The key prefix of a `RoughnessMetallicAoTexture`, alone for the skin's own. */
-const RMA_TEXTURE = "rma";
+export const RMA_TEXTURE = "rma";
 
 /** The key prefix of a `normalMapTexture`, alone for the skin's own. */
-const NORMAL_TEXTURE = "normal";
+export const NORMAL_TEXTURE = "normal";
 
 /** The key of the skin's `emissiveTexture`, which no override names. */
 const EMISSIVE_TEXTURE = "emissive";
 
-function pbrKey(kind: string, submesh: string | null): string {
+export function pbrKey(kind: string, submesh: string | null): string {
   return submesh === null ? kind : `${kind}:${submesh.toLowerCase()}`;
 }
 
@@ -183,14 +200,19 @@ export function dataTextureAssets(skin: SkinModel): Map<string, AssetRef> {
 }
 
 /**
- * Whether `submesh` draws with `LIT_UBER`'s physically based variant: it has no material,
- * and its override or else its skin names a `RoughnessMetallicAoTexture`.
+ * The `LIT_UBER` permutation that the maps of `submesh` select: its override's, else its skin's.
+ *
+ * A map that this machine does not hold selects nothing. A normal map selects its feature only
+ * on a mesh with `tangents`, because the permutation reads them.
  */
-export function drawsPbr(skin: SkinModel, submesh: string): boolean {
-  if (submeshMaterial(skin, submesh) !== null) return false;
-  const rma =
-    overrideOf(skin, submesh)?.roughnessMetallicAoTexture ?? skin.roughnessMetallicAoTexture;
-  return rma !== null;
+export function shadingOf(skin: SkinModel, submesh: string, tangents: boolean): SkinnedShading {
+  const override = overrideOf(skin, submesh);
+  const rma = override?.roughnessMetallicAoTexture ?? skin.roughnessMetallicAoTexture;
+  if (!rma?.asset) return "base";
+
+  const normal = override?.normalMapTexture ?? skin.normalMapTexture;
+  if (tangents && normal?.asset) return "roughnessMetallicNormal";
+  return "roughnessMetallic";
 }
 
 function pbrMapsOf<T>(maps: ReadonlyMap<string, T>, submesh: string): PbrMaps<T> | null {
@@ -322,10 +344,16 @@ export function submeshOutline<T>(
   };
 }
 
-/** The material `submesh` draws with: its override's, else the skin's, and null for neither. */
+/**
+ * The material `submesh` draws with, in the order of `bindingOf`: its override's, none where its
+ * override names a texture alone, else the skin's. Returns null if neither names a material.
+ */
 export function submeshMaterial(skin: SkinModel, submesh: string): MaterialPreview | null {
   const override = overrideOf(skin, submesh);
-  return override === null ? skin.material : override.material;
+  if (override === null) return skin.material;
+  if (override.material !== null) return override.material;
+
+  return override.texture === null ? skin.material : null;
 }
 
 /**

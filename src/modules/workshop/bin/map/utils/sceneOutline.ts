@@ -1,6 +1,12 @@
 import type { MapChunk, MapGeometryMesh } from "@/lib/tauri";
 
-import { filtering, type OutlineFilter, type OutlineRow, outlineRows } from "./mapOutline";
+import {
+  filtering,
+  type OutlineFilter,
+  type OutlineRow,
+  outlineRows,
+  placedItems,
+} from "./mapOutline";
 import { meshId } from "./meshSelection";
 
 /** The drag data type of a drag that carries the outliner's own selection. */
@@ -99,7 +105,21 @@ export function sceneRows(input: SceneOutlineInput): SceneRow[] {
   return rows;
 }
 
-function meshMatches(mesh: MapGeometryMesh, input: SceneOutlineInput): boolean {
+/** Returns the ids of every mesh and placeable that `input.filter` keeps, in folded rows too. */
+export function listedIds(input: Omit<SceneOutlineInput, "opened" | "shut">): string[] {
+  const { meshes, chunks, filter } = input;
+  const kept = filter.hideMeshes === true ? [] : meshes.filter((mesh) => meshMatches(mesh, input));
+
+  return [
+    ...kept.map((mesh) => meshId(mesh.index)),
+    ...placedItems(chunks, filter).map((placed) => placed.id),
+  ];
+}
+
+function meshMatches(
+  mesh: MapGeometryMesh,
+  input: Pick<SceneOutlineInput, "filter" | "controllerName">,
+): boolean {
   const text = input.filter.text.trim().toLowerCase();
   if (text === "") return true;
 

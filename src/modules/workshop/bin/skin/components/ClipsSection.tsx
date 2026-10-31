@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { m } from "@/i18n";
 import { viewportQueries } from "@/modules/viewport";
 import { twMerge } from "@/utils";
 
 import type { ViewContext, WidgetProps } from "../../classes/components/ClassCells";
+import { Notice } from "../../shared/preview/Notice";
 import { nameHash } from "../../shared/utils/binHash";
 import { useSkinGraphSource } from "../hooks/useGraphSource";
 import { ClipsPane, ClipTabs } from "./ClipTable";
@@ -30,7 +32,11 @@ export function ClipsHost({ view, entry, className }: ClipsHostProps) {
   return (
     <div className={className}>
       {view.classHash === ANIMATION_GRAPH && (
-        <ClipsPane source={{ document: view.document, graph: entry }} joints={null} />
+        <ClipsPane
+          source={{ document: view.document, graph: entry }}
+          joints={null}
+          previewed={false}
+        />
       )}
       {view.classHash !== ANIMATION_GRAPH && <SkinClips view={view} entry={entry} />}
     </div>
@@ -48,6 +54,11 @@ function SkinClips({ view, entry }: { view: ViewContext; entry: string }) {
     () => skeleton.data?.joints.map((joint) => joint.name) ?? null,
     [skeleton.data],
   );
+  if (skin.error !== null) return <Notice text={m.workshop_bin_skin_read_failed_empty()} />;
+  if (skin.data === undefined) {
+    return <Notice text={m.workshop_bin_clip_graph_loading_label()} />;
+  }
+
   return <ClipsPane source={source} joints={joints} />;
 }
 

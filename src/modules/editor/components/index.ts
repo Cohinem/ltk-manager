@@ -1,3 +1,4 @@
+export { CommandMenubar, CommandMenuItems } from "./CommandMenubar";
 export type { DocumentToolbarProps } from "./DocumentToolbar";
 export { DocumentToolbar, DocumentToolbarSlotContext, useToolbarWidth } from "./DocumentToolbar";
 export type { EditorSurfaceProps } from "./EditorSurface";

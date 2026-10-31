@@ -1,35 +1,17 @@
-import {
-  ArrowsInLineVerticalIcon,
-  CaretRightIcon,
-  CodeBlockIcon,
-  CopyIcon,
-  CopySimpleIcon,
-  DotsThreeVerticalIcon,
-  FileIcon,
-  HashIcon,
-  MagnifyingGlassIcon,
-  PathIcon,
-} from "@phosphor-icons/react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
-import {
-  IconButton,
-  Menu,
-  RetainedContent,
-  SegmentedControl,
-  Separator,
-  Spinner,
-} from "@/components";
-import { useCopyToClipboard } from "@/hooks";
+import { RetainedContent, SegmentedControl, Separator, Spinner } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentHandle, BinDocumentId, BinObjectHeader } from "@/lib/tauri";
+import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps, Seam } from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../../../documents/utils/contentDocument";
@@ -37,14 +19,7 @@ import type { ContentDocumentOf } from "../../../documents/utils/contentDocument
 import { useSystemSteps } from "../../../objectsBrowser/hooks/useSystemSteps";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../../../preview/components/BinPreview";
-/* The leaf rather than the references barrel, which pulls the document that routes here. */
-import {
-  classReferences,
-  objectReferences,
-  useFindReferences,
-} from "../../../references/api/useFindReferences";
 import { DocumentFrame } from "../../../shared/components/DocumentFrame";
-import { COLLAPSE_ALL_SHORTCUT } from "../../../shared/utils/treeGestures";
 import {
   clickIntent,
   useCurveAimRequest,
@@ -64,6 +39,9 @@ import { classLayout, type LayoutFrame, shellHoldsCurve } from "../../classes/ut
 import { CurveSurface } from "../../curves/components/CurveSurface";
 import { type CurveDock, CurveDockContext, type CurveTarget } from "../../curves/state/curveTarget";
 import { useShowInFile } from "../../links/hooks/useShowInFile";
+import { ObjectMenubar } from "../../menus/components/ClassMenubar";
+import { type ObjectMenu, ObjectMenuContext, type ObjectMode } from "../../menus/state/objectMenu";
+import { createPaneCommandHub, PaneCommandsContext } from "../../menus/state/paneCommands";
 import {
   ShellHeaderContext,
   ShellHeaderSlot,
@@ -73,7 +51,6 @@ import type { ShellKind } from "../../shell/utils/shellPanes";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
 import { useBinDocument, useObjectRoots } from "../hooks/useBinDocument";
 import { useBinTab } from "../hooks/useBinTab";
-import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { ProjectSwitchContext } from "../state/projectSwitch";
 import { BinEditState } from "./BinEditState";
 import { DuplicateObjectDialog } from "./DuplicateObjectDialog";
@@ -176,8 +153,8 @@ function OpenObject({
 
   /* The layout's own until the reader picks one, since a layout found through the class's
      bases arrives with its schema. */
-  const [chosen, setMode] = useState<Mode | null>(null);
-  const mode: Mode = chosen ?? (layout ? "layout" : "properties");
+  const [chosen, setMode] = useState<ObjectMode | null>(null);
+  const mode: ObjectMode = chosen ?? (layout ? "layout" : "properties");
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
   const [collapseAllSignal, setCollapseAllSignal] = useState(0);
   const [frame, setFrame] = useState<LayoutFrame>("stack");
@@ -245,6 +222,51 @@ function OpenObject({
   const [slots, registerSlot] = useShellHeaderSlots();
   const shelled = frame === "shell" && mode === "layout";
 
+  const [paneCommands] = useState(createPaneCommandHub);
+  /* The layout mounts on its first show and draws its own bar from then on, so a tab that a reveal
+     opened in Properties takes the shared one until then. */
+  const layoutMounted = useRef(false);
+  if (layout !== undefined && mode === "layout") layoutMounted.current = true;
+  const layoutTitle = layout?.title() ?? null;
+  const shell = layout?.shell;
+  const readOnly = handle.readOnly;
+  const menu = useMemo<ObjectMenu>(
+    () => ({
+      documentId,
+      document: handle.document,
+      asset,
+      object,
+      file,
+      readOnly,
+      mode,
+      onMode: setMode,
+      layoutTitle,
+      shell,
+      shelled,
+      keyScope: steps.root,
+      onShowInFile: showFile,
+      onDuplicate: readOnly === null ? () => setDuplicating(true) : undefined,
+      onCollapseAll:
+        mode === "properties" ? () => setCollapseAllSignal((count) => count + 1) : undefined,
+      onReload: reopen,
+    }),
+    [
+      documentId,
+      handle.document,
+      asset,
+      object,
+      file,
+      readOnly,
+      mode,
+      layoutTitle,
+      shell,
+      shelled,
+      steps.root,
+      showFile,
+      reopen,
+    ],
+  );
+
   return (
     <ProjectSwitchContext value={toProject}>
       <DocumentFrame
@@ -256,6 +278,7 @@ function OpenObject({
         onKeyDown={steps.onKeyDown}
       >
         <DocumentToolbar active={active}>
+          <ShellHeaderSlot name="menubar" onElement={registerSlot} className="min-w-0 flex-3" />
           <span className="flex min-w-0 shrink-0 items-center gap-2 px-1 text-row text-surface-400 select-none">
             <span className="flex shrink-0 items-center gap-0.5">
               <SandboxOptions documentId={documentId} handle={handle} />
@@ -291,15 +314,6 @@ function OpenObject({
             onReload={reopen}
           />
           {shelled && <ShellHeaderSlot name="panes" onElement={registerSlot} />}
-          <HeaderMenu
-            document={handle.document}
-            object={object}
-            onShowInFile={showFile}
-            onDuplicate={handle.readOnly === null ? () => setDuplicating(true) : undefined}
-            onCollapseAll={
-              mode === "properties" ? () => setCollapseAllSignal((count) => count + 1) : undefined
-            }
-          />
         </DocumentToolbar>
         <DuplicateObjectDialog
           open={duplicating}
@@ -317,180 +331,77 @@ function OpenObject({
           />
         )}
         <ShellHeaderContext value={slots}>
-          <CurveDockContext value={dock}>
-            <Group id="object" orientation="vertical" className="flex min-h-0 flex-1 flex-col">
-              <Panel id="view" minSize={160} className="flex min-h-0 w-full flex-col">
-                {layout && (
-                  <RetainedContent
-                    active={mode === "layout"}
-                    defer
-                    className="flex min-h-0 flex-1 flex-col"
-                  >
-                    <ClassView
-                      document={handle.document}
-                      asset={asset}
-                      editable={
-                        (layout.editable === true ||
-                          (layout.shell !== undefined && EDITABLE_SHELLS.has(layout.shell))) &&
-                        handle.readOnly === null
-                      }
-                      roots={roots}
-                      classHash={object.classHash}
-                      layout={layout}
-                      objectName={objectName}
-                      onNotOpen={reopen}
-                      onShowInProperties={showInProperties}
-                      onFrame={setFrame}
-                    />
-                  </RetainedContent>
-                )}
-                <RetainedContent
-                  active={mode === "properties"}
-                  defer
-                  className="flex min-h-0 flex-1 flex-col"
-                >
-                  <BinTree
-                    document={handle.document}
-                    asset={asset}
-                    roots={roots}
-                    rootOwner={object.classHash}
-                    label={object.name}
-                    reveal={reveal}
-                    objectName={objectName}
-                    onNotOpen={reopen}
-                    editable={handle.readOnly === null}
-                    rootEntry={object.entry}
-                    collapseAllSignal={collapseAllSignal}
-                  />
-                </RetainedContent>
-              </Panel>
-              {docked && (
-                <>
-                  <Seam orientation="vertical" variant="divider" />
-                  <Panel
-                    id="curve"
-                    defaultSize={220}
-                    minSize={140}
-                    maxSize="60%"
-                    /* DS-GROUND: a band over the page, as every other pane of the tab is. */
-                    className="flex min-h-0 w-full flex-col bg-surface-900 p-2"
-                  >
-                    <CurveSurface document={handle.document} />
+          <ObjectMenuContext value={menu}>
+            <PaneCommandsContext value={paneCommands}>
+              {!layoutMounted.current && <ObjectMenubar />}
+              <CurveDockContext value={dock}>
+                <Group id="object" orientation="vertical" className="flex min-h-0 flex-1 flex-col">
+                  <Panel id="view" minSize={160} className="flex min-h-0 w-full flex-col">
+                    {layout && (
+                      <RetainedContent
+                        active={mode === "layout"}
+                        defer
+                        className="flex min-h-0 flex-1 flex-col"
+                      >
+                        <ClassView
+                          document={handle.document}
+                          asset={asset}
+                          editable={
+                            (layout.editable === true ||
+                              (layout.shell !== undefined && EDITABLE_SHELLS.has(layout.shell))) &&
+                            handle.readOnly === null
+                          }
+                          roots={roots}
+                          classHash={object.classHash}
+                          layout={layout}
+                          objectName={objectName}
+                          onNotOpen={reopen}
+                          onShowInProperties={showInProperties}
+                          onFrame={setFrame}
+                        />
+                      </RetainedContent>
+                    )}
+                    <RetainedContent
+                      active={mode === "properties"}
+                      defer
+                      className="flex min-h-0 flex-1 flex-col"
+                    >
+                      <BinTree
+                        document={handle.document}
+                        asset={asset}
+                        roots={roots}
+                        rootOwner={object.classHash}
+                        label={object.name}
+                        reveal={reveal}
+                        objectName={objectName}
+                        onNotOpen={reopen}
+                        editable={handle.readOnly === null}
+                        rootEntry={object.entry}
+                        collapseAllSignal={collapseAllSignal}
+                      />
+                    </RetainedContent>
                   </Panel>
-                </>
-              )}
-            </Group>
-          </CurveDockContext>
+                  {docked && (
+                    <>
+                      <Seam orientation="vertical" variant="divider" />
+                      <Panel
+                        id="curve"
+                        defaultSize={220}
+                        minSize={140}
+                        maxSize="60%"
+                        /* DS-GROUND: a band over the page, as every other pane of the tab is. */
+                        className="flex min-h-0 w-full flex-col bg-surface-900 p-2"
+                      >
+                        <CurveSurface document={handle.document} />
+                      </Panel>
+                    </>
+                  )}
+                </Group>
+              </CurveDockContext>
+            </PaneCommandsContext>
+          </ObjectMenuContext>
         </ShellHeaderContext>
       </DocumentFrame>
     </ProjectSwitchContext>
-  );
-}
-
-/** Which way the tab draws its object: its class's layout, or the tree. */
-type Mode = "layout" | "properties";
-
-interface HeaderMenuProps {
-  /** The open the object is read under. */
-  document: BinDocumentId;
-  object: BinObjectHeader;
-  onShowInFile: (event: ReactMouseEvent) => void;
-  /** Shut every folder of the properties tree, absent where the tab does not draw the tree. */
-  onCollapseAll?: () => void;
-  /** Open Duplicate as new object, absent where the document takes no edit. */
-  onDuplicate?: () => void;
-}
-
-/** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
-function HeaderMenu({
-  document,
-  object,
-  onShowInFile,
-  onCollapseAll,
-  onDuplicate,
-}: HeaderMenuProps) {
-  const copy = useCopyToClipboard();
-  const spelled = useRowDeclaration(document, object.entry, "");
-  const copyDeclaration = useCopyDeclaration();
-  const findReferences = useFindReferences();
-  const label = m.workshop_bin_object_actions_label();
-  const objectClass = object.class;
-
-  return (
-    <Menu.Root>
-      <Menu.Trigger
-        render={<IconButton size="sm" icon={<DotsThreeVerticalIcon />} aria-label={label} />}
-      />
-      <Menu.Content align="end" sideOffset={4} className="w-56">
-        <Menu.Item icon={<FileIcon className="size-4" />} onClick={onShowInFile}>
-          {m.workshop_bin_show_in_file_action()}
-        </Menu.Item>
-        <Menu.Item
-          icon={<ArrowsInLineVerticalIcon className="size-4" />}
-          shortcut={COLLAPSE_ALL_SHORTCUT}
-          disabled={onCollapseAll === undefined}
-          onClick={onCollapseAll}
-        >
-          {m.workshop_explorer_collapse_all_label()}
-        </Menu.Item>
-        <Menu.Separator />
-        <Menu.Item
-          icon={<MagnifyingGlassIcon className="size-4" />}
-          onClick={() => findReferences(objectReferences(object.entry, object.name))}
-        >
-          {m.workshop_references_find_object_action()}
-        </Menu.Item>
-        <Menu.Item
-          icon={<MagnifyingGlassIcon className="size-4" />}
-          onClick={() => findReferences(classReferences(object.classHash, object.class))}
-        >
-          {m.workshop_references_find_class_action()}
-        </Menu.Item>
-        <Menu.Separator />
-        {onDuplicate !== undefined && (
-          <Menu.Item icon={<CopySimpleIcon className="size-4" />} onClick={onDuplicate}>
-            {m.workshop_bin_duplicate_object_action()}
-          </Menu.Item>
-        )}
-        <Menu.Item
-          icon={<PathIcon className="size-4" />}
-          onClick={() => void copy(object.name, m.workshop_bin_path_label())}
-        >
-          {m.workshop_bin_copy_path_action()}
-        </Menu.Item>
-        <Menu.Item
-          icon={<CodeBlockIcon className="size-4" />}
-          disabled={spelled?.declaration == null}
-          title={
-            spelled !== null && spelled.declaration === null
-              ? m.workshop_bin_copy_declaration_refused_hint()
-              : undefined
-          }
-          onClick={() => spelled !== null && copyDeclaration(spelled)}
-        >
-          {m.workshop_bin_copy_declaration_action()}
-        </Menu.Item>
-        <Menu.Item
-          icon={<HashIcon className="size-4" />}
-          onClick={() => void copy(object.entry, m.workshop_bin_hash_label())}
-        >
-          {m.workshop_bin_copy_hash_action()}
-        </Menu.Item>
-        {objectClass !== null && (
-          <Menu.Item
-            icon={<CopyIcon className="size-4" />}
-            onClick={() => void copy(objectClass, m.workshop_bin_name_label())}
-          >
-            {m.workshop_bin_copy_class_name_action()}
-          </Menu.Item>
-        )}
-        <Menu.Item
-          icon={<HashIcon className="size-4" />}
-          onClick={() => void copy(object.classHash, m.workshop_bin_hash_label())}
-        >
-          {m.workshop_bin_copy_class_hash_action()}
-        </Menu.Item>
-      </Menu.Content>
-    </Menu.Root>
   );
 }

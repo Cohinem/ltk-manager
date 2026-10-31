@@ -23,6 +23,7 @@ import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
 import { mapQueries } from "../api/mapQueries";
 import { useGeometryMeshes } from "../hooks/useGeometryMeshes";
+import { useMapCommands } from "../hooks/useMapCommands";
 import { useMapEditKeys } from "../hooks/useMapEditKeys";
 import { useMeshActions } from "../hooks/useMeshActions";
 import { usePlaceableActions } from "../hooks/usePlaceableActions";
@@ -55,10 +56,10 @@ const NONE: ReadonlySet<string> = new Set();
  *
  * The tree is one tab stop: Up and Down walk the rows, Right opens a row or steps into it,
  * Left closes it or steps out, Enter or Space acts on the row, and Ctrl+F returns to the box.
- * A click selects and Shift adds and Ctrl flips, the selection the viewport shares. H hides the
- * selection and F frames the lead, and Delete, Ctrl+D, F2 and the undo keys act as they do in
- * the viewport. A right click opens the row's actions, and a mesh or a placeable drags onto a
- * controller group or a chunk to move there. The rows are virtual, since one chunk of
+ * A click selects and Shift adds and Ctrl flips, the selection the viewport shares. The keys of
+ * `MAP_KEYS` act as they do in the viewport, except End, which steps to the last row, and Ctrl+A,
+ * which selects the rows on screen. A right click opens the row's actions, and a mesh or a
+ * placeable drags onto a controller group or a chunk to move there. The rows are virtual, since one chunk of
  * Summoner's Rift holds a thousand.
  */
 export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
@@ -70,6 +71,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
   const placeables = usePlaceableActions();
   const meshActions = useMeshActions(geometry.meshes.length);
   const editKeys = useMapEditKeys(placeables, geometry);
+  const { runs } = useMapCommands(placeables, geometry.meshes, geometry.selection);
   const [opened, setOpened] = useState<ReadonlySet<string>>(NONE);
   /* The sections, and the groups and chunks under a filter, that the reader shut. */
   const [shut, setShut] = useState<ReadonlySet<string>>(NONE);
@@ -222,31 +224,8 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
       select(listed(), "replace");
       return;
     }
-    if (event.key === "Escape" && selected.size > 0) {
-      event.preventDefault();
-      select([], "replace");
-      return;
-    }
 
     const row = rows[active];
-    if (!command && key === "h" && selected.size > 0) {
-      event.preventDefault();
-      const ids = [...selected];
-      setHidden(
-        ids,
-        ids.some((id) => !hidden.has(id)),
-      );
-      return;
-    }
-    if (!command && key === "f") {
-      const leadRow = rows.find((each) => each.id === lead);
-      if (leadRow !== undefined) {
-        event.preventDefault();
-        frame(leadRow);
-      }
-      return;
-    }
-
     if (row !== undefined) {
       const page = virtualizer.getVirtualItems().length;
       const step = navigation(event.key, row, active, rows, page, sectioned);
@@ -329,7 +308,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
         inputRef={search}
         onLeave={() => scroller.current?.focus()}
       />
-      <SelectionBar chunks={chunks} />
+      <SelectionBar onFrame={runs.frameSelection} />
       {rows.length === 0 && <Notice text={m.workshop_bin_map_outliner_no_match_empty()} />}
       <ContextMenu.Root>
         <ContextMenu.Trigger
@@ -393,7 +372,10 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
           chunks={chunks}
           placeables={placeables}
           meshes={meshActions}
-          onFrame={frame}
+          onFrame={(picked) => {
+            if (selected.has(picked.id) && runs.frameSelection !== null) runs.frameSelection();
+            else frame(picked);
+          }}
         />
       </ContextMenu.Root>
     </div>

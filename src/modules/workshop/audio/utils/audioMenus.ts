@@ -11,7 +11,7 @@ import { type AudioCommandId, type AudioSurface, bindingOf, shortcutOf } from ".
 export type AudioMenuId = "file" | "edit" | "insert" | "view" | "playback" | "bank" | "voice";
 
 /** A place in a menu whose items the document draws itself. */
-export type AudioMenuSlot = "fileActions" | "units" | "volume";
+export type AudioMenuSlot = "fileActions" | "editActions" | "viewActions" | "units" | "volume";
 
 /** One entry of the table of a menu. */
 export type AudioMenuSpec =
@@ -68,6 +68,8 @@ export const AUDIO_MENU_SPEC: readonly {
       command("reset"),
       SEPARATOR,
       command("selectAll"),
+      SEPARATOR,
+      { kind: "slot", slot: "editActions" },
     ],
   },
   {
@@ -88,6 +90,8 @@ export const AUDIO_MENU_SPEC: readonly {
   {
     id: "view",
     entries: [
+      { kind: "slot", slot: "viewActions" },
+      SEPARATOR,
       { kind: "radio", ids: ["viewMedia", "viewEvents"] },
       { kind: "check", id: "toggleInspector" },
       SEPARATOR,

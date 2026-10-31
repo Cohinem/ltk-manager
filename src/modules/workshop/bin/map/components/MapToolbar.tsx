@@ -1,59 +1,41 @@
 import {
-  ArrowClockwiseIcon,
-  ArrowsOutCardinalIcon,
-  ArrowsOutIcon,
   CaretDownIcon,
   CubeFocusIcon,
-  CursorIcon,
   ExportIcon,
   EyeIcon,
   FilePlusIcon,
   FloppyDiskIcon,
   FrameCornersIcon,
-  type Icon,
   MagnetIcon,
-  PlusCircleIcon,
 } from "@phosphor-icons/react";
+import { useRef } from "react";
 
 import { Button, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { MapPath, MapVariant } from "@/lib/tauri";
+import { CommandMenuItems } from "@/modules/editor";
 import type { BackdropSource } from "@/modules/viewport";
-import {
-  type PreviewDisplay,
-  type PreviewFlag,
-  usePreviewBackdropEvents,
-  usePreviewBackdropParticles,
-  usePreviewFlag,
-  useSetPreviewDisplay,
-} from "@/stores";
 
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
 import { ControlDivider, ViewportRail } from "../../shared/preview/ViewportControls";
+import { useMapShowEntries } from "../hooks/useMapShowEntries";
 import { useMeshExport } from "../hooks/useMeshFiles";
-import { type MapTool, useMapScene } from "../state/mapScene";
+import { useMapScene } from "../state/mapScene";
+import { MAP_PANE_COMMANDS } from "../utils/mapCommands";
+import { MAP_KEYS } from "../utils/mapKeys";
+import { MAP_TOOLS } from "../utils/mapTools";
 import { variantLabel } from "../utils/mapVariants";
 import { BoxSelectButton, type PlaceablePicking } from "./PlaceablePicking";
 import { PlaceMenu } from "./PlaceMenu";
 import { PostEffectsControl } from "./PostEffectsControl";
 import { SunControl } from "./SunControl";
 
-const TOOLS: readonly { tool: MapTool; icon: Icon; label: () => string }[] = [
-  { tool: "select", icon: CursorIcon, label: m.workshop_bin_map_tool_select_label },
-  { tool: "move", icon: ArrowsOutCardinalIcon, label: m.workshop_bin_map_tool_move_label },
-  { tool: "rotate", icon: ArrowClockwiseIcon, label: m.workshop_bin_map_tool_rotate_label },
-  { tool: "scale", icon: ArrowsOutIcon, label: m.workshop_bin_map_tool_scale_label },
-  { tool: "place", icon: PlusCircleIcon, label: m.workshop_bin_map_tool_place_label },
-];
-
-/** The display switches of the Show menu, each bound to one display preference. */
-const SHOWN: readonly { flag: PreviewFlag; label: () => string }[] = [
-  { flag: "previewBackdropParticles", label: m.workshop_bin_preview_backdrop_particles_label },
-  { flag: "previewBackdropStructures", label: m.workshop_bin_preview_backdrop_structures_label },
-  { flag: "previewBackdropSky", label: m.workshop_bin_preview_backdrop_sky_label },
-  { flag: "previewShaders", label: m.workshop_bin_preview_shaders_label },
-];
+/** Presses the first button inside `box`, which is the trigger of the popover it holds. */
+function pressTrigger(box: HTMLElement | null): void {
+  box?.querySelector("button")?.click();
+}
 
 /**
  * The tool rail down the viewport's left edge: the tools of an editable map, one pressed at a
@@ -67,7 +49,7 @@ export function ToolRail({ picking }: { picking: PlaceablePicking }) {
   return (
     <ViewportRail side="left" data-ui="MapViewport:tools">
       {editable &&
-        TOOLS.map(({ tool: each, icon: Glyph, label }) => (
+        MAP_TOOLS.map(({ tool: each, icon: Glyph, label }) => (
           <IconButton
             key={each}
             pressed={tool === each}
@@ -85,7 +67,7 @@ export function ToolRail({ picking }: { picking: PlaceablePicking }) {
             pressed={local}
             icon={<CubeFocusIcon />}
             onClick={() => setSpace(local ? "world" : "local")}
-            label={m.workshop_bin_map_tool_local_label()}
+            label={m.workshop_bin_map_tool_local_label({ key: MAP_KEYS.localAxes })}
           />
           <IconButton
             pressed={snap}
@@ -126,6 +108,15 @@ export function TopRail({
 }: TopRailProps) {
   const { editable, tool, geometryDocument } = useMapScene();
   const exportMeshes = useMeshExport();
+  const sun = useRef<HTMLSpanElement>(null);
+  const postEffects = useRef<HTMLSpanElement>(null);
+
+  usePaneCommands("map.rail", {
+    [MAP_PANE_COMMANDS.sun]: { run: editable ? null : () => pressTrigger(sun.current) },
+    [MAP_PANE_COMMANDS.postEffects]: {
+      run: editable ? null : () => pressTrigger(postEffects.current),
+    },
+  });
 
   return (
     <ViewportRail side="top" data-ui="MapViewport:controls">
@@ -162,8 +153,16 @@ export function TopRail({
       <span className="flex-1" />
       <ShowMenu picking={picking} />
       {/* An editable map edits its sun and post effects in the Lighting pane. */}
-      {!editable && <SunControl source={source} />}
-      {!editable && <PostEffectsControl source={source} />}
+      {!editable && (
+        <span ref={sun} className="contents">
+          <SunControl source={source} />
+        </span>
+      )}
+      {!editable && (
+        <span ref={postEffects} className="contents">
+          <PostEffectsControl source={source} />
+        </span>
+      )}
       <ControlDivider />
       <ViewModeMenu />
       <CameraMenu />
@@ -176,10 +175,7 @@ export function TopRail({
 
 /** What the viewport draws besides the map, as switches in one menu. */
 function ShowMenu({ picking }: { picking: PlaceablePicking }) {
-  const { setMarkers } = useMapScene();
-  const particles = usePreviewBackdropParticles();
-  const events = usePreviewBackdropEvents();
-  const setDisplay = useSetPreviewDisplay();
+  const entries = useMapShowEntries(picking.shown, () => picking.setBoxing(false));
 
   return (
     <Menu.Root>
@@ -196,43 +192,9 @@ function ShowMenu({ picking }: { picking: PlaceablePicking }) {
         }
       />
       <Menu.Content align="end" data-ui="MapShowMenu" className="w-52">
-        {SHOWN.map(({ flag, label }) => (
-          <ShowItem key={flag} flag={flag} label={label()} />
-        ))}
-        <Menu.CheckboxItem
-          checked={particles && events}
-          onCheckedChange={() =>
-            setDisplay({ previewBackdropParticles: true, previewBackdropEvents: !events })
-          }
-        >
-          {m.workshop_bin_preview_backdrop_events_label()}
-        </Menu.CheckboxItem>
-        <Menu.Separator />
-        <Menu.CheckboxItem
-          checked={picking.shown}
-          onCheckedChange={() => {
-            setMarkers(!picking.shown);
-            if (picking.shown) picking.setBoxing(false);
-          }}
-        >
-          {m.workshop_bin_map_markers_label()}
-        </Menu.CheckboxItem>
+        <CommandMenuItems items={entries} />
       </Menu.Content>
     </Menu.Root>
-  );
-}
-
-function ShowItem({ flag, label }: { flag: PreviewFlag; label: string }) {
-  const on = usePreviewFlag(flag);
-  const setDisplay = useSetPreviewDisplay();
-
-  return (
-    <Menu.CheckboxItem
-      checked={on}
-      onCheckedChange={() => setDisplay({ [flag]: !on } as Partial<PreviewDisplay>)}
-    >
-      {label}
-    </Menu.CheckboxItem>
   );
 }
 

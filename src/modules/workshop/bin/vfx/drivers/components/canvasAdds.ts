@@ -14,6 +14,7 @@ import {
 
 import { type AssetDropDetail, useAssetDrop } from "../../../../state";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
+import { pressedKey } from "../../utils/vfxKeys";
 import { emitterKeyOf, masterIdOf } from "../state/hoveredEmitter";
 import type { GraphLayout } from "../utils/driverLayout";
 import { holderRow } from "../utils/holderRow";
@@ -79,14 +80,18 @@ export function useCanvasAdds({ box, entry, layout, picked }: CanvasAddsOptions)
   });
 
   const open = useCallback(
-    (at: { x: number; y: number }, plug: SocketPlug | null) => {
+    (
+      at: { x: number; y: number },
+      plug: SocketPlug | null,
+      master: MasterItem | null = plug === null ? masterAt.current(at.x, at.y) : null,
+    ) => {
       const rect = box.current?.getBoundingClientRect();
       if (rect === undefined) return;
 
       setQuick({
         x: clamp(at.x - rect.left, 0, rect.width - QUICK_ROOM.width),
         y: clamp(at.y - rect.top, 0, rect.height - QUICK_ROOM.height),
-        master: plug === null ? masterAt.current(at.x, at.y) : null,
+        master,
         plug,
       });
     },
@@ -94,17 +99,19 @@ export function useCanvasAdds({ box, entry, layout, picked }: CanvasAddsOptions)
   );
   const host = useMemo<QuickAddHost>(() => ({ plugs, open }), [plugs, open]);
 
-  const onKeyDown = (event: ReactKeyboardEvent) => {
-    const tab = event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.altKey;
-    const shiftA = event.key.toLowerCase() === "a" && event.shiftKey && !event.ctrlKey;
-    if (!tab && !shiftA) return false;
-
+  const middle = () => {
     const rect = box.current?.getBoundingClientRect();
-    const at = pointer.current ?? {
+
+    return {
       x: (rect?.left ?? 0) + (rect?.width ?? 0) / 2,
       y: (rect?.top ?? 0) + (rect?.height ?? 0) / 2,
     };
-    open(at, null);
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent) => {
+    if (!pressedKey(event, "quickAdd") && !pressedKey(event, "quickAddAlternate")) return false;
+
+    open(pointer.current ?? middle(), null);
     return true;
   };
   const onDoubleClick = (event: ReactMouseEvent) => {
@@ -151,6 +158,10 @@ export function useCanvasAdds({ box, entry, layout, picked }: CanvasAddsOptions)
   return {
     masters,
     quick,
+    /** The master node of the picked node, which a field added from the menu bar goes on. */
+    pickedMaster: masterOf(picked),
+    /** Opens the quick add at the middle of the canvas, on the picked node's emitter if any. */
+    openAtMiddle: () => open(middle(), null, masterOf(picked)),
     close: () => setQuick(null),
     host,
     onKeyDown,

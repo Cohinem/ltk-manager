@@ -10,7 +10,9 @@ import { twMerge } from "@/utils";
 
 import { MatchedText } from "../../../shared/components/MatchedText";
 import { instantScroll } from "../../../shared/utils/instantScroll";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { Notice } from "../../shared/preview/Notice";
+import { SPRITE_KEYS } from "../canvas/canvasKeys";
 import { sheetSpriteAt } from "../engine/edit/spriteEdits";
 import {
   type SpriteRow,
@@ -22,7 +24,10 @@ import {
 import { useAtlasView } from "../hooks/useAtlasSources";
 import { useSpriteExport } from "../hooks/useSpriteExport";
 import { pageOf, type SpriteImport, useSpriteImport } from "../hooks/useSpriteImport";
+import { useAtlasEdit } from "../state/atlasEdit";
 import { useAtlasPreviewActions, useViewPreview, viewKey } from "../state/atlasPreview";
+import { ATLAS_COMMANDS } from "../utils/atlasCommands";
+import { editReason } from "../utils/atlasReasons";
 import { KeyHint } from "./KeyHint";
 import { SpriteThumb } from "./SpriteThumb";
 
@@ -33,8 +38,8 @@ const THUMB_SIZE = 28;
 const SPRITE_ROW = THUMB_SIZE + 8;
 const HEADING_ROW = 24;
 
-const REPLACE_KEY = "R";
-const EXPORT_KEY = "E";
+const REPLACE_KEY = SPRITE_KEYS.replace;
+const EXPORT_KEY = SPRITE_KEYS.export;
 
 export interface SpritesPaneProps {
   readonly document: BinDocumentId;
@@ -58,6 +63,7 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
   const key = viewKey(document, entry);
   const { selected } = useViewPreview(key);
   const { setSelection, requestFrame } = useAtlasPreviewActions();
+  const edit = useAtlasEdit();
   const sprites = useSpriteImport(tree?.view ?? null);
   const exports = useSpriteExport();
   const textures = useMemo(() => (tree === null ? [] : spriteTextures(tree.view)), [tree]);
@@ -155,12 +161,50 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
     }
   }
 
+  const activeRow = rows[active];
+  const activeSprite = activeRow?.type === "sprite" ? activeRow : null;
+  const noRow = m.workshop_bin_menu_atlas_sprite_reason();
+  const paneFocus = usePaneCommands("atlas.sprites", {
+    [ATLAS_COMMANDS.frame]: {
+      run: activeSprite === null ? null : () => frame(activeSprite.sprite),
+      reason: noRow,
+      title: m.workshop_bin_menu_atlas_frame_sprite_action(),
+    },
+    [ATLAS_COMMANDS.spriteExport]: {
+      run:
+        activeSprite?.texture.asset == null || exports.exporting
+          ? null
+          : () => exportRow(activeSprite),
+      reason: noRow,
+      title:
+        activeSprite === null
+          ? undefined
+          : m.workshop_bin_menu_atlas_export_action({ sprite: activeSprite.label }),
+    },
+    [ATLAS_COMMANDS.spriteReplace]: {
+      run:
+        activeSprite === null || !sprites.available || sprites.importing
+          ? null
+          : () =>
+              void sprites.run(
+                activeSprite.sprite.elements,
+                ownKey(activeSprite.texture, activeSprite.sprite, sprites.sheet),
+                pageOf(activeSprite.texture.path, activeSprite.sprite.uv, sprites.sheet),
+              ),
+      reason: sprites.available ? noRow : editReason(edit),
+      title:
+        activeSprite === null
+          ? undefined
+          : m.workshop_bin_menu_atlas_replace_action({ sprite: activeSprite.label }),
+    },
+  });
+
   if (error !== null) return <Notice text={m.workshop_bin_atlas_view_error()} />;
   if (pending || tree === null) return <Notice text={m.workshop_bin_atlas_view_pending()} />;
   if (textures.length === 0) return <Notice text={m.workshop_bin_atlas_sprites_empty()} />;
 
   return (
-    <div data-ui="SpritesPane" className="flex min-h-0 flex-1 flex-col select-none">
+    <div data-ui="SpritesPane" className="flex min-h-0 flex-1 flex-col select-none" {...paneFocus}>
       <div className="flex shrink-0 flex-col gap-1.5 p-1.5 pb-1">
         <div className="flex items-center gap-1.5">
           <SearchField

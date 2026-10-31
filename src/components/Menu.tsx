@@ -1,6 +1,6 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { CaretRightIcon, CheckIcon } from "@phosphor-icons/react";
-import { forwardRef, type ReactNode, useId } from "react";
+import { createContext, forwardRef, type ReactNode, use, useId, useMemo } from "react";
 
 import { twMerge } from "@/utils";
 
@@ -117,16 +117,50 @@ const MenuItemIcon = ({ children }: { children: ReactNode }) => (
   <span className="size-4 shrink-0 opacity-70">{children}</span>
 );
 
+/** The reason a `Menu.Note` writes for the items under it, and that note's id. */
+const MenuReasonContext = createContext<{ readonly reason: string; readonly id: string } | null>(
+  null,
+);
+
+export interface MenuReasonScopeProps {
+  /** The reason that a disabled item leaves to the note. */
+  reason: string;
+  /** The id of the `Menu.Note`, which describes each such item. */
+  id: string;
+  children?: ReactNode;
+}
+
+/** Items whose matching disabled reason a `Menu.Note` writes instead. */
+const MenuReasonScope = ({ reason, id, children }: MenuReasonScopeProps) => {
+  const scope = useMemo(() => ({ reason, id }), [reason, id]);
+
+  return <MenuReasonContext value={scope}>{children}</MenuReasonContext>;
+};
+
+export interface MenuNoteProps {
+  id: string;
+  children?: ReactNode;
+}
+
+/** A line of text above a run of disabled items, which it explains once. */
+const MenuNote = ({ id, children }: MenuNoteProps) => (
+  <div id={id} className="px-2 py-1 text-meta text-surface-400 select-none">
+    {children}
+  </div>
+);
+
 const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
   ({ icon, shortcut, variant = "default", reason, className, children, ...props }, ref) => {
     const reasonId = useId();
-    const shownReason = props.disabled === true && reason != null;
+    const scope = use(MenuReasonContext);
+    const noted = props.disabled === true && scope !== null && reason === scope.reason;
+    const shownReason = props.disabled === true && reason != null && !noted;
 
     return (
       <BaseMenu.Item
         ref={ref}
         className={twMerge(popupItem, popupItemTone[variant], className)}
-        aria-describedby={shownReason ? reasonId : undefined}
+        aria-describedby={noted ? scope.id : shownReason ? reasonId : undefined}
         {...props}
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
@@ -439,6 +473,8 @@ export const Menu = {
   Content: MenuContent,
   SubmenuContent: MenuSubmenuContent,
   Item: MenuItem,
+  Note: MenuNote,
+  ReasonScope: MenuReasonScope,
   SubmenuRoot: MenuSubmenuRoot,
   SubmenuTrigger: MenuSubmenuTrigger,
   SubmenuPositioner: MenuSubmenuPositioner,

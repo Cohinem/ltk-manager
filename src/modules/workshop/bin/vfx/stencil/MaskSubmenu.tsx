@@ -18,14 +18,24 @@ import { useStencilEdit, useStencilMasks } from "./useStencil";
  * system, make a mask from the emitter, or turn its stencil off.
  *
  * A simple emitter reads no stencil fields, so it draws no submenu. "The stencil" in
- * docs/ux/BIN_EDITOR.md.
+ * docs/ux/BIN_EDITOR.md. With `reason`, a surface that keeps the item lists it disabled where no
+ * emitter or edit applies.
  */
-export function MaskSubmenu() {
+export function MaskSubmenu({ reason }: { reason?: string }) {
   const edit = useStencilEdit();
   const masks = useStencilMasks();
   const emitter = useEmitterModel();
   const system = use(VfxRunContext)?.system ?? null;
-  if (edit === null || emitter === undefined || system === null || emitter.simple) return null;
+  if (emitter?.simple === true) return null;
+  if (edit === null || emitter === undefined || system === null) {
+    if (reason === undefined) return null;
+
+    return (
+      <Menu.Item icon={<SelectionAllIcon />} disabled reason={reason}>
+        {m.workshop_bin_stencil_menu_label()}
+      </Menu.Item>
+    );
+  }
 
   const current = maskUse(emitter);
   const free = freeReference(masks);

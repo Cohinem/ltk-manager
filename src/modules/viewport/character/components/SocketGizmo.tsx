@@ -1,6 +1,6 @@
 import { TransformControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { type Group, Matrix4, type Object3D, Quaternion, Vector3 } from "three";
 
 import type { Pose } from "../../animation/evaluation/pose";
@@ -35,19 +35,39 @@ export interface SocketGizmoProps {
   /** The slot the socket answers under on `pose`. */
   readonly slot: number;
   readonly mode: PlacementMode;
+  /** Whether the handle's axes are the socket's own or the scene's. */
+  readonly space: GizmoSpace;
   /** Where the character stands in the scene, read where `anchor` holds no object. */
   readonly position: readonly [number, number, number];
   /** The character's yaw in radians, read where `anchor` holds no object. */
   readonly facing: number;
   /** An object in the group a placement gizmo moves, whose parent is where the unit stands. */
   readonly anchor?: RefObject<Object3D | null>;
+  /** A press on the handle, which holds the clip on the pose the drag is measured on. */
+  readonly onGrab?: () => void;
   readonly onMove: (place: SocketPlace) => void;
 }
+
+/** Which axes a gizmo's handles run along. */
+export type GizmoSpace = "local" | "world";
 
 const UP = new Vector3(0, 1, 0);
 
 /** The gizmo's size, as a share of the size a placement gizmo draws at. */
 const HANDLE_SIZE = 0.7;
+
+/** The steps a drag lands on while Ctrl is held: engine units, and radians. */
+const SNAP_UNITS = 5;
+const SNAP_TURN = (15 * Math.PI) / 180;
+
+/** The keys a drag still listens to, which turn the snap on and off. */
+const SNAP_KEYS: ReadonlySet<string> = new Set(["Control", "Meta"]);
+
+/** The parts of the gizmo that a cancelled drag writes. `dragging` and `axis` end the drag. */
+interface DragState {
+  dragging: boolean;
+  axis: string | null;
+}
 
 /**
  * A gizmo that moves or turns one socket of the character.
@@ -55,7 +75,8 @@ const HANDLE_SIZE = 0.7;
  * "The physics pane" in docs/ux/SKIN_EDITOR.md. The handle stands in the scene's own space
  * and not under the character's mirrored group, since the gizmo turns the wrong way under
  * a mirror. So the socket's place is carried out to the scene each frame, and a drag's
- * result is carried back to the skeleton's space on release.
+ * result is carried back to the skeleton's space on release. Ctrl snaps a drag, Esc puts the
+ * handle back and writes nothing, and every other key is stopped until the release.
  */
 export function SocketGizmo({
   pose,
@@ -63,12 +84,16 @@ export function SocketGizmo({
   scale,
   slot,
   mode,
+  space,
   position,
   facing,
   anchor,
+  onGrab,
   onMove,
 }: SocketGizmoProps) {
   const [held, setHeld] = useState<Group | null>(null);
+  const [snapped, setSnapped] = useState(false);
+  const transform = useRef<ComponentRef<typeof TransformControls>>(null);
   const grab = useRef<Grab | null>(null);
   /* The handle stays where a drag dropped it until the edit reaches the pose, since
      following the socket before the edit lands reads as a snap back. */
@@ -97,6 +122,45 @@ export function SocketGizmo({
     },
     [controls],
   );
+
+  useEffect(() => {
+    const press = (event: KeyboardEvent) => setSnapped(event.ctrlKey || event.metaKey);
+    window.addEventListener("keydown", press);
+    window.addEventListener("keyup", press);
+
+    return () => {
+      window.removeEventListener("keydown", press);
+      window.removeEventListener("keyup", press);
+    };
+  }, []);
+
+  useEffect(() => {
+    const cancel = (event: KeyboardEvent) => {
+      const from = grab.current;
+      if (from === null || held === null || SNAP_KEYS.has(event.key)) return;
+
+      /* Captured, so no key of the preview moves the clock or the mode that the release reads. */
+      event.stopPropagation();
+      if (event.key !== "Escape") {
+        event.preventDefault();
+        return;
+      }
+
+      grab.current = null;
+      held.position.copy(from.position);
+      held.quaternion.copy(from.quaternion);
+
+      const drag = transform.current as unknown as DragState | null;
+      if (drag !== null) {
+        drag.dragging = false;
+        drag.axis = null;
+      }
+      if (controls !== null) controls.enabled = true;
+    };
+    window.addEventListener("keydown", cancel, true);
+
+    return () => window.removeEventListener("keydown", cancel, true);
+  }, [held, controls]);
 
   /* The props report a placement on its release alone, so a unit being dragged is read
      off the group the placement gizmo moves. */
@@ -133,6 +197,7 @@ export function SocketGizmo({
     if (held === null) return;
 
     grab.current = { slot, position: held.position.clone(), quaternion: held.quaternion.clone() };
+    onGrab?.();
   };
 
   const release = () => {
@@ -158,11 +223,13 @@ export function SocketGizmo({
       <group ref={setHeld} />
       {held !== null && (
         <TransformControls
+          ref={transform}
           object={held}
           mode={mode}
-          /* A turn is about the socket's own axes, which are what its angles are of. */
-          space={mode === "rotate" ? "local" : "world"}
+          space={space}
           size={HANDLE_SIZE}
+          translationSnap={snapped ? SNAP_UNITS : null}
+          rotationSnap={snapped ? SNAP_TURN : null}
           onMouseDown={press}
           onMouseUp={release}
         />

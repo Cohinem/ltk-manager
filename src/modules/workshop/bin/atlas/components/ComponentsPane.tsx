@@ -1,32 +1,3 @@
-import {
-  ArrowsClockwiseIcon,
-  CircleHalfIcon,
-  CircleNotchIcon,
-  ClockClockwiseIcon,
-  CropIcon,
-  CursorClickIcon,
-  DotsSixIcon,
-  DropHalfIcon,
-  FilmStripIcon,
-  FrameCornersIcon,
-  GaugeIcon,
-  HourglassIcon,
-  type Icon,
-  ImageSquareIcon,
-  LineSegmentIcon,
-  PaintBucketIcon,
-  RowsIcon,
-  SelectionIcon,
-  SlidersHorizontalIcon,
-  SparkleIcon,
-  SpinnerIcon,
-  SquaresFourIcon,
-  StackIcon,
-  SunHorizonIcon,
-  SunIcon,
-  TextTIcon,
-  TimerIcon,
-} from "@phosphor-icons/react";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import { Button, Count, Grid, Inline, Kbd, SearchField, Stack, Tooltip } from "@/components";
@@ -35,6 +6,7 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { Notice } from "../../shared/preview/Notice";
+import { CANVAS_KEYS } from "../canvas/canvasKeys";
 import { addTargetOf } from "../engine/edit/newElement";
 import { classAlias } from "../engine/model/classNames";
 import {
@@ -48,44 +20,9 @@ import { useAddElement } from "../hooks/useAddElement";
 import { useAtlasView } from "../hooks/useAtlasSources";
 import { useSectionOpen, useViewPreview, viewKey } from "../state/atlasPreview";
 import { usePlacing, usePlacingActions } from "../state/placing";
+import { CATEGORY_TITLE, kindGlyph } from "./kindGlyphs";
 import { ReadOnlyNote } from "./ReadOnlyNote";
 import { SectionHeading } from "./sectionParts";
-
-const KIND_ICON: Readonly<Record<string, Icon>> = {
-  UiElementIconData: ImageSquareIcon,
-  UiElementTextData: TextTIcon,
-  UiElementRegionData: SelectionIcon,
-  UiElementScissorRegionData: CropIcon,
-  UiElementParticleSystemData: SparkleIcon,
-  UiElementGroupData: SquaresFourIcon,
-  UiElementGroupManagedLayoutData: RowsIcon,
-  UiElementGroupFramedData: FrameCornersIcon,
-  UiElementGroupButtonData: CursorClickIcon,
-  UiElementGroupSliderData: SlidersHorizontalIcon,
-  UiElementGroupMeterData: GaugeIcon,
-  UiElementEffectAnimationData: FilmStripIcon,
-  UiElementEffectCooldownData: HourglassIcon,
-  UiElementEffectCooldownRadialData: ClockClockwiseIcon,
-  UiElementEffectCircleMaskCooldownData: TimerIcon,
-  UiElementEffectAmmoData: DotsSixIcon,
-  UiElementEffectFillPercentageData: PaintBucketIcon,
-  UiElementEffectArcFillData: CircleNotchIcon,
-  UiElementEffectGlowData: SunIcon,
-  UiElementEffectLineData: LineSegmentIcon,
-  UiElementEffectDesaturateData: DropHalfIcon,
-  UiElementEffectCircleMaskDesaturateData: CircleHalfIcon,
-  UiElementEffectInstancedData: StackIcon,
-  UiElementEffectRotatingIconData: ArrowsClockwiseIcon,
-  UiElementEffectAnimatedRotatingIconData: SpinnerIcon,
-  UiElementEffectGlowingRotatingIconData: SunHorizonIcon,
-};
-
-const CATEGORY_TITLE: Record<KindCategory, () => string> = {
-  basic: m.workshop_bin_atlas_add_category_basic_label,
-  group: m.workshop_bin_atlas_add_category_group_label,
-  control: m.workshop_bin_atlas_add_category_control_label,
-  effect: m.workshop_bin_atlas_add_category_effect_label,
-};
 
 /** The narrowest a tile gets, which fits a two-line alias under its glyph. */
 const TILE_MIN_WIDTH = "4.75rem";
@@ -174,7 +111,7 @@ export function ComponentsPane({ document, entry }: ComponentsPaneProps) {
             <HintLine
               text={m.workshop_bin_atlas_add_placing_hint({ kind: classAlias(carried.class) })}
             />
-            <Kbd shortcut="Esc" />
+            <Kbd shortcut={CANVAS_KEYS.clear} />
           </Inline>
         )}
         {block === "readOnly" && <ReadOnlyNote reason={adder.readOnly} className="text-meta" />}
@@ -229,7 +166,7 @@ interface KindTileProps {
 
 /** One kind as a tile: its glyph over its alias, with its class as the hint. */
 function KindTile({ kind, carried, disabled, onPick, onDragOut, onAddBeside }: KindTileProps) {
-  const Glyph = KIND_ICON[kind.class] ?? SelectionIcon;
+  const Glyph = kindGlyph(kind.class);
   const pressed = useRef(false);
 
   return (

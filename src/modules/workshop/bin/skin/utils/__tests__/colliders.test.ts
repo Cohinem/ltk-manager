@@ -44,15 +44,20 @@ function skinAt(skeleton: string | null): SkinModel {
 }
 
 describe("colliderPathOf", () => {
-  it("names the file beside the skeleton, under the skeleton's name", () => {
-    expect(colliderPathOf(skinAt("ASSETS/Characters/Ahri/Skins/Base/Ahri_Base.skl"))).toBe(
-      "ASSETS/Characters/Ahri/Skins/Base/Ahri_Base.colliders",
+  it("names a file per skin beside the skeleton, so skins that share one keep their shapes", () => {
+    const skin = skinAt("ASSETS/Characters/Ahri/Skins/Base/Ahri_Base.skl");
+
+    expect(colliderPathOf(skin, "0x12345678")).toBe(
+      "ASSETS/Characters/Ahri/Skins/Base/Ahri_Base.0x12345678.colliders",
+    );
+    expect(colliderPathOf(skin, "0x9abcdef0")).toBe(
+      "ASSETS/Characters/Ahri/Skins/Base/Ahri_Base.0x9abcdef0.colliders",
     );
   });
 
   it("names none for a skin with no skeleton, and for a skeleton with no path", () => {
-    expect(colliderPathOf(skinAt(null))).toBeNull();
-    expect(colliderPathOf(skinAt("d75eaa93edbefae8"))).toBeNull();
+    expect(colliderPathOf(skinAt(null), "0x12345678")).toBeNull();
+    expect(colliderPathOf(skinAt("d75eaa93edbefae8"), "0x12345678")).toBeNull();
   });
 });
 

@@ -32,6 +32,7 @@ import {
   useSetPreviewDisplay,
 } from "@/stores";
 
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { Notice } from "../../shared/preview/Notice";
 import { PreviewToggle } from "../../shared/preview/PreviewToggle";
@@ -41,6 +42,7 @@ import { ControlDivider, FitButton, ViewportControls } from "../../shared/previe
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { useMaterialProgram } from "../hooks/useMaterialProgram";
 import { useHeldValue } from "../state/heldValue";
+import { MATERIAL_FIT_COMMAND } from "../utils/materialCommands";
 import { PermutationMenu } from "./PermutationMenu";
 import { ShaderMaterialMenu } from "./ShaderMaterialMenu";
 
@@ -96,6 +98,7 @@ export default function MaterialViewport({
   const ground = usePreviewGround();
   const setDisplay = useSetPreviewDisplay();
   const [fitToken, refit] = useFitRequest();
+  usePaneCommands("material-viewport", { [MATERIAL_FIT_COMMAND]: { run: refit } });
 
   if (query.error !== null) {
     return <Notice text={m.workshop_bin_material_preview_failed_empty()} />;
@@ -172,16 +175,36 @@ function ShapeMenu({
         }
       />
       <Menu.Content align="end" data-ui="MaterialViewport:shapes" className="w-36">
-        {PREVIEW_SHAPES.map((each) => (
-          <Menu.Item
-            key={each}
-            icon={each === shape && <CheckIcon weight="bold" className="size-4" />}
-            onClick={() => onPick(each)}
-          >
-            {SHAPE_LABEL[each]()}
-          </Menu.Item>
-        ))}
+        <ShapeChoices shape={shape} onPick={onPick} />
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+function ShapeChoices({
+  shape,
+  onPick,
+}: {
+  shape: PreviewShape;
+  onPick: (shape: PreviewShape) => void;
+}) {
+  return PREVIEW_SHAPES.map((each) => (
+    <Menu.Item
+      key={each}
+      icon={each === shape && <CheckIcon weight="bold" className="size-4" />}
+      onClick={() => onPick(each)}
+    >
+      {SHAPE_LABEL[each]()}
+    </Menu.Item>
+  ));
+}
+
+/** The preview shapes as menu items, which the menu bar's Shape submenu draws. */
+export function ShapeItems() {
+  const shape = usePreviewMaterialShape();
+  const setDisplay = useSetPreviewDisplay();
+
+  return (
+    <ShapeChoices shape={shape} onPick={(picked) => setDisplay({ previewMaterialShape: picked })} />
   );
 }

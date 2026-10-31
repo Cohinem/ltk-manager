@@ -180,6 +180,8 @@ pub struct AuthorProfile {
     pub id: String,
     pub name: String,
     pub role: Option<String>,
+    /// The id of the RuneForge user that this profile follows, or `None` if it is not linked.
+    pub runeforge_user_id: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -448,6 +450,7 @@ mod tests {
                 id: "test-id".to_string(),
                 name: "Test Author".to_string(),
                 role: Some("3D Artist".to_string()),
+                runeforge_user_id: None,
             }],
             default_author_profile_id: Some("test-id".to_string()),
             ..Settings::default()

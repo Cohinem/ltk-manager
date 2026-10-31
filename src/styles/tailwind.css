@@ -95,6 +95,7 @@
   --color-channel-3-text: var(--ltk-channel-3-text);
   --color-channel-4: var(--ltk-channel-4);
   --color-channel-4-text: var(--ltk-channel-4-text);
+  --color-mesh-edge: var(--ltk-mesh-edge);
   --color-socket-float: var(--ltk-socket-float);
   --color-socket-float-text: var(--ltk-socket-float-text);
   --color-socket-vec2: var(--ltk-socket-vec2);

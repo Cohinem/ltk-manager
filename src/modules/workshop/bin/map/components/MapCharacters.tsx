@@ -174,7 +174,12 @@ function PlacedSkin({ document, model, graph, characters, clock, seen, colors }:
     (submesh: string) => bindingOf(model, textures, submesh),
     [model, textures],
   );
-  const programs = useSkinPrograms(document, model, usePreviewShaders());
+  const programs = useSkinPrograms(
+    document,
+    model,
+    usePreviewShaders(),
+    Boolean(mesh.data?.tangents),
+  );
   const groups = useMemo(() => [...charactersByAnimation(characters)], [characters]);
 
   if (mesh.data === undefined || bones.data === undefined) return null;

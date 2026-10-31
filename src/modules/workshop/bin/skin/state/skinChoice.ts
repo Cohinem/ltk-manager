@@ -3,6 +3,7 @@ import { createContext, useCallback, useMemo, useState } from "react";
 import {
   createSceneClock,
   DEFAULT_RATE,
+  type GizmoSpace,
   type PlacementMode,
   type SceneClock,
 } from "@/modules/viewport";
@@ -41,8 +42,11 @@ export interface SkinChoice {
    */
   readonly conditions: ReadonlySet<number>;
   readonly toggleCondition: (index: number) => void;
-  /** The submesh a reader points at, from the inspector or the viewport, and null for none. */
+  /** Applies no condition, for a list whose indexes moved. */
+  readonly resetConditions: () => void;
+  /** The submesh the inspector points at, else the one picked in the viewport, else null. */
   readonly submesh: string | null;
+  /** Point at a submesh from the inspector. Null falls back to the viewport's pick. */
   readonly setSubmesh: (submesh: string | null) => void;
   /** Counts the viewport's picks, so the row of a submesh picked twice scrolls in again. */
   readonly picks: number;
@@ -82,6 +86,8 @@ export interface SkinChoice {
   /** The pose modifiers the preview leaves out, by hash path, which writes nothing. */
   readonly muted: ReadonlySet<string>;
   readonly toggleMuted: (path: string) => void;
+  /** Mutes no modifier, for a list whose hash paths moved. */
+  readonly resetMuted: () => void;
   /** The joint a reader selected, by name, from the skeleton pane or the viewport. */
   readonly joint: string | null;
   readonly setJoint: (joint: string | null) => void;
@@ -91,6 +97,9 @@ export interface SkinChoice {
   /** Whether the socket's gizmo moves it or turns it. */
   readonly socketMode: PlacementMode;
   readonly setSocketMode: (mode: PlacementMode) => void;
+  /** Whether the socket gizmo's handles run along the socket's axes or the scene's. */
+  readonly socketSpace: GizmoSpace;
+  readonly setSocketSpace: (space: GizmoSpace) => void;
 }
 
 /** The rate a clip opens at, which is the speed the game plays it. */
@@ -104,7 +113,17 @@ function expandedKey(tab: ClipTab, hash: string): string {
 /** A preview's choices as a reader first meets them: playing, at speed, with everything drawn. */
 export function useSkinChoice(): SkinChoice {
   const clock = useMemo(createSceneClock, []);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picked, setPickedClip] = useState<string | null>(null);
+  const [parameter, setParameter] = useState<number | null>(null);
+  const setPicked = useCallback(
+    (clip: string | null) => {
+      if (clip === picked) return;
+
+      setPickedClip(clip);
+      setParameter(null);
+    },
+    [picked],
+  );
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(FIRST_SPEED);
   const [effects, setEffects] = useState(true);
@@ -116,10 +135,14 @@ export function useSkinChoice(): SkinChoice {
       return next;
     });
   }, []);
-  const [submesh, setSubmesh] = useState<string | null>(null);
+  const resetConditions = useCallback(() => setConditions(new Set()), []);
+  const [pointed, setSubmesh] = useState<string | null>(null);
+  const [pickedSubmesh, setPickedSubmesh] = useState<string | null>(null);
+  const submesh = pointed ?? pickedSubmesh;
   const [picks, setPicks] = useState(0);
   const pickSubmesh = useCallback((next: string | null) => {
-    setSubmesh(next);
+    setPickedSubmesh(next);
+    setSubmesh(null);
     setPicks((count) => count + 1);
   }, []);
   const [shown, setShownAll] = useState<ReadonlyMap<string, boolean>>(() => new Map());
@@ -133,6 +156,7 @@ export function useSkinChoice(): SkinChoice {
   const jumpTo = useCallback((next: ClipTab, hash: string) => {
     setTab(next);
     setMarked({ tab: next, hash });
+    if (next === "clips") setFilter("");
   }, []);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const isExpanded = useCallback(
@@ -154,7 +178,6 @@ export function useSkinChoice(): SkinChoice {
     });
   }, []);
   const [mask, setMask] = useState<string | null>(null);
-  const [parameter, setParameter] = useState<number | null>(null);
   const [simulatedRate, setSimulatedRate] = useState<number>(DEFAULT_RATE);
   const [muted, setMuted] = useState<ReadonlySet<string>>(() => new Set());
   const toggleMuted = useCallback((path: string) => {
@@ -164,9 +187,11 @@ export function useSkinChoice(): SkinChoice {
       return next;
     });
   }, []);
+  const resetMuted = useCallback(() => setMuted(new Set()), []);
   const [joint, setJoint] = useState<string | null>(null);
   const [socket, setSocket] = useState<string | null>(null);
   const [socketMode, setSocketMode] = useState<PlacementMode>("translate");
+  const [socketSpace, setSocketSpace] = useState<GizmoSpace>("local");
 
   return useMemo(
     () => ({
@@ -181,6 +206,7 @@ export function useSkinChoice(): SkinChoice {
       setEffects,
       conditions,
       toggleCondition,
+      resetConditions,
       submesh,
       setSubmesh,
       picks,
@@ -205,21 +231,26 @@ export function useSkinChoice(): SkinChoice {
       setSimulatedRate,
       muted,
       toggleMuted,
+      resetMuted,
       joint,
       setJoint,
       socket,
       setSocket,
       socketMode,
       setSocketMode,
+      socketSpace,
+      setSocketSpace,
     }),
     [
       clock,
       picked,
+      setPicked,
       playing,
       speed,
       effects,
       conditions,
       toggleCondition,
+      resetConditions,
       submesh,
       picks,
       pickSubmesh,
@@ -238,9 +269,11 @@ export function useSkinChoice(): SkinChoice {
       simulatedRate,
       muted,
       toggleMuted,
+      resetMuted,
       joint,
       socket,
       socketMode,
+      socketSpace,
     ],
   );
 }

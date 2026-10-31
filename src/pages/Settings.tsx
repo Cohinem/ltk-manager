@@ -10,7 +10,7 @@ import {
   SpinnerGapIcon,
 } from "@phosphor-icons/react";
 import { getRouteApi } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 
 import { LootIcon, PatcherIcon, ReadingColumn, Tabs } from "@/components";
 import { m } from "@/i18n";
@@ -56,6 +56,7 @@ export function Settings() {
   const navigate = routeApi.useNavigate();
   const { data: settings, isLoading } = useSettings();
   const { data: appInfo } = useAppInfo();
+  const scrollerRef = useRef<HTMLDivElement>(null);
 
   if (isLoading || !settings) {
     return (
@@ -69,6 +70,8 @@ export function Settings() {
     /* Replace, because a tab is not a place a reader wants Back to walk through.
        Back leaves settings. */
     void navigate({ search: (prev) => ({ ...prev, tab: value as SettingsTab }), replace: true });
+
+    scrollerRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }
 
   return (
@@ -91,7 +94,7 @@ export function Settings() {
           ))}
         </Tabs.List>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div ref={scrollerRef} className="min-h-0 flex-1 overflow-auto">
           <SettingFocusProvider>
             <Tabs.Panel value="general">
               <ReadingColumn gap={8}>

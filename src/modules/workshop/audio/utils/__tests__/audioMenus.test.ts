@@ -101,11 +101,21 @@ describe("audioMenus", () => {
     expect(bank?.entries.map(entryName)).toEqual(["[units]", "-", "replaceMedia"]);
   });
 
-  it("lists the rule edits and the Voice menu on the Voice lines view, without File or Bank", () => {
+  it("lists the rule edits and the Voice menu on the Voice lines view, without Bank", () => {
     const menus = audioMenus({ ...BANK, surfaces: ["lines"], slots: ["volume"] });
 
-    expect(menus.map((menu) => menu.id)).toEqual(["edit", "insert", "view", "playback", "voice"]);
+    expect(menus.map((menu) => menu.id)).toEqual([
+      "file",
+      "edit",
+      "insert",
+      "view",
+      "playback",
+      "voice",
+    ]);
     expect(menus.find((menu) => menu.id === "edit")?.entries.map(entryName)).toEqual([
+      "undo",
+      "redo",
+      "-",
       "duplicate",
       "remove",
       "-",

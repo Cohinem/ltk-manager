@@ -4,7 +4,7 @@ import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, PreviewMaterial } from "@/lib/tauri";
 
-import { useShaderMaterial } from "../hooks/useShaderMaterial";
+import { type LinkingMaterial, useShaderMaterial } from "../hooks/useShaderMaterial";
 import { previewKey, usePreviewDefinesStore } from "../state/previewDefines";
 
 /** The radio value of the def's own defaults, which no material entry takes. */
@@ -66,27 +66,70 @@ export function ShaderMaterialMenu({
         data-ui="ShaderMaterialMenu"
         className="max-h-96 w-80 overflow-y-auto"
       >
-        <Menu.RadioGroup
+        <MaterialChoices
           value={value}
-          onValueChange={(value) =>
-            drawThrough(key, linking.find((each) => valueOf(each) === value) ?? null)
-          }
-        >
-          <Menu.RadioItem value={DEFAULTS}>
-            {m.workshop_bin_shader_material_defaults_label()}
-          </Menu.RadioItem>
-          <Menu.Separator />
-          {linking.map((material) => (
-            <Menu.RadioItem key={valueOf(material)} value={valueOf(material)}>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">{lastSegment(material.path)}</span>
-                {/* DS-TEXT */}
-                <span className="truncate text-fine text-surface-400">{material.file}</span>
-              </span>
-            </Menu.RadioItem>
-          ))}
-        </Menu.RadioGroup>
+          linking={linking}
+          onPick={(picked) => drawThrough(key, picked)}
+        />
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+/**
+ * The materials of `ShaderMaterialMenu` as menu items, which a menu bar draws as a submenu.
+ * Shows a disabled item if no material links the def.
+ */
+export function ShaderMaterialItems({
+  document,
+  entry,
+}: {
+  document: BinDocumentId;
+  entry: string;
+}) {
+  const { linking, chosen } = useShaderMaterial(document, entry, true);
+  const drawThrough = usePreviewDefinesStore((state) => state.drawThrough);
+
+  if (linking.length === 0) {
+    return <Menu.Item disabled>{m.workshop_bin_menu_shader_material_empty()}</Menu.Item>;
+  }
+
+  const key = previewKey(document, entry);
+
+  return (
+    <MaterialChoices
+      value={chosen === null ? DEFAULTS : valueOf(chosen)}
+      linking={linking}
+      onPick={(picked) => drawThrough(key, picked)}
+    />
+  );
+}
+
+interface MaterialChoicesProps {
+  readonly value: string;
+  readonly linking: readonly LinkingMaterial[];
+  readonly onPick: (material: PreviewMaterial | null) => void;
+}
+
+function MaterialChoices({ value, linking, onPick }: MaterialChoicesProps) {
+  return (
+    <Menu.RadioGroup
+      value={value}
+      onValueChange={(next) => onPick(linking.find((each) => valueOf(each) === next) ?? null)}
+    >
+      <Menu.RadioItem value={DEFAULTS}>
+        {m.workshop_bin_shader_material_defaults_label()}
+      </Menu.RadioItem>
+      <Menu.Separator />
+      {linking.map((material) => (
+        <Menu.RadioItem key={valueOf(material)} value={valueOf(material)}>
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate">{lastSegment(material.path)}</span>
+            {/* DS-TEXT */}
+            <span className="truncate text-fine text-surface-400">{material.file}</span>
+          </span>
+        </Menu.RadioItem>
+      ))}
+    </Menu.RadioGroup>
   );
 }

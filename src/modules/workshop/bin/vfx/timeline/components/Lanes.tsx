@@ -16,10 +16,13 @@ import { useTimelineHistogram } from "@/stores";
 import { runEmitterKey } from "../../clipboard/emitterKeys";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import type { EmitterModel } from "../../engine/model/model";
+import { useReadOnlyReason, useShownPaneCommands } from "../../hooks/usePaneOffers";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { emitterRef } from "../../inspector/utils/emitterName";
 import { useVfxRun } from "../../playback/state/run";
 import { ignoredKey } from "../../playback/utils/ignoredKey";
+import { VFX_COMMAND, VFX_PANE } from "../../utils/vfxCommands";
+import { pressedKey } from "../../utils/vfxKeys";
 import { useLaneHead } from "../hooks/useLaneHead";
 import { useLaneRows } from "../hooks/useLaneRows";
 import { useLaneSelect } from "../hooks/useLaneSelect";
@@ -145,18 +148,58 @@ export function Lanes() {
     [cardOf, select, laneKeys, selected, pickCards],
   );
 
+  const refs = cards.filter((card) => selected.has(card.key)).map(emitterRef);
+  const entry = cards[0]?.row.entry ?? "";
+  const open = root === undefined || !selected.has(root.key) ? null : emitterRef(root);
+  const selectAll = () => {
+    const first = root?.key ?? laneKeys[0];
+    if (first !== undefined) pickCards(new Set(laneKeys), first);
+  };
+
   const runKey = (event: ReactKeyboardEvent) => {
     if (ignoredKey(event.nativeEvent)) return;
 
-    const refs = cards.filter((card) => selected.has(card.key)).map(emitterRef);
-    const entry = cards[0]?.row.entry ?? "";
-    const open = root === undefined || !selected.has(root.key) ? null : emitterRef(root);
+    if (pressedKey(event, "selectAll")) {
+      event.preventDefault();
+      selectAll();
+      return;
+    }
+
     if (runEmitterKey(event, clipboard, entry, open, refs)) {
       /* Ctrl+D also opens Diagnostics app-wide, so a handled chord stops here. */
       event.preventDefault();
       event.stopPropagation();
     }
   };
+
+  const readOnly = useReadOnlyReason();
+  const emitterReason = m.workshop_bin_menu_vfx_emitter_reason();
+  const onRefs = (run: ((emitters: typeof refs) => Promise<void>) | null | undefined) =>
+    refs.length > 0 && run != null ? () => void run(refs) : null;
+  const paste = clipboard?.paste ?? null;
+  const paneFocus = useShownPaneCommands(VFX_PANE.lanes, {
+    [VFX_COMMAND.copy]: {
+      run: onRefs(clipboard?.copy),
+      title: m.workshop_bin_emitter_copy_action(),
+      reason: emitterReason,
+    },
+    [VFX_COMMAND.duplicate]: {
+      run: onRefs(clipboard?.duplicate),
+      title: m.workshop_bin_emitter_duplicate_action(),
+      reason: readOnly ?? emitterReason,
+    },
+    [VFX_COMMAND.paste]: {
+      run: paste === null ? null : () => void paste(entry, open),
+      title: m.workshop_bin_emitter_paste_action(),
+      reason: readOnly,
+    },
+    [VFX_COMMAND.remove]: {
+      run: onRefs(clipboard?.remove),
+      title: m.workshop_bin_emitter_delete_action(),
+      reason: readOnly ?? emitterReason,
+    },
+    [VFX_COMMAND.selectAll]: { run: laneKeys.length > 0 ? selectAll : null },
+  });
 
   const layout = useMemo<LaneLayout>(
     () => ({
@@ -188,6 +231,7 @@ export function Lanes() {
 
   return (
     <div
+      {...paneFocus}
       ref={body}
       data-ui="Lanes"
       className="flex min-h-0 flex-1 flex-col"

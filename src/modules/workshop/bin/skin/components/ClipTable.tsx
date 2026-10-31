@@ -3,6 +3,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ReactNode,
+  createContext,
   memo,
   use,
   useCallback,
@@ -28,25 +29,24 @@ import { m } from "@/i18n";
 import type { AnimationGraph, GraphClip } from "@/lib/tauri";
 import { measureRow, twMerge } from "@/utils";
 
+import { instantScroll } from "../../../shared/utils/instantScroll";
 import { FoldCaret } from "../../shared/components/FoldCaret";
 import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
 import { skinQueries } from "../api/skinQueries";
+import {
+  useClipFilterCommand,
+  useClipPaneCommands,
+  useClipSortCommands,
+} from "../hooks/useClipCommands";
 import type { GraphSource } from "../hooks/useGraphSource";
-import { type ClipTab, SkinChoiceContext } from "../state/skinChoice";
-import { playableClips } from "../utils/skinScene";
+import { type ClipMark, SkinChoiceContext } from "../state/skinChoice";
+import { CLIP_TABS } from "../utils/skinCommands";
+import { chosenClipHash, playableClips } from "../utils/skinScene";
 import { shownColumns } from "./ClipColumns";
 import { ClipContextMenu } from "./ClipContextMenu";
 import { ClipDetail } from "./ClipDetail";
 import { MapTable } from "./ClipMaps";
-
-/** The tabs in the order the control lists them, "The clips pane" in docs/ux/SKIN_EDITOR.md. */
-const TABS: readonly { value: ClipTab; label: () => string }[] = [
-  { value: "clips", label: m.workshop_bin_clip_tab_clips_label },
-  { value: "tracks", label: m.workshop_bin_clip_tab_tracks_label },
-  { value: "masks", label: m.workshop_bin_clip_tab_masks_label },
-  { value: "syncGroups", label: m.workshop_bin_clip_tab_sync_groups_label },
-];
 
 /** The rows the filter leaves, by name without regard to case, named ones first. */
 export function matchingClips(clips: readonly GraphClip[], filter: string): GraphClip[] {
@@ -65,6 +65,8 @@ interface ClipsPaneProps {
   readonly source: GraphSource;
   /** The skeleton's joint names by slot, which a mask's weights are listed against. */
   readonly joints: readonly string[] | null;
+  /** `false` where the view has no preview, so a click selects any row and poses nothing. */
+  readonly previewed?: boolean;
 }
 
 /**
@@ -73,10 +75,11 @@ interface ClipsPaneProps {
  * "The clips pane" in docs/ux/SKIN_EDITOR.md. The graph is read once through the query and
  * every tab draws out of that one answer.
  */
-export function ClipsPane({ source, joints }: ClipsPaneProps) {
+export function ClipsPane({ source, joints, previewed = true }: ClipsPaneProps) {
   const choice = use(SkinChoiceContext);
   const graph = useQuery(skinQueries.graph(source.document, source.graph));
   const tab = choice?.tab ?? "clips";
+  useClipPaneCommands(graph.data, previewed);
 
   if (source.graph === null) return <Notice text={m.workshop_bin_section_none_empty()} />;
   if (graph.error !== null) return <Notice text={m.workshop_bin_clip_graph_failed_empty()} />;
@@ -84,13 +87,16 @@ export function ClipsPane({ source, joints }: ClipsPaneProps) {
     return <Notice text={m.workshop_bin_clip_graph_loading_label()} />;
   }
 
-  if (tab === "clips") return <ClipTable graph={graph.data} source={source} />;
+  if (tab === "clips")
+    return <ClipTable graph={graph.data} source={source} previewed={previewed} />;
   return <MapTable graph={graph.data} tab={tab} joints={joints} />;
 }
 
 /** The map control and name filter above the clip tables. */
 export function ClipTabs() {
   const choice = use(SkinChoiceContext);
+  const filterField = useClipFilterCommand();
+
   if (choice === null) return null;
   const { tab, setTab, filter, setFilter } = choice;
 
@@ -98,6 +104,7 @@ export function ClipTabs() {
     <div className="flex flex-wrap items-center gap-2">
       {tab === "clips" && (
         <Field.Control
+          ref={filterField}
           size="xs"
           className="w-40 font-sans"
           aria-label={m.workshop_bin_clip_filter_label()}
@@ -112,7 +119,7 @@ export function ClipTabs() {
         aria-label={m.workshop_bin_clip_tabs_label()}
         value={tab}
         onChange={setTab}
-        options={TABS.map((each) => ({ value: each.value, label: each.label() }))}
+        options={CLIP_TABS.map((each) => ({ value: each.value, label: each.label() }))}
       />
     </div>
   );
@@ -126,7 +133,15 @@ export function ClipTabs() {
  * reaches a file. The rows are windowed and measured, so a graph of a thousand clips
  * costs the rows on screen and an unfolded row takes the height its fields need.
  */
-function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSource }) {
+function ClipTable({
+  graph,
+  source,
+  previewed,
+}: {
+  graph: AnimationGraph;
+  source: GraphSource;
+  previewed: boolean;
+}) {
   const choice = use(SkinChoiceContext);
   const client = useQueryClient();
   const [sorting, setSorting] = useState([{ id: "name", desc: false }]);
@@ -169,10 +184,14 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
     [graph.clips, filter, rates.data],
   );
   const columns = useMemo(() => shownColumns(graph.clips), [graph.clips]);
-  const playable = useMemo(
-    () => new Set(playableClips(graph.clips).map((clip) => clip.hash)),
-    [graph.clips],
-  );
+
+  useClipSortCommands(columns, sorting, setSorting);
+
+  const playableList = useMemo(() => playableClips(graph.clips), [graph.clips]);
+  const playable = useMemo(() => new Set(playableList.map((clip) => clip.hash)), [playableList]);
+  /* The preview's opening clip poses it before any pick, so its row is marked as well. */
+  const picked = choice?.picked ?? null;
+  const posed = previewed ? chosenClipHash(playableList, picked) : picked;
   const tableColumns = useMemo<DataTableColumn<ClipTableRow>[]>(
     () =>
       columns.map((column) => ({
@@ -203,12 +222,12 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
           <span
             className={twMerge("flex shrink-0 items-center gap-2 overflow-hidden", column.width)}
           >
-            {column.key === "name" && <ClipPlaying hash={row.id} />}
+            {column.key === "name" && previewed && <ClipPlaying hash={row.id} />}
             {column.draw(row.original)}
           </span>
         ),
       })),
-    [columns],
+    [columns, previewed],
   );
 
   return (
@@ -222,7 +241,11 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
         columns: tableColumns,
       }}
     >
-      {(table) => <VirtualClips table={table} source={source} playable={playable} />}
+      {(table) => (
+        <PosedClip value={posed}>
+          <VirtualClips table={table} source={source} playable={previewed ? playable : null} />
+        </PosedClip>
+      )}
     </DataTable>
   );
 }
@@ -231,9 +254,12 @@ type ClipTableRow = GraphClip & { fps: number | undefined };
 
 const ClipCells = memo(DataTableCells<ClipTableRow>);
 
+/** The clip the preview poses, which a memoized cell reads apart from its row. */
+const PosedClip = createContext<string | null>(null);
+
 function ClipPlaying({ hash }: { hash: string }) {
-  const choice = use(SkinChoiceContext);
-  if (choice?.picked !== hash) return null;
+  if (use(PosedClip) !== hash) return null;
+
   return (
     <PlayIcon
       weight="fill"
@@ -251,9 +277,11 @@ function VirtualClips({
 }: {
   table: DataTableInstance<ClipTableRow>;
   source: GraphSource;
-  playable: ReadonlySet<string>;
+  /** The clips that a click poses, and null where a click selects any row. */
+  playable: ReadonlySet<string> | null;
 }) {
   const choice = use(SkinChoiceContext);
+  const posed = use(PosedClip);
   const rows = table.getRowModel().rows;
   const scroller = useRef<HTMLDivElement>(null);
   const [menuClip, setMenuClip] = useState<GraphClip | null>(null);
@@ -272,17 +300,23 @@ function VirtualClips({
     scrollPaddingStart: headerHeight,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
     measureElement: measureRow,
+    scrollToFn: instantScroll,
   });
   useRemeasure(virtualizer, rowHeight);
 
-  const picked = choice?.picked ?? null;
   const marked = choice?.marked?.tab === "clips" ? choice.marked.hash : null;
-  /* A jump lands on its row, and a jump to the same row twice lands there again. */
+  /* A jump lands on its row once, and a jump to the same row twice lands there again. Later
+     changes of the rows, such as a typed filter or an edit, leave the scroll alone. */
   const mark = choice?.marked ?? null;
+  const landed = useRef<ClipMark | null>(null);
   useEffect(() => {
-    if (mark === null || mark.tab !== "clips") return;
+    if (mark === null || mark.tab !== "clips" || landed.current === mark) return;
+
     const index = rows.findIndex((row) => row.id === mark.hash);
-    if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+    if (index < 0) return;
+
+    landed.current = mark;
+    virtualizer.scrollToIndex(index, { align: "auto" });
   }, [mark, rows, virtualizer]);
 
   return (
@@ -327,12 +361,14 @@ function VirtualClips({
                   style={{ transform: `translateY(${item.start - headerHeight}px)` }}
                 >
                   <ClipRow
-                    posing={picked === clip.hash}
+                    posing={posed === clip.hash}
                     marked={marked === clip.hash}
                     expanded={expanded}
                     onToggle={() => choice?.toggleExpanded("clips", clip.hash)}
                     onClick={() => {
-                      if (playable.has(clip.hash)) choice?.setPicked(clip.hash);
+                      if (playable === null || playable.has(clip.hash)) {
+                        choice?.setPicked(clip.hash);
+                      }
                     }}
                   >
                     <ClipCells row={row} customCells />
@@ -378,6 +414,9 @@ function ClipRow({ children, posing, marked, expanded, onToggle, onClick }: Clip
       )}
       onClick={onClick}
       onKeyDown={(event) => {
+        /* A chip and the caret inside the row answer their own keys. */
+        if (event.target !== event.currentTarget) return;
+
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();

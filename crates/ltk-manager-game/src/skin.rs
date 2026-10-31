@@ -215,10 +215,11 @@ const CHILD_FIELDS: &[Children] = &[
     Children::Pairs(BinHash(0x2329_eec5), PAIR_CLIP),
     /* SequencerClipData.mClipNameList, and ParallelClipData's */
     Children::Many(BinHash(0x078c_afd9)),
+    /* EventControlledSelectorClipData.DefaultClipName, ahead of its pairs so a preview that fires
+    no event plays the default. */
+    Children::One(BinHash(0x9a7f_92cb)),
     /* EventControlledSelectorClipData.SelectorPairDataList[].ClipName */
     Children::Pairs(BinHash(0xd188_b400), BinHash(0x68c1_4f60)),
-    /* EventControlledSelectorClipData.DefaultClipName */
-    Children::One(BinHash(0x9a7f_92cb)),
     /* StateAnimClipData.ChildClipName */
     Children::One(BinHash(0x8e5e_6618)),
     /* StateAnimClipData.Transitions[].TargetClipName */

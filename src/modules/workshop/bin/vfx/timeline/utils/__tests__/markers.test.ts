@@ -6,6 +6,7 @@ import {
   addedMarker,
   markerKey,
   movedMarker,
+  nearestMarker,
   readMarkers,
   removedMarker,
   renamedLayerMarkers,
@@ -18,6 +19,17 @@ import { rulerTicks, snapTargets } from "../snapping";
 
 const IMPACT: TimelineMarker = { id: "a", time: 0.5, name: "impact" };
 const FADE: TimelineMarker = { id: "b", time: 1.2, name: null };
+
+describe("nearestMarker", () => {
+  it("returns the marker nearest the time on either side", () => {
+    expect(nearestMarker([IMPACT, FADE], 0.6)).toBe(IMPACT);
+    expect(nearestMarker([IMPACT, FADE], 2)).toBe(FADE);
+  });
+
+  it("returns undefined if there is no marker", () => {
+    expect(nearestMarker([], 1)).toBeUndefined();
+  });
+});
 
 describe("markers", () => {
   it("keeps a system's markers under its file and its object", () => {

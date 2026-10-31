@@ -18,6 +18,7 @@ import { ObjectChip } from "../../links/components/LinkChip";
 import { nameHash } from "../../shared/utils/binHash";
 import type { LeafEdit } from "../../tree/hooks/useLeafEdit";
 import { RowValue } from "../../values/components/RowValue";
+import { useSkinRowEdits } from "../hooks/useEffectAdd";
 import { JointPicker } from "./JointPicker";
 import type { ResourceTarget } from "./ResolverScope";
 
@@ -113,11 +114,11 @@ const BONE_CELL = "w-32 shrink-0 text-surface-400";
 
 function BoneCell({ row }: EffectCellProps) {
   const context = use(EffectRowsContext);
+  const edits = useSkinRowEdits();
   if (context === null) return null;
 
   const bone = fieldsOf(context.pages.get(row.id))(EFFECT.bone);
-  const editProperty = context.edit?.editProperty;
-  if (editProperty === undefined || context.joints.length === 0) {
+  if (context.edit === null || edits === null || context.joints.length === 0) {
     return <TextCell row={bone} className={BONE_CELL} />;
   }
 
@@ -128,7 +129,7 @@ function BoneCell({ row }: EffectCellProps) {
         joints={context.joints}
         value={textOf(bone) ?? null}
         onPick={(joint) =>
-          void editProperty(row.original, EFFECT.bone, [
+          edits.editProperty(row.original, EFFECT.bone, [
             { type: "setLeaf", path: "", value: { type: "string", value: joint } },
           ])
         }
@@ -151,8 +152,9 @@ function TargetCell({ row }: EffectCellProps) {
 }
 
 function RemoveCell({ row }: EffectCellProps) {
-  const removeItem = use(EffectRowsContext)?.edit?.removeItem;
-  if (removeItem === undefined) return null;
+  const editable = use(EffectRowsContext)?.edit != null;
+  const edits = useSkinRowEdits();
+  if (!editable || edits === null) return null;
 
   const label = m.workshop_bin_skin_effect_remove_action();
   return (
@@ -162,7 +164,7 @@ function RemoveCell({ row }: EffectCellProps) {
         size="xs"
         aria-label={label}
         left={<XIcon weight="bold" />}
-        onClick={() => void removeItem(row.original)}
+        onClick={() => edits.removeItem(row.original)}
       />
     </Tooltip>
   );

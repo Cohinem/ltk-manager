@@ -68,6 +68,7 @@ impl From<Shape> for ltk_game_data::Shape {
             kind: shape.kind,
             key: shape.key,
             item: shape.value,
+            width: None,
         }
     }
 }

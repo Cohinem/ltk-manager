@@ -9,10 +9,8 @@ import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
 import { NO_FILTER, placedItems } from "../utils/mapOutline";
 import { LIGHTING_SECTIONS } from "../utils/mapSettings";
+import { LIGHTING_VOLUME } from "../utils/mapTools";
 import { SettingsSections, type TabBin } from "./SettingsSections";
-
-/** The class that the lighting volumes section lists and places. */
-const LIGHTING_VOLUME = "MapLightingVolume";
 
 /** The sections above the lighting volumes, which the spec lists after dynamic lighting. */
 const VOLUMES_AFTER = LIGHTING_SECTIONS.findIndex((section) => section.id === "dynamic") + 1;

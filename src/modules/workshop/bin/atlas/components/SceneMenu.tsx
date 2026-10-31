@@ -11,17 +11,10 @@ import { ContextMenu } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 
-import { drawOn, frameHeads, NO_FRAME_CHOICES, splitFrame } from "../engine/layout/frames";
-import { labelOf } from "../engine/model/layers";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
-import { useBoard } from "../hooks/useBoard";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
-import {
-  useAtlasPreviewActions,
-  useFrameSettings,
-  useViewPreview,
-  viewKey,
-} from "../state/atlasPreview";
+import { useSceneFrames } from "../hooks/useSceneFrames";
+import { useAtlasPreviewActions, viewKey } from "../state/atlasPreview";
 
 export interface SceneMenuProps {
   readonly document: BinDocumentId;
@@ -38,40 +31,30 @@ export interface SceneMenuProps {
  * the file.
  */
 export function SceneMenu({ document, entry, scene }: SceneMenuProps) {
-  const { tree, screen } = useAtlasLayout(document, entry);
+  const { tree } = useAtlasLayout(document, entry);
   const key = viewKey(document, entry);
-  const board = useBoard(tree, screen, key);
   const hiddenScenes = useHiddenScenes(tree, key);
-  const { frames: choices } = useViewPreview(key);
-  const { stackScenes } = useFrameSettings();
-  const { toggleScene, setFrames } = useAtlasPreviewActions();
+  const { toggleScene } = useAtlasPreviewActions();
+  const frames = useSceneFrames(document, entry, scene);
+  if (frames === null) return null;
 
-  const held = scene === null ? undefined : tree?.scenes.get(scene);
-  if (tree === null || board === null || held === undefined) return null;
-
-  const label = labelOf(held.label, held.path, held.key);
-  const head = frameHeads(tree, choices).get(held.key) ?? held.key;
-  const own = board.frames.find((frame) => frame.scene === head);
-  const others = board.frames.flatMap((frame) =>
-    frame.scene === null || frame.scene === head ? [] : [{ head: frame.scene, label: frame.label }],
-  );
-  const draw = (target: string) => setFrames(key, drawOn(tree, choices, held.key, target));
+  const { key: held, label, stacked, drawOwn, others, drawOnFrame, split, reset } = frames;
 
   return (
     <ContextMenu.Content data-ui="SceneMenu" className="w-60" finalFocus={false}>
       <ContextMenu.Item
-        icon={hiddenScenes.has(held.key) ? <EyeIcon /> : <EyeSlashIcon />}
-        onClick={() => toggleScene(key, held.key)}
+        icon={hiddenScenes.has(held) ? <EyeIcon /> : <EyeSlashIcon />}
+        onClick={() => toggleScene(key, held)}
       >
-        {hiddenScenes.has(held.key)
+        {hiddenScenes.has(held)
           ? m.workshop_bin_atlas_scene_show_action({ scene: label })
           : m.workshop_bin_atlas_scene_hide_action({ scene: label })}
       </ContextMenu.Item>
-      {!stackScenes && (
+      {!stacked && (
         <>
           <ContextMenu.Separator />
-          {head !== held.key && (
-            <ContextMenu.Item icon={<FrameCornersIcon />} onClick={() => draw(held.key)}>
+          {drawOwn !== null && (
+            <ContextMenu.Item icon={<FrameCornersIcon />} onClick={drawOwn}>
               {m.workshop_bin_atlas_frame_own_action()}
             </ContextMenu.Item>
           )}
@@ -82,26 +65,20 @@ export function SceneMenu({ document, entry, scene }: SceneMenuProps) {
               </ContextMenu.SubmenuTrigger>
               <ContextMenu.SubmenuContent className="max-h-80 w-60 overflow-y-auto">
                 {others.map((frame) => (
-                  <ContextMenu.Item key={frame.head} onClick={() => draw(frame.head)}>
+                  <ContextMenu.Item key={frame.head} onClick={() => drawOnFrame(frame.head)}>
                     {frame.label}
                   </ContextMenu.Item>
                 ))}
               </ContextMenu.SubmenuContent>
             </ContextMenu.SubmenuRoot>
           )}
-          {head === held.key && own !== undefined && own.scenes.length > 1 && (
-            <ContextMenu.Item
-              icon={<SquareSplitHorizontalIcon />}
-              onClick={() => setFrames(key, splitFrame(tree, choices, head, own.scenes))}
-            >
+          {split !== null && (
+            <ContextMenu.Item icon={<SquareSplitHorizontalIcon />} onClick={split}>
               {m.workshop_bin_atlas_frame_split_action()}
             </ContextMenu.Item>
           )}
-          {Object.keys(choices).length > 0 && (
-            <ContextMenu.Item
-              icon={<ArrowCounterClockwiseIcon />}
-              onClick={() => setFrames(key, NO_FRAME_CHOICES)}
-            >
+          {reset !== null && (
+            <ContextMenu.Item icon={<ArrowCounterClockwiseIcon />} onClick={reset}>
               {m.workshop_bin_atlas_frame_reset_action()}
             </ContextMenu.Item>
           )}

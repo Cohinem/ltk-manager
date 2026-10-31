@@ -4,6 +4,8 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-31 | An author profile can link to the connected RuneForge account            |
+| 2026-10-31 | Workshop goes single-column, and Project editor is all groups            |
 | 2026-10-23 | General adds Backup, which exports and restores the settings             |
 | 2026-10-23 | The Cache tab opens with Disk usage, which clears the rebuildable caches |
 | 2026-10-23 | `Storage location` is `Data location`, and a change moves the data       |
@@ -12,8 +14,6 @@
 | 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus  |
 | 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current     |
 | 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings      |
-| 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391             |
-| 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -78,9 +78,7 @@ A status word has one meaning.
 | ----------------------- | --------- | ---------------------------------------------------------------------- |
 | The tab rail            | Available | Nine tabs, `Tabs.List variant="pills"` in `Settings.tsx`               |
 | The section card        | Available | `SectionCard`. Heading on the ground, panel under it                   |
-| The two-column grid     | Available | `SettingsGrid`, with `lg:col-span-2` for a wide card                   |
 | The setting row         | Available | `SettingRow`, inline and stacked, toggle and action                    |
-| The cluster separator   | Available | Survives on the Project editor card alone, between three rows          |
 | The dependent row       | Available | `SettingRow` `dependent` and `hidden`. Two instances                   |
 | The defaults            | Available | `Settings::default()` in Rust, `APPEARANCE_DEFAULTS` in front          |
 | The card reset          | Available | `ResetAppearanceButton`, over the keys its card's scope collected      |
@@ -892,11 +890,11 @@ It draws behind the rail like the tray card's, and resetting the image clears it
 The card already draws these three clusters with two separators. The groups are the labels those
 separators do not carry.
 
-| Group       | Rows                                                      |
-| ----------- | --------------------------------------------------------- |
-| Storage     | Data location                                             |
-| Cataloguing | Automatically categorize mods, Watch for external changes |
-| Installing  | Trusted mod providers                                     |
+| Group      | Rows                                                      |
+| ---------- | --------------------------------------------------------- |
+| Storage    | Data location                                             |
+| Cataloging | Automatically categorize mods, Watch for external changes |
+| Installing | Trusted mod providers                                     |
 
 ### General
 
@@ -927,12 +925,12 @@ Card `Startup and tray`:
 
 ### The rest
 
-| Tab      | Verdict                                                                               |
-| -------- | ------------------------------------------------------------------------------------- |
-| Workshop | No groups. Three cards, of one row, three rows and a list. Titles go to sentence case |
-| Cache    | No groups. The tab is a table and two actions                                         |
-| Hotkeys  | No groups. Three rows. A per-action hotkey list would group by what the hotkey does   |
-| About    | No groups. Not a row list                                                             |
+| Tab      | Verdict                                                                                |
+| -------- | -------------------------------------------------------------------------------------- |
+| Workshop | Project editor takes groups, so the tab goes single-column. Titles go to sentence case |
+| Cache    | No groups. The tab is a table and two actions                                          |
+| Hotkeys  | No groups. Three rows. A per-action hotkey list would group by what the hotkey does    |
+| About    | No groups. Not a row list                                                              |
 
 Every row a migration touches also gains the `setting` key it reads, and an entry in the index
 under it. The rows no reset may touch take the entry all the same, so they can still be linked to
@@ -943,8 +941,7 @@ the level earns its place twice: once on the two cards that are unreadable today
 time a setting is added. The ninth row on the Appearance card joins `Motion`, instead of starting
 a `More appearance options` card.
 
-`SettingsGrid` survives on the Workshop tab alone, which is the one tab whose cards are short enough
-to sit side by side and have no groups to widen them.
+No tab uses a two-column grid, because `Project editor` has groups and a group needs the full width.
 
 ## Rejected alternatives
 

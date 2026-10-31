@@ -377,6 +377,7 @@ fn a_patch_schema_types_an_edit_by_the_revision_at_its_build() {
             kind: Kind::Optional,
             key: None,
             item: Some(Kind::String),
+            width: None,
         })
     );
     assert_eq!(
@@ -385,6 +386,7 @@ fn a_patch_schema_types_an_edit_by_the_revision_at_its_build() {
             kind: Kind::Optional,
             key: None,
             item: Some(Kind::WadChunkLink),
+            width: None,
         })
     );
     assert_eq!(
@@ -393,6 +395,7 @@ fn a_patch_schema_types_an_edit_by_the_revision_at_its_build() {
             kind: Kind::Map,
             key: Some(Kind::Hash),
             item: Some(Kind::WadChunkLink),
+            width: None,
         })
     );
 }
@@ -465,6 +468,7 @@ fn a_patch_schema_types_a_field_a_base_declares() {
             kind: Kind::Optional,
             key: None,
             item: Some(Kind::WadChunkLink),
+            width: None,
         })
     );
     assert_eq!(

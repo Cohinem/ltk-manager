@@ -6,7 +6,7 @@ import { IconButton } from "@/components";
 import { m } from "@/i18n";
 
 import { mapQueries } from "../api/mapQueries";
-import { useMapScene } from "../state/mapScene";
+import { useMapDragged, useMapScene } from "../state/mapScene";
 import { type PlacedItem, placedItems } from "../utils/mapOutline";
 import { inRect, nearest, type ScreenRect, type SelectMode } from "../utils/mapSelection";
 import { withDragged } from "../utils/placeableSpace";
@@ -33,7 +33,8 @@ export interface PlaceablePicking {
  * under it, and a click on nothing clears the selection.
  */
 export function usePlaceablePicking(): PlaceablePicking {
-  const { materials, filter, select, markers, dragged } = useMapScene();
+  const { materials, filter, select, markers } = useMapScene();
+  const dragged = useMapDragged();
   const outline = useQuery(mapQueries.outline(materials));
   const listed = useMemo(() => placedItems(outline.data ?? [], filter), [outline.data, filter]);
   const items = useMemo(() => withDragged(listed, dragged), [listed, dragged]);

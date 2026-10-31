@@ -2,6 +2,7 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { AlertBox, Dialog, Disclosure, ExternalLink, Field, LoadingState } from "@/components";
+import { m } from "@/i18n";
 
 import { type LicenseText, type ThirdPartyCrate, useThirdPartyLicenses } from "../api";
 
@@ -15,7 +16,7 @@ export function LicensesDialog({ open, onOpenChange }: LicensesDialogProps) {
     <Dialog.Shell
       open={open}
       onClose={() => onOpenChange(false)}
-      title="Third-Party Licenses"
+      title={m.settings_about_licenses_action()}
       description="Open source libraries distributed with LTK Manager"
       size="xl"
       className="max-w-3xl"
@@ -71,7 +72,7 @@ function LicensesContent({ open }: { open: boolean }) {
       </Field.Root>
       <div className="-mx-2 flex-1 overflow-y-auto px-2">
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-surface-500">
+          <p className="py-8 text-center text-sm text-surface-400">
             No libraries match &quot;{query}&quot;
           </p>
         )}
@@ -101,7 +102,7 @@ function CrateEntry({ crate, texts }: { crate: ThirdPartyCrate; texts: LicenseTe
         <Disclosure.Caret className="size-4 text-surface-500" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-surface-100">
           {crate.name}
-          <span className="ml-2 font-normal text-surface-500">{crate.version}</span>
+          <span className="ml-2 font-normal text-surface-400">{crate.version}</span>
         </span>
         <span className="shrink-0 text-xs text-surface-400">{licenseIds.join(", ")}</span>
       </Disclosure.Trigger>

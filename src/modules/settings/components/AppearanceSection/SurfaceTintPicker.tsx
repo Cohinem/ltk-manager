@@ -17,7 +17,7 @@ export function SurfaceTintPicker() {
         step={5}
         aria-label="Surface tint"
       />
-      <span className="w-10 shrink-0 text-right font-mono text-xs text-surface-300">
+      <span className="w-10 shrink-0 text-right font-mono text-xs text-surface-300 tabular-nums">
         {surfaceTint}%
       </span>
     </div>

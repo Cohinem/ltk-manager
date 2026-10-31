@@ -10,7 +10,7 @@ import { audioKeys } from "../../audio/api/queries";
 import { OVERRIDES_ROOT } from "../../bin/documents/hooks/useOverrides";
 import { gameKeys } from "../../gameBrowser/api/keys";
 import { sandboxKeys } from "../../sandbox/api/keys";
-import { infoChangedBy, LAYER_FILES_CHANGED } from "../utils/layerChanges";
+import { assetReadChangedBy, infoChangedBy, LAYER_FILES_CHANGED } from "../utils/layerChanges";
 
 /** The reads that find a file or an object in a project's sandbox. */
 const SANDBOX_READS: readonly (readonly string[])[] = [
@@ -30,6 +30,10 @@ const SANDBOX_READS: readonly (readonly string[])[] = [
   audioKeys.eventBanks(),
   /* The bank units that name an audio file, which a layer bin declares. */
   audioKeys.references(),
+  /* A skin, its graph and its programs, each resolving its paths through the sandbox. */
+  ["skin"],
+  ["skin-graph"],
+  ["skin-programs"],
 ];
 
 /**
@@ -54,7 +58,10 @@ export function useLayerFileReload(projectPath: string): void {
 
   useTauriEvent<LayerFilesChanged>(LAYER_FILES_CHANGED, (change) => {
     bumpAssetVersions(change);
-    void client.invalidateQueries({ predicate: (query) => infoChangedBy(query.queryKey, change) });
+    void client.invalidateQueries({
+      predicate: ({ queryKey }) =>
+        infoChangedBy(queryKey, change) || assetReadChangedBy(queryKey, change),
+    });
     /* The backend reads the project's sandbox again, so where a file or an object is found
        may have changed. ADR-0056. */
     for (const queryKey of SANDBOX_READS) void client.invalidateQueries({ queryKey });

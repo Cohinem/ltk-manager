@@ -105,6 +105,10 @@
   --ltk-channel-3-text: var(--ltk-channel-3);
   --ltk-channel-4-text: var(--ltk-channel-4);
 
+  /* The color of a mesh's triangle edges in a viewport. */
+  --ltk-mesh-edge-bright: #43ffa3;
+  --ltk-mesh-edge: var(--ltk-mesh-edge-bright);
+
   /* Colors for the value kinds a driver graph's sockets and edges carry. */
   --ltk-socket-float: #2dd4bf;
   --ltk-socket-vec2: #a3e635;
@@ -154,6 +158,7 @@
   --ltk-channel-2-text: color-mix(in srgb, var(--ltk-channel-2) 55%, black);
   --ltk-channel-3-text: color-mix(in srgb, var(--ltk-channel-3) 55%, black);
   --ltk-channel-4-text: color-mix(in srgb, var(--ltk-channel-4) 55%, black);
+  --ltk-mesh-edge: color-mix(in srgb, var(--ltk-mesh-edge-bright) 60%, black);
   --ltk-socket-float-text: color-mix(in srgb, var(--ltk-socket-float) 55%, black);
   --ltk-socket-vec2-text: color-mix(in srgb, var(--ltk-socket-vec2) 55%, black);
   --ltk-socket-vec3-text: color-mix(in srgb, var(--ltk-socket-vec3) 55%, black);

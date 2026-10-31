@@ -1,5 +1,5 @@
 import { FilmStripIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { type Ref, useEffect, useMemo, useState } from "react";
 
 import { Select, Slider, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -8,7 +8,7 @@ import { type SceneClock, sequenceStep } from "@/modules/viewport";
 
 import { Playhead, Transport } from "../../vfx/playback/components/Transport";
 import { foldedTime } from "../utils/follow";
-import { BIND_POSE, nearestValue } from "../utils/skinScene";
+import { BIND_POSE, nearestValue, parameterLabel } from "../utils/skinScene";
 
 /** How often the bar reads the clock for the atomic clip that plays, in milliseconds. */
 const READOUT_MS = 100;
@@ -24,6 +24,8 @@ export interface PlayingStep {
 }
 
 export interface SkinTransportProps {
+  /** The box around the row, whose first slider is the scrub. */
+  ref?: Ref<HTMLDivElement>;
   /** The scene's clock, which the scrub sets and the playhead follows. */
   clock: SceneClock;
   /** Seconds one pass of the clip lasts, and zero for the bind pose. */
@@ -58,9 +60,6 @@ export interface Parameter {
 /** How finely the slider reads a drag before it snaps, as a share of the span. */
 const PARAMETER_STEPS = 100;
 
-/** The decimals a tick's label is written to where its value is not whole. */
-const PARAMETER_DECIMALS = 1;
-
 /**
  * The transport under the skin, with the clip it poses and the atomic clip that plays.
  *
@@ -68,6 +67,7 @@ const PARAMETER_DECIMALS = 1;
  * the atomic clip, so catching it up redraws the bar and not the scene above it.
  */
 export function SkinTransport({
+  ref,
   clock,
   duration,
   playing,
@@ -89,7 +89,7 @@ export function SkinTransport({
   }, [clock]);
 
   return (
-    <div className="@container shrink-0">
+    <div ref={ref} className="@container shrink-0">
       <Transport
         className="flex-wrap border-t border-surface-700/50"
         playing={playing}
@@ -224,11 +224,6 @@ function ParameterSlider({
       />
     </span>
   );
-}
-
-/** A pair's value as its tick reads: whole where it is whole, else to one decimal. */
-function parameterLabel(value: number): string {
-  return Number.isInteger(value) ? `${value}` : value.toFixed(PARAMETER_DECIMALS);
 }
 
 /** The atomic clip a composite one plays at `time`, by name, and null for an atomic pick. */

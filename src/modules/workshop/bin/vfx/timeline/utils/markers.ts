@@ -132,6 +132,21 @@ export function removedMarker(
   return markers.filter((marker) => marker.id !== id);
 }
 
+/** Returns the marker nearest `time`, or undefined if `markers` is empty. */
+export function nearestMarker(
+  markers: readonly TimelineMarker[],
+  time: number,
+): TimelineMarker | undefined {
+  let nearest: TimelineMarker | undefined;
+  for (const marker of markers) {
+    if (nearest === undefined || Math.abs(marker.time - time) < Math.abs(nearest.time - time)) {
+      nearest = marker;
+    }
+  }
+
+  return nearest;
+}
+
 function inOrder(markers: TimelineMarker[]): readonly TimelineMarker[] {
   return markers.sort((a, b) => a.time - b.time);
 }

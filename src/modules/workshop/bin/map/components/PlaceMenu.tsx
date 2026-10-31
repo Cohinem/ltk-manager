@@ -7,31 +7,7 @@ import { m } from "@/i18n";
 import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
 import { chunkLabel } from "../utils/mapOutline";
-
-/** The classes the Place tool adds, grouped as the palette groups them. */
-const GROUPS: readonly { label: () => string; classes: readonly string[] }[] = [
-  { label: m.workshop_bin_map_place_effects_label, classes: ["MapParticle"] },
-  { label: m.workshop_bin_map_place_audio_label, classes: ["MapAudio"] },
-  {
-    label: m.workshop_bin_map_place_lighting_label,
-    classes: [
-      "MapDynamicPointLight",
-      "MapDynamicSpotlight",
-      "MapPointLight",
-      "MapSpotlight",
-      "MapUniquePointLight",
-      "MapCubemapProbe",
-      "MapLightingVolume",
-    ],
-  },
-  {
-    label: m.workshop_bin_map_place_markers_label,
-    classes: ["MapLocator", "MapMotionPath"],
-  },
-];
-
-/** The value the target radio group holds for the chunk of the selection. */
-const SELECTION_CHUNK = "";
+import { PLACE_GROUPS, SELECTION_CHUNK } from "../utils/mapTools";
 
 /**
  * The class the Place tool adds and the chunk it adds to. Per "Place" in
@@ -61,7 +37,7 @@ export function PlaceMenu() {
         className="max-h-96 w-64 overflow-y-auto scrollbar-md"
       >
         <Menu.RadioGroup value={placeClass} onValueChange={(value) => setPlaceClass(String(value))}>
-          {GROUPS.map((group) => (
+          {PLACE_GROUPS.map((group) => (
             <Menu.Group key={group.label()}>
               <Menu.GroupLabel>{group.label()}</Menu.GroupLabel>
               {group.classes.map((each) => (

@@ -1,6 +1,6 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { use, useMemo } from "react";
+import { useMemo } from "react";
 
 import { Button, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -10,9 +10,9 @@ import { twMerge } from "@/utils";
 
 import type { ViewContext } from "../../classes/components/ClassCells";
 import { nameHash } from "../../shared/utils/binHash";
-import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
 import { skinQueries } from "../api/skinQueries";
+import { useSkinRowEdits } from "../hooks/useEffectAdd";
 import { useListElements } from "../hooks/useListElements";
 import { submeshAppend } from "../utils/conditionEdits";
 import { listLength } from "../utils/effectEdits";
@@ -37,7 +37,7 @@ export interface SubmeshLineProps {
  * A hash that matches no submesh of the mesh shows as its hash.
  */
 export function SubmeshLine({ condition, field, list, label, view }: SubmeshLineProps) {
-  const edit = use(LeafEditContext);
+  const edit = useSkinRowEdits();
   const submeshes = useSubmeshes(view);
   const { elements } = useListElements(view.document, list);
   const spelled = useMemo(
@@ -62,7 +62,7 @@ export function SubmeshLine({ condition, field, list, label, view }: SubmeshLine
           key={rowKey(row)}
           row={row}
           name={named(row)}
-          onRemove={removeItem === undefined ? null : () => void removeItem(row)}
+          onRemove={removeItem === undefined ? null : () => removeItem(row)}
         />
       ))}
       {editProperty !== undefined && addable.length > 0 && (
@@ -72,9 +72,7 @@ export function SubmeshLine({ condition, field, list, label, view }: SubmeshLine
             placeholder={m.workshop_bin_skin_condition_submesh_add_label()}
             joints={addable}
             value={null}
-            onPick={(name) =>
-              void editProperty(condition, field, submeshAppend(listLength(list), name))
-            }
+            onPick={(name) => editProperty(condition, field, submeshAppend(listLength(list), name))}
           />
         </span>
       )}

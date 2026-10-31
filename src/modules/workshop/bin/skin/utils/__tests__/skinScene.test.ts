@@ -16,7 +16,7 @@ import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/
 import {
   BIND_POSE,
   bindingOf,
-  drawsPbr,
+  shadingOf,
   jointRig,
   nearestValue,
   openingClip,
@@ -100,7 +100,7 @@ function clip(name: string, hash: string, atomic = true): GraphClip {
     name,
     hash,
     class: atomic ? "AtomicClipData" : "SelectorClipData",
-    animation: atomic ? { path: `${name}.anm`, asset: null } : null,
+    animation: atomic ? { path: `${name}.anm`, asset: chunk("a0") } : null,
     track: null,
     mask: null,
     syncGroup: null,
@@ -192,6 +192,17 @@ describe("playableClips and playlistOf", () => {
 
   it("plays nothing for a clip reaching no file", () => {
     expect(playlistOf(empty, clips)).toEqual([]);
+  });
+
+  it("passes over a child whose file this machine does not hold", () => {
+    const missing: GraphClip = {
+      ...clip("Missing", "0x7"),
+      animation: { path: "missing.anm", asset: null },
+    };
+    const picker = composite("Picker", "0x8", "SelectorClipData", ["0x7", "0x1"]);
+
+    expect(playlistOf(picker, [missing, picker, run])).toEqual([run]);
+    expect(playableClips([missing]).length).toBe(0);
   });
 
   it("passes over a child that is its own ancestor", () => {
@@ -339,6 +350,24 @@ describe("textureAssets and bindingOf", () => {
     });
   });
 
+  it("keeps the skin's material for an override naming PBR maps alone", () => {
+    const body = material("0x1", chunk("10"));
+    const bound = skin({
+      material: body,
+      overrides: [
+        {
+          submesh: "Cape",
+          texture: null,
+          material: null,
+          roughnessMetallicAoTexture: null,
+          normalMapTexture: { path: "cape_n.tex", asset: chunk("03") },
+        },
+      ],
+    });
+
+    expect(bindingOf(bound, textureAssets(bound), "Cape").material).toBe(body);
+  });
+
   it("binds a material whose base nothing holds with no base", () => {
     const bound = skin({ material: material("0x1", null) });
 
@@ -410,21 +439,43 @@ describe("dataTextureAssets and bindingOf", () => {
   });
 });
 
-describe("drawsPbr", () => {
-  it("holds for a submesh with no material whose skin names a roughness map", () => {
-    const pbr = skin({ roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null } });
+describe("shadingOf", () => {
+  const held = (path: string) => ({ path, asset: chunk(path) });
 
-    expect(drawsPbr(pbr, "Body")).toBe(true);
-    expect(drawsPbr(skin(), "Body")).toBe(false);
+  it("selects the base permutation without a roughness map this machine holds", () => {
+    const absent = skin({ roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null } });
+
+    expect(shadingOf(skin(), "Body", true)).toBe("base");
+    expect(shadingOf(absent, "Body", true)).toBe("base");
   });
 
-  it("does not hold for a submesh a material draws", () => {
-    const covered = skin({
-      roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null },
-      material: material("0x1", null),
+  it("selects the normal feature only with a normal map and tangents", () => {
+    const rma = skin({ roughnessMetallicAoTexture: held("body_rma.tex") });
+    const both = skin({
+      roughnessMetallicAoTexture: held("body_rma.tex"),
+      normalMapTexture: held("body_nm.tex"),
     });
 
-    expect(drawsPbr(covered, "Body")).toBe(false);
+    expect(shadingOf(rma, "Body", true)).toBe("roughnessMetallic");
+    expect(shadingOf(both, "Body", false)).toBe("roughnessMetallic");
+    expect(shadingOf(both, "Body", true)).toBe("roughnessMetallicNormal");
+  });
+
+  it("reads the override's maps before the skin's", () => {
+    const hat = skin({
+      overrides: [
+        {
+          submesh: "Hat",
+          texture: null,
+          material: null,
+          roughnessMetallicAoTexture: held("hat_rma.tex"),
+          normalMapTexture: null,
+        },
+      ],
+    });
+
+    expect(shadingOf(hat, "hat", true)).toBe("roughnessMetallic");
+    expect(shadingOf(hat, "Body", true)).toBe("base");
   });
 });
 

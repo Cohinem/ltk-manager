@@ -49,10 +49,6 @@ const ANTI_ALIASING_LABEL: Record<AntiAliasing, () => string> = {
  */
 export function ViewModeMenu() {
   const mode = usePreviewViewMode();
-  const overlay = usePreviewWireOverlay();
-  const antiAliasing = usePreviewAntiAliasing();
-  const quality = usePreviewEffectsQuality();
-  const setDisplay = useSetPreviewDisplay();
 
   return (
     <Menu.Root>
@@ -70,60 +66,73 @@ export function ViewModeMenu() {
         }
       />
       <Menu.Content align="end" data-ui="ViewModeMenu" className="w-48">
-        <Menu.RadioGroup
-          value={mode}
-          onValueChange={(each) => setDisplay({ previewViewMode: each as ViewMode })}
-        >
-          {VIEW_MODES.map((each) => (
-            <Menu.RadioItem key={each} value={each}>
-              {MODE_LABEL[each]()}
-            </Menu.RadioItem>
-          ))}
-        </Menu.RadioGroup>
-        <Menu.Separator />
-        <Menu.CheckboxItem
-          checked={overlay && takesWireOverlay(mode)}
-          disabled={!takesWireOverlay(mode)}
-          onCheckedChange={(checked) => setDisplay({ previewWireOverlay: checked })}
-        >
-          {m.workshop_bin_preview_view_wire_overlay_label()}
-        </Menu.CheckboxItem>
-        <Menu.Separator />
-        <Menu.SubmenuRoot>
-          <Menu.SubmenuTrigger>{m.workshop_bin_preview_anti_aliasing_label()}</Menu.SubmenuTrigger>
-          <Menu.SubmenuContent data-ui="ViewModeMenu:antiAliasing">
-            <Menu.RadioGroup
-              value={antiAliasing}
-              onValueChange={(each) => setDisplay({ previewAntiAliasing: each as AntiAliasing })}
-            >
-              {ANTI_ALIASING_MODES.map((each) => (
-                <Menu.RadioItem key={each} value={each}>
-                  {ANTI_ALIASING_LABEL[each]()}
-                </Menu.RadioItem>
-              ))}
-            </Menu.RadioGroup>
-          </Menu.SubmenuContent>
-        </Menu.SubmenuRoot>
-        <Menu.SubmenuRoot>
-          <Menu.SubmenuTrigger>
-            {m.workshop_bin_preview_effects_quality_label()}
-          </Menu.SubmenuTrigger>
-          <Menu.SubmenuContent data-ui="ViewModeMenu:effectsQuality">
-            <Menu.RadioGroup
-              value={quality}
-              onValueChange={(each) =>
-                setDisplay({ previewEffectsQuality: each as PreviewEffectsQuality })
-              }
-            >
-              {QUALITIES.map((each) => (
-                <Menu.RadioItem key={each} value={each}>
-                  {QUALITY_LABEL[each]()}
-                </Menu.RadioItem>
-              ))}
-            </Menu.RadioGroup>
-          </Menu.SubmenuContent>
-        </Menu.SubmenuRoot>
+        <ViewModeItems />
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+/** The items of `ViewModeMenu`, which a menu bar also draws as a submenu. */
+export function ViewModeItems() {
+  const mode = usePreviewViewMode();
+  const overlay = usePreviewWireOverlay();
+  const antiAliasing = usePreviewAntiAliasing();
+  const quality = usePreviewEffectsQuality();
+  const setDisplay = useSetPreviewDisplay();
+
+  return (
+    <>
+      <Menu.RadioGroup
+        value={mode}
+        onValueChange={(each) => setDisplay({ previewViewMode: each as ViewMode })}
+      >
+        {VIEW_MODES.map((each) => (
+          <Menu.RadioItem key={each} value={each}>
+            {MODE_LABEL[each]()}
+          </Menu.RadioItem>
+        ))}
+      </Menu.RadioGroup>
+      <Menu.Separator />
+      <Menu.CheckboxItem
+        checked={overlay && takesWireOverlay(mode)}
+        disabled={!takesWireOverlay(mode)}
+        onCheckedChange={(checked) => setDisplay({ previewWireOverlay: checked })}
+      >
+        {m.workshop_bin_preview_view_wire_overlay_label()}
+      </Menu.CheckboxItem>
+      <Menu.Separator />
+      <Menu.SubmenuRoot>
+        <Menu.SubmenuTrigger>{m.workshop_bin_preview_anti_aliasing_label()}</Menu.SubmenuTrigger>
+        <Menu.SubmenuContent data-ui="ViewModeMenu:antiAliasing">
+          <Menu.RadioGroup
+            value={antiAliasing}
+            onValueChange={(each) => setDisplay({ previewAntiAliasing: each as AntiAliasing })}
+          >
+            {ANTI_ALIASING_MODES.map((each) => (
+              <Menu.RadioItem key={each} value={each}>
+                {ANTI_ALIASING_LABEL[each]()}
+              </Menu.RadioItem>
+            ))}
+          </Menu.RadioGroup>
+        </Menu.SubmenuContent>
+      </Menu.SubmenuRoot>
+      <Menu.SubmenuRoot>
+        <Menu.SubmenuTrigger>{m.workshop_bin_preview_effects_quality_label()}</Menu.SubmenuTrigger>
+        <Menu.SubmenuContent data-ui="ViewModeMenu:effectsQuality">
+          <Menu.RadioGroup
+            value={quality}
+            onValueChange={(each) =>
+              setDisplay({ previewEffectsQuality: each as PreviewEffectsQuality })
+            }
+          >
+            {QUALITIES.map((each) => (
+              <Menu.RadioItem key={each} value={each}>
+                {QUALITY_LABEL[each]()}
+              </Menu.RadioItem>
+            ))}
+          </Menu.RadioGroup>
+        </Menu.SubmenuContent>
+      </Menu.SubmenuRoot>
+    </>
   );
 }

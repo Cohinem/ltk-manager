@@ -31,6 +31,10 @@ export interface SunLight {
   readonly fog?: SunFog | null;
   /** `lightMapColorScale`, what a baked light map is scaled by. Absent reads as one. */
   readonly lightMap?: number;
+  /** `HdrEnvDiffuseScale`, what a physically based shader scales its sky by. Absent reads as 3. */
+  readonly hdrDiffuse?: number;
+  /** `PbrSunAdditionalScale`, what a physically based shader scales its sun by. Absent reads as 10. */
+  readonly pbrSunScale?: number;
 }
 
 /** A map's height fog, `fogStartAndEnd` and its two colours, for the game's own shaders. */
@@ -93,6 +97,8 @@ export function sunLightOf(sun: MapSun): SunLight {
         }
       : null,
     lightMap: sun.lightMapColorScale ?? 1,
+    hdrDiffuse: sun.hdrEnvDiffuseScale ?? undefined,
+    pbrSunScale: sun.pbrSunAdditionalScale ?? undefined,
   };
 }
 

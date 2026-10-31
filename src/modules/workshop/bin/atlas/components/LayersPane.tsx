@@ -10,8 +10,10 @@ import { toggledIn } from "@/utils";
 import { steppedRow, useActiveRow } from "../../../shared/hooks/useActiveRow";
 import { instantScroll } from "../../../shared/utils/instantScroll";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
+import { isSelectAllKey } from "../canvas/canvasKeys";
 import { addTargetOf } from "../engine/edit/newElement";
 import { kindOf } from "../engine/model/elementKinds";
 import { foldsAbove, type LayerRow, layerMatches, layerRows } from "../engine/model/layers";
@@ -30,6 +32,7 @@ import {
   viewKey,
 } from "../state/atlasPreview";
 import { usePlacing, usePlacingActions } from "../state/placing";
+import { ATLAS_COMMANDS } from "../utils/atlasCommands";
 import { ElementMenu } from "./ElementMenu";
 import { LayerRowView } from "./LayerRow";
 import { SceneMenu } from "./SceneMenu";
@@ -199,7 +202,7 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
       search.current?.select();
       return;
     }
-    if (command && event.key.toLowerCase() === "a" && tree !== null) {
+    if (isSelectAllKey(event) && tree !== null) {
       event.preventDefault();
       setSelection(key, [...(matches?.matched ?? tree.elements.keys())]);
       return;
@@ -231,6 +234,26 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
     else stepTo(step);
   }
 
+  const activeRow = rows[active];
+  const paneFocus = usePaneCommands("atlas.layers", {
+    [ATLAS_COMMANDS.frame]: {
+      run: activeRow?.type === "element" ? () => requestFrame(key, activeRow.key) : null,
+      reason: m.workshop_bin_menu_atlas_frame_layer_reason(),
+      title: m.workshop_bin_menu_atlas_frame_layer_action(),
+    },
+    [ATLAS_COMMANDS.delete]: {
+      run: deleter.available && selection.length > 0 ? () => void deleter.run(selection) : null,
+      reason: deleter.available ? m.workshop_bin_menu_atlas_selection_reason() : undefined,
+    },
+    [ATLAS_COMMANDS.selectAll]: {
+      run:
+        tree === null
+          ? null
+          : () => setSelection(key, [...(matches?.matched ?? tree.elements.keys())]),
+      title: matches === null ? undefined : m.workshop_bin_menu_atlas_select_matches_action(),
+    },
+  });
+
   if (error !== null) return <Notice text={m.workshop_bin_atlas_view_error()} />;
   if (pending || tree === null) return <Notice text={m.workshop_bin_atlas_view_pending()} />;
   if (tree.elements.size === 0 && tree.scenes.size === 0) {
@@ -238,7 +261,7 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
   }
 
   return (
-    <div data-ui="LayersPane" className="flex min-h-0 flex-1 flex-col select-none">
+    <div data-ui="LayersPane" className="flex min-h-0 flex-1 flex-col select-none" {...paneFocus}>
       <div className="flex shrink-0 items-center gap-1.5 p-1.5 pb-1">
         <SearchField
           value={query}

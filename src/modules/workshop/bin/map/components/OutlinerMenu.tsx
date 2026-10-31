@@ -22,6 +22,7 @@ import type { MeshActions } from "../hooks/useMeshActions";
 import { useMeshExport, useMeshReimport } from "../hooks/useMeshFiles";
 import type { PlaceableActions } from "../hooks/usePlaceableActions";
 import { useMapScene } from "../state/mapScene";
+import { MAP_KEYS } from "../utils/mapKeys";
 import { chunkLabel, itemId } from "../utils/mapOutline";
 import { meshId, meshIndexOf } from "../utils/meshSelection";
 import type { SceneRow } from "../utils/sceneOutline";
@@ -59,7 +60,11 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
     ? m.workshop_bin_map_outliner_hide_action()
     : m.workshop_bin_map_outliner_show_action();
   const hideAction = (
-    <ContextMenu.Item icon={<HideGlyph />} shortcut="H" onClick={() => setHidden(ids, shown)}>
+    <ContextMenu.Item
+      icon={<HideGlyph />}
+      shortcut={MAP_KEYS.hide}
+      onClick={() => setHidden(ids, shown)}
+    >
       {hideLabel}
     </ContextMenu.Item>
   );
@@ -111,7 +116,7 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
       {!isMesh && (
         <ContextMenu.Item
           icon={<PencilSimpleIcon />}
-          shortcut="F2"
+          shortcut={MAP_KEYS.rename}
           disabled={!editable}
           onClick={() => {
             select([row.id], "replace");
@@ -123,7 +128,7 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
       )}
       <ContextMenu.Item
         icon={<CopyIcon />}
-        shortcut="Ctrl+D"
+        shortcut={MAP_KEYS.duplicate}
         disabled={!editable}
         onClick={() => void (isMesh ? meshes.duplicate(meshIndices) : placeables.duplicate())}
       >
@@ -131,7 +136,7 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
       </ContextMenu.Item>
       <ContextMenu.Item
         icon={<TrashIcon />}
-        shortcut="Del"
+        shortcut={MAP_KEYS.delete}
         disabled={!editable}
         onClick={() => void (isMesh ? meshes.remove(meshIndices) : placeables.remove())}
       >
@@ -157,7 +162,11 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
         </>
       )}
       <ContextMenu.Separator />
-      <ContextMenu.Item icon={<CrosshairIcon />} shortcut="F" onClick={() => onFrame(row)}>
+      <ContextMenu.Item
+        icon={<CrosshairIcon />}
+        shortcut={MAP_KEYS.frameSelection}
+        onClick={() => onFrame(row)}
+      >
         {m.workshop_bin_map_selection_frame_action()}
       </ContextMenu.Item>
       {hideAction}

@@ -1,5 +1,5 @@
 import { EyeIcon, EyeSlashIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
-import { use, useCallback, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -16,11 +16,11 @@ import {
   type WidgetProps,
 } from "../../classes/components/ClassCells";
 import { CONDITION } from "../../classes/utils/classLayouts";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { FoldCaret } from "../../shared/components/FoldCaret";
-import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { fieldHash, rowKey } from "../../tree/utils/binRows";
-import { useSkinCalls } from "../hooks/useEffectAdd";
+import { useSkinCalls, useSkinRowEdits } from "../hooks/useEffectAdd";
 import { useListElements } from "../hooks/useListElements";
 import { SkinChoiceContext } from "../state/skinChoice";
 import {
@@ -31,6 +31,12 @@ import {
   itemIndex,
 } from "../utils/conditionEdits";
 import { listLength } from "../utils/effectEdits";
+import {
+  listCommands,
+  SKIN_ADD_CONDITION_COMMAND,
+  SKIN_APPLY_CONDITION_LIST,
+  SKIN_REMOVE_CONDITION_LIST,
+} from "../utils/skinCommands";
 import { EffectList } from "./EffectList";
 import { type EffectScope, ResolverScope } from "./ResolverScope";
 import { SubmeshLine } from "./SubmeshLine";
@@ -64,6 +70,13 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
   }, []);
 
   const count = listLength(list);
+  const seen = useRef(count);
+  useEffect(() => {
+    /* A removal or an undo moves the indexes behind it, and the added row keeps its fold. */
+    if (count < seen.current) setOpen(new Set());
+    seen.current = count;
+  }, [count]);
+
   const sendCalls = useSkinCalls();
   const add =
     sendCalls === null
@@ -72,6 +85,35 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
           setOpen((held) => new Set(held).add(count));
           sendCalls((declares) => conditionAdd(view.entry, count, declares));
         };
+
+  const choice = use(SkinChoiceContext);
+  const removeItem = useSkinRowEdits()?.removeItem;
+  const titled = conditions.flatMap((condition) => {
+    const index = itemIndex(condition);
+
+    return index === null
+      ? []
+      : [{ condition, index, title: conditionTitle(condition, index, pages) }];
+  });
+
+  usePaneCommands("skin.conditions", {
+    [SKIN_ADD_CONDITION_COMMAND]: { run: add },
+    ...listCommands(
+      SKIN_APPLY_CONDITION_LIST,
+      titled.map(({ index, title }) => ({
+        title,
+        checked: choice?.conditions.has(index) === true,
+        run: choice === null ? null : () => choice.toggleCondition(index),
+      })),
+    ),
+    ...listCommands(
+      SKIN_REMOVE_CONDITION_LIST,
+      titled.map(({ condition, title }) => ({
+        title,
+        run: removeItem === undefined ? null : () => removeItem(condition),
+      })),
+    ),
+  });
 
   return (
     <div data-ui="ConditionRows" className="flex flex-col">
@@ -107,6 +149,22 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
   );
 }
 
+/** Returns the words of a condition in a menu: its place, then the class of its first driver. */
+function conditionTitle(condition: BinRow, index: number, pages: LayoutPages): string {
+  const fields = fieldsOf(pages.get(rowKey(condition)));
+  const driverOf = (field: string) => {
+    const driver = fields(field);
+
+    return driverSummary(driver, fieldsOf(driver && pages.get(rowKey(driver))));
+  };
+  const driver = driverOf(CONDITION.owner) ?? driverOf(CONDITION.source);
+
+  return m.workshop_bin_menu_skin_condition_item_label({
+    index: index + 1,
+    driver: driver?.className ?? m.workshop_bin_skin_condition_always_label(),
+  });
+}
+
 interface ConditionRowProps {
   condition: BinRow;
   /** The condition's index in `PersistentEffectConditions`. */
@@ -121,7 +179,7 @@ interface ConditionRowProps {
 /** One condition's row: its fold, its preview switch, its drivers, its effect count and remove. */
 function ConditionRow({ condition, index, pages, view, scope, open, onToggle }: ConditionRowProps) {
   const choice = use(SkinChoiceContext);
-  const removeItem = use(LeafEditContext)?.removeItem;
+  const removeItem = useSkinRowEdits()?.removeItem;
   const fields = fieldsOf(pages.get(rowKey(condition)));
   const driverOf = (field: string) => {
     const driver = fields(field);
@@ -180,7 +238,7 @@ function ConditionRow({ condition, index, pages, view, scope, open, onToggle }: 
               size="xs"
               aria-label={remove}
               left={<XIcon weight="bold" />}
-              onClick={() => void removeItem(condition)}
+              onClick={() => removeItem(condition)}
             />
           </Tooltip>
         )}

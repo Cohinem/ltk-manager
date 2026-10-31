@@ -263,6 +263,19 @@ describe("visibilityTimeline", () => {
     ]);
   });
 
+  it("puts back only what an event changed at its end frame", () => {
+    const shown: EventKind = { kind: "submeshVisibility", show: [ref("Body")], hide: [] };
+    const steps = timedSteps([clip("Joke", [event("Show", shown, 2, 4)])], [10], [30]);
+
+    const timeline = visibilityTimeline([], submeshes, steps);
+
+    expect(timeline.map((entry) => [entry.at, [...entry.hidden]])).toEqual([
+      [0, []],
+      [1, []],
+      [2, []],
+    ]);
+  });
+
   it("keeps a name the mesh does not spell, and hides a submesh once however many events hide it", () => {
     const hide = (name: string): EventKind => ({
       kind: "submeshVisibility",

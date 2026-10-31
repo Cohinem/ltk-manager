@@ -1,10 +1,15 @@
 import {
   type Camera,
+  DataArrayTexture,
   DataTexture,
   DetachedBindMode,
+  FloatType,
+  HalfFloatType,
   type IUniform,
+  LinearFilter,
   type Material,
   Matrix4,
+  NearestFilter,
   type Object3D,
   OrthographicCamera,
   PerspectiveCamera,
@@ -27,7 +32,23 @@ import {
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
 import { elementView, floatsOf } from "./blockViews";
+import {
+  CUBE_LAYERS,
+  GRID_LAYERS,
+  gridLayerTexels,
+  SKY_FACE_SIZE,
+  skyCubeTexels,
+} from "./pbrLighting";
 import { GRASS_TINTS, type InlinedBlock, programGlobals } from "./programMaterial";
+
+/** The light grid of a physically based shader, one texel per layer. */
+const LIGHT_GRID_TEXTURE = "LIGHT_GRID_TEXTURE_SharedTexture";
+
+/** The image-based light of a physically based shader, six layers per cube. */
+const IBL_CUBEMAP = "IBL_CUBEMAP_SharedTexture";
+
+/** `HDR_ENV_DIFFUSE_SCALE` of a light that states none, the class default. */
+const DEFAULT_HDR_DIFFUSE = 3;
 
 /**
  * How a program material reads the environment's buffers.
@@ -73,7 +94,13 @@ export class EngineEnvironment {
   grassTint: Texture | null = null;
   /** The rectangle that `TERRAIN_XFORM` maps a map-wide texture onto. */
   terrain: MapBounds | null = null;
+  /** `SUN_LIGHT_COLOR.w`, which only a physically based shader reads. */
+  sunScale = 1;
 
+  private subject: Object3D | null = null;
+  private gridLayers: DataArrayTexture | null = null;
+  private skyCube: DataArrayTexture | null = null;
+  private skyCubeLight: SunLight | null = null;
   private readonly buffers = new Map<string, BlockBuffer>();
   private readonly clip = new Matrix4();
   private readonly inverse = new Matrix4();
@@ -155,6 +182,11 @@ export class EngineEnvironment {
       }
     }
 
+    const grids = globals.samplers.get(LIGHT_GRID_TEXTURE);
+    if (grids !== undefined) bindSamplers(program, grids, this.lightGridTexture());
+    const cubes = globals.samplers.get(IBL_CUBEMAP);
+    if (cubes !== undefined) bindSamplers(program, cubes, this.skyCubeTexture());
+
     const tint = this.grassTint;
     if (tint === null) return;
     for (const name of GRASS_TINTS) {
@@ -171,6 +203,8 @@ export class EngineEnvironment {
   write(renderer: WebGLRenderer, camera: Camera, object: Object3D, time: number): void {
     if (renderer.info.render.frame === this.frame) return;
     this.frame = renderer.info.render.frame;
+    this.subject = object;
+    if (this.gridLayers !== null) this.fillGridLayers(this.gridLayers);
     this.clip.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.eye.setFromMatrixPosition(camera.matrixWorld);
     if (!isSkinned(object) || object.bindMode === DetachedBindMode) {
@@ -189,6 +223,53 @@ export class EngineEnvironment {
    */
   dispose(): void {
     for (const { group } of this.buffers.values()) group?.dispose();
+    this.gridLayers?.dispose();
+    this.skyCube?.dispose();
+  }
+
+  /** The ambient cube that lights `object`: its grid cell, else the cube the sun and sky state. */
+  characterCube(object: Object3D): readonly SunColor[] {
+    return this.grid === null
+      ? ambientCube(this.light, sunDirectionFor(this.light, object))
+      : gridCube(this.grid, object);
+  }
+
+  private lightGridTexture(): DataArrayTexture {
+    if (this.gridLayers !== null) return this.gridLayers;
+
+    const made = new DataArrayTexture(new Float32Array(GRID_LAYERS * 4), 1, 1, GRID_LAYERS);
+    made.type = FloatType;
+    /* One texel per layer, and a float texture has no linear filter on every context. */
+    made.minFilter = NearestFilter;
+    made.magFilter = NearestFilter;
+    this.fillGridLayers(made);
+    this.gridLayers = made;
+    return made;
+  }
+
+  private fillGridLayers(texture: DataArrayTexture): void {
+    const texels = texture.image.data as Float32Array;
+    if (this.subject !== null) gridLayerTexels(this.characterCube(this.subject), texels);
+    texture.needsUpdate = true;
+  }
+
+  private skyCubeTexture(): DataArrayTexture {
+    if (this.skyCube !== null && this.skyCubeLight === this.light) return this.skyCube;
+
+    this.skyCube?.dispose();
+    const made = new DataArrayTexture(
+      skyCubeTexels(this.light),
+      SKY_FACE_SIZE,
+      SKY_FACE_SIZE,
+      CUBE_LAYERS,
+    );
+    made.type = HalfFloatType;
+    made.minFilter = LinearFilter;
+    made.magFilter = LinearFilter;
+    made.needsUpdate = true;
+    this.skyCube = made;
+    this.skyCubeLight = this.light;
+    return made;
   }
 
   /** The rows of the clip transform with a D3D depth range. */
@@ -335,6 +416,21 @@ const CUBE_FACES: readonly (readonly [number, number, number])[] = [
   [0, 0, -1],
 ];
 
+/** `texture` on each of `samplers` that does not hold it yet, flagged for upload. */
+function bindSamplers(
+  program: RawShaderMaterial,
+  samplers: readonly string[],
+  texture: Texture,
+): void {
+  const uniforms: Record<string, IUniform> = program.uniforms;
+  for (const sampler of samplers) {
+    const uniform = uniforms[sampler];
+    if (uniform === undefined || uniform.value === texture) continue;
+    uniform.value = texture;
+    program.uniformsNeedUpdate = true;
+  }
+}
+
 function isSkinned(object: Object3D): object is SkinnedMesh {
   return (object as SkinnedMesh).isSkinnedMesh === true;
 }
@@ -446,9 +542,14 @@ const WRITERS: Record<string, Writer> = {
     out[19] = 1;
     writeDepthConversion(out, 20, camera);
     writeVector(out, 24, sun[0] ?? 0, sun[1] ?? 0, sun[2] ?? 0);
-    out[27] = 1;
+    /* The `.w` that the physically based permutation multiplies the sun by. Inferred to be
+       `PbrSunAdditionalScale` from the name and the shipped shader, not traced. */
+    out[27] = environment.sunScale;
     writeVector(out, 29, direction[0], direction[1], direction[2]);
     out[32] = environment.light.lightMap ?? 1;
+    /* `LIGHT_GRID_WORLD_TO_GRID` stays zero, since one texel per layer holds the cell. */
+    out[64] = 1;
+    out[88] = environment.light.hdrDiffuse ?? DEFAULT_HDR_DIFFUSE;
     if (fog === null) {
       writeVector(out, 33, sky[0], sky[1], sky[2]);
       writeVector(out, 36, sky[0], sky[1], sky[2]);
@@ -467,13 +568,13 @@ const WRITERS: Record<string, Writer> = {
     writeRows(out, 68, camera.matrixWorldInverse);
     writeRows(out, 104, camera.matrixWorld);
   },
+  /* The scale of the one cube `IBL_CUBEMAP_INDEX` selects, which stays zero. */
+  IBL_CUBEMAP_SCALES_BUFFER: (out) => {
+    out[0] = 1;
+  },
   CharacterPerDrawVertexCB: (out, environment, _camera, object) => {
     environment.writeIdentity(out, 0);
-    const cube =
-      environment.grid === null
-        ? ambientCube(environment.light, sunDirectionFor(environment.light, object))
-        : gridCube(environment.grid, object);
-    cube.forEach(([r, g, b], face) => {
+    environment.characterCube(object).forEach(([r, g, b], face) => {
       writeVector(out, 16 + face * 4, r, g, b);
       out[16 + face * 4 + 3] = 1;
     });

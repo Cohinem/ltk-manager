@@ -28,7 +28,14 @@ import {
 import { useViewportSound } from "../../../audio/hooks/useViewportSound";
 import type { SoundCue } from "../../../audio/utils/soundCue";
 import type { SoundOutput } from "../../../audio/utils/soundFollower";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { SoundToggle } from "../../shared/preview/SoundToggle";
+import {
+  ABILITY_CAST_COMMAND,
+  ABILITY_GUIDES_COMMAND,
+  ABILITY_REPLAY_COMMAND,
+  ABILITY_SPEED_COMMAND,
+} from "../../skin/utils/skinCommands";
 import { bindingOf, textureAssets } from "../../skin/utils/skinScene";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
@@ -55,6 +62,7 @@ export function AbilityScene({
   recipe,
   steps,
   castCues,
+  shown,
 }: {
   document: BinDocumentId;
   skin: SkinModel;
@@ -64,6 +72,8 @@ export function AbilityScene({
   steps: readonly ResolvedStep[];
   /** The sound events of the cast clip, at their clip times. */
   castCues: readonly SoundCue[];
+  /** `true` while the preview pane draws this scene, which is what the bar's commands need. */
+  shown: boolean;
 }) {
   const clock = useMemo(createSceneClock, []);
   const instances = useMemo(() => steps.map(abilityInstance), [steps]);
@@ -152,6 +162,37 @@ export function AbilityScene({
     clock.seek(Math.max(0, Math.min(span, next)));
     setTime(clock.time);
   };
+  const toggleCast = () => {
+    if (time >= span) seek(0);
+    setPlaying(!playing);
+  };
+  const replay = () => {
+    seek(0);
+    setPlaying(true);
+  };
+  const toggleSpeed = () => setSpeed(speed === 1 ? 0.25 : 1);
+  const toggleGuides = () => setShowGuides(!showGuides);
+
+  const readyReason = m.workshop_bin_menu_skin_ability_scene_reason();
+  const runnable = shown && ready;
+  usePaneCommands("spells.scene", {
+    [ABILITY_CAST_COMMAND]: {
+      run: runnable ? toggleCast : null,
+      title: playing ? m.workshop_missile_pause_action() : m.workshop_ability_cast_action(),
+      reason: readyReason,
+    },
+    [ABILITY_REPLAY_COMMAND]: { run: runnable ? replay : null, reason: readyReason },
+    [ABILITY_SPEED_COMMAND]: {
+      run: shown ? toggleSpeed : null,
+      title: m.workshop_missile_speed_label({ speed }),
+      reason: readyReason,
+    },
+    [ABILITY_GUIDES_COMMAND]: {
+      run: shown && recipe.guides !== undefined ? toggleGuides : null,
+      checked: showGuides,
+    },
+  });
+
   return (
     <div data-ui="AbilityPreview" className="flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-64 flex-1">
@@ -248,38 +289,18 @@ export function AbilityScene({
           }}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            disabled={!ready}
-            onClick={() => {
-              if (time >= span) seek(0);
-              setPlaying(!playing);
-            }}
-          >
+          <Button size="sm" disabled={!ready} onClick={toggleCast}>
             {playing && m.workshop_missile_pause_action()}
             {!playing && m.workshop_ability_cast_action()}
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!ready}
-            onClick={() => {
-              seek(0);
-              setPlaying(true);
-            }}
-          >
+          <Button size="sm" variant="ghost" disabled={!ready} onClick={replay}>
             {m.workshop_missile_replay_action()}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSpeed(speed === 1 ? 0.25 : 1)}>
+          <Button size="sm" variant="ghost" onClick={toggleSpeed}>
             {m.workshop_missile_speed_label({ speed })}
           </Button>
           {recipe.guides !== undefined && (
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-pressed={showGuides}
-              onClick={() => setShowGuides(!showGuides)}
-            >
+            <Button size="sm" variant="ghost" aria-pressed={showGuides} onClick={toggleGuides}>
               {m.workshop_ability_guides_label()}
             </Button>
           )}

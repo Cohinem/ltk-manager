@@ -1,4 +1,4 @@
-import { FileTextIcon, ScrollIcon } from "@phosphor-icons/react";
+import { FileTextIcon, InfoIcon, ScrollIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button, ExternalLink, SectionCard } from "@/components";
@@ -16,28 +16,28 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
   const [licensesOpen, setLicensesOpen] = useState(false);
 
   return (
-    <SectionCard title={m.settings_about_title()}>
+    <SectionCard title={m.settings_about_title()} icon={<InfoIcon className="size-5" />}>
       <div>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
             <h4 className="font-medium text-surface-100">{m.settings_about_app_name()}</h4>
             {appInfo && (
-              <p className="text-sm text-surface-500">
+              <p className="text-sm text-surface-400 select-text">
                 {m.settings_about_version_label({ version: appInfo.version })}
               </p>
             )}
           </div>
-          {appInfo?.logFilePath && (
-            <Button variant="outline" onClick={() => revealPath(appInfo.logFilePath!)}>
-              <FileTextIcon className="size-4" weight="bold" />
-              {m.settings_about_open_log_action()}
-            </Button>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            <UpdateCheckRow />
+            {appInfo?.logFilePath && (
+              <Button variant="outline" onClick={() => revealPath(appInfo.logFilePath!)}>
+                <FileTextIcon className="size-4" weight="bold" />
+                {m.settings_about_open_log_action()}
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="mt-3">
-          <UpdateCheckRow />
-        </div>
-        <p className="mt-3 text-sm text-surface-400">{m.settings_about_description()}</p>
+        <p className="mt-4 text-sm text-surface-400">{m.settings_about_description()}</p>
         <p className="mt-2 text-sm text-surface-400">
           <Marked text={m.settings_about_meta_wiki_description()}>
             {(clause) => (
@@ -45,7 +45,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
             )}
           </Marked>
         </p>
-        <div className="mt-4 flex items-center gap-4 border-t border-surface-600 pt-4">
+        <div className="mt-4 flex items-center gap-4 border-t border-surface-700/40 pt-4">
           <ExternalLink href="https://github.com/LeagueToolkit/ltk-manager" className="text-sm">
             {m.settings_about_github_action()}
           </ExternalLink>

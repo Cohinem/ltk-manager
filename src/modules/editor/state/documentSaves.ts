@@ -83,9 +83,33 @@ export function useSavesOnDemand(documentId: string | null): boolean {
   );
 }
 
-/** The save `documentId` offers, or null for a document that offers none. */
+/* Beside the store rather than in it, because `flushDocumentSaves` must not reach them. */
+const lentSaves = new Map<string, Set<DocumentSave>>();
+
+/**
+ * Adds `save` to each requested save of `documentId`, and returns the withdrawal.
+ *
+ * `documentSave` writes it, so `Ctrl+S`, a menu's Save and the close question do. A quit's flush
+ * does not, so a file that saves on request stays unwritten until the author answers.
+ */
+export function lendDocumentSave(documentId: string, save: DocumentSave): () => void {
+  const lent = lentSaves.get(documentId) ?? new Set<DocumentSave>();
+  lent.add(save);
+  lentSaves.set(documentId, lent);
+
+  return () => {
+    lent.delete(save);
+    if (lent.size === 0 && lentSaves.get(documentId) === lent) lentSaves.delete(documentId);
+  };
+}
+
+/** The save `documentId` offers with what is lent to it, or null if it has neither. */
 export function documentSave(documentId: string): DocumentSave | null {
-  return useDocumentSaveStore.getState().savers[documentId]?.write ?? null;
+  const own = useDocumentSaveStore.getState().savers[documentId]?.write;
+  const lent = lentSaves.get(documentId);
+  if (lent === undefined) return own ?? null;
+
+  return () => Promise.all([own?.(), ...[...lent].map((save) => save())]);
 }
 
 /** Which of `documentIds` no mounted editor can write, so a caller cannot save them. */

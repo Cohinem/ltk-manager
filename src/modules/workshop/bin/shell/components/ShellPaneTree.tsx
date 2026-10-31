@@ -294,22 +294,6 @@ function PaneLeafRail({ kind, leaf }: { kind: ShellKind; leaf: LeafNode }) {
  * was closed, because the panel it was closed from is the one the prune took.
  */
 export function PanesMenu({ kind, className }: { kind: ShellKind; className?: string }) {
-  const tree = useShellLayout(kind);
-  const open = useOpenShellPanes(kind);
-  const floating = useFloatingShellPanes(kind);
-  const openPane = useOpenShellPane(kind);
-  const closePane = useCloseShellPane(kind);
-  const closeFloating = useCloseFloatingShellPane(kind);
-  const reset = useResetShellLayout(kind);
-
-  function toggle(pane: ShellPaneId) {
-    if (floating.includes(pane)) return closeFloating(pane);
-
-    const holder = leafHolding(tree, pane);
-    if (holder === null) return openPane(pane);
-    return closePane(holder.id, pane);
-  }
-
   const label = m.workshop_bin_panes_menu_label();
 
   return (
@@ -331,26 +315,51 @@ export function PanesMenu({ kind, className }: { kind: ShellKind; className?: st
       <Menu.Content align="end" className="w-52">
         <Menu.Group>
           <Menu.GroupLabel>{label}</Menu.GroupLabel>
-          {shellPanesOf(kind).map((pane) => {
-            const Glyph = SHELL_PANE_ICON[pane];
-            return (
-              <Menu.CheckboxItem
-                key={pane}
-                closeOnClick
-                checked={open.has(pane) || floating.includes(pane)}
-                icon={<Glyph className="size-4" />}
-                onCheckedChange={() => toggle(pane)}
-              >
-                {SHELL_PANE_TITLE[pane]()}
-              </Menu.CheckboxItem>
-            );
-          })}
+          <PanesMenuItems kind={kind} />
         </Menu.Group>
-        <Menu.Separator />
-        <Menu.Item icon={<ArrowCounterClockwiseIcon className="size-4" />} onClick={reset}>
-          {m.workshop_bin_panes_reset_action()}
-        </Menu.Item>
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+/** The switch of each pane of `kind` and Reset layout, which a menu bar draws as a submenu. */
+export function PanesMenuItems({ kind }: { kind: ShellKind }) {
+  const tree = useShellLayout(kind);
+  const open = useOpenShellPanes(kind);
+  const floating = useFloatingShellPanes(kind);
+  const openPane = useOpenShellPane(kind);
+  const closePane = useCloseShellPane(kind);
+  const closeFloating = useCloseFloatingShellPane(kind);
+  const reset = useResetShellLayout(kind);
+
+  function toggle(pane: ShellPaneId) {
+    if (floating.includes(pane)) return closeFloating(pane);
+
+    const holder = leafHolding(tree, pane);
+    if (holder === null) return openPane(pane);
+    return closePane(holder.id, pane);
+  }
+
+  return (
+    <>
+      {shellPanesOf(kind).map((pane) => {
+        const Glyph = SHELL_PANE_ICON[pane];
+        return (
+          <Menu.CheckboxItem
+            key={pane}
+            closeOnClick
+            checked={open.has(pane) || floating.includes(pane)}
+            icon={<Glyph className="size-4" />}
+            onCheckedChange={() => toggle(pane)}
+          >
+            {SHELL_PANE_TITLE[pane]()}
+          </Menu.CheckboxItem>
+        );
+      })}
+      <Menu.Separator />
+      <Menu.Item icon={<ArrowCounterClockwiseIcon className="size-4" />} onClick={reset}>
+        {m.workshop_bin_panes_reset_action()}
+      </Menu.Item>
+    </>
   );
 }

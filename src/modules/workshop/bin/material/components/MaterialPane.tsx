@@ -19,6 +19,7 @@ import { Notice } from "../../shared/preview/Notice";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { SkinChoiceContext } from "../../skin/state/skinChoice";
+import { submeshMaterial } from "../../skin/utils/skinScene";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { LeafEditContext, useLeafEdit } from "../../tree/hooks/useLeafEdit";
 import { objectKey, PAGE_SIZE } from "../../tree/utils/binRows";
@@ -42,12 +43,11 @@ export function skinMaterials(skin: SkinModel): SkinMaterial[] {
   return [...seen.values()];
 }
 
-/** The material `submesh` draws with: its override's, else the skin's own. */
-export function submeshMaterial(skin: SkinModel, submesh: string): string | null {
-  const wanted = submesh.toLowerCase();
-  const override = skin.overrides.find((each) => each.submesh.toLowerCase() === wanted);
-  const material = override?.material ?? skin.material;
+/** Returns the hash of the material `submesh` draws with, and null for none this file reads. */
+function drawnMaterial(skin: SkinModel, submesh: string): string | null {
+  const material = submeshMaterial(skin, submesh);
   if (material === null || material.missing) return null;
+
   return material.hash;
 }
 
@@ -79,7 +79,7 @@ export function MaterialPane({ view, entry }: MaterialPaneProps) {
   const picks = choice?.picks ?? 0;
   const picked =
     skin.data !== undefined && choice?.submesh != null
-      ? submeshMaterial(skin.data, choice.submesh)
+      ? drawnMaterial(skin.data, choice.submesh)
       : null;
   const current =
     (chosen !== null && chosen.picks === picks ? chosen.hash : null) ??
@@ -88,6 +88,7 @@ export function MaterialPane({ view, entry }: MaterialPaneProps) {
     materials[0]?.hash ??
     null;
 
+  if (skin.error !== null) return <Notice text={m.workshop_bin_skin_read_failed_empty()} />;
   if (skin.data === undefined) {
     return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
   }

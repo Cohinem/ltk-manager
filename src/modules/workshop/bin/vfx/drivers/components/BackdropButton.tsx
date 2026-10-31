@@ -16,11 +16,15 @@ const TONE_LABEL: Record<PreviewBackdrop, () => string> = {
   light: m.workshop_bin_preview_backdrop_light_label,
 };
 
+/** Returns the words of the command that steps the ground, which name the current tone. */
+export function useBackdropLabel(): string {
+  return m.workshop_bin_preview_backdrop_action({ tone: TONE_LABEL[usePreviewBackdrop()]() });
+}
+
 /** The switch that steps every emitter preview's ground from dark to grey to light. */
 export function BackdropButton({ className }: { className?: string }) {
-  const backdrop = usePreviewBackdrop();
   const cycle = useCyclePreviewBackdrop();
-  const label = m.workshop_bin_preview_backdrop_action({ tone: TONE_LABEL[backdrop]() });
+  const label = useBackdropLabel();
 
   return (
     <IconButton

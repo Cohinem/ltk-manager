@@ -87,6 +87,7 @@ export { DynamicsOverlay, type DynamicsOverlayProps } from "./character/componen
 export { JointHighlight, type JointHighlightProps } from "./character/components/JointHighlight";
 export { LiveRoot, type LiveRootProps } from "./character/components/LiveRoot";
 export {
+  type GizmoSpace,
   SocketGizmo,
   type SocketGizmoProps,
   type SocketPlace,

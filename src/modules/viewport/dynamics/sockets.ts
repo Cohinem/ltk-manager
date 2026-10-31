@@ -150,6 +150,12 @@ export function resolveSocketInto(
   return true;
 }
 
+/**
+ * The smallest determinant of the offset solve, as a share of its longest column cubed. The
+ * columns come from Float32 matrices, so below this the answer is rounding noise and not an offset.
+ */
+const MIN_SOLVABLE = 1e-4;
+
 /** The offsets a socket is authored with. */
 export interface SocketOffsets {
   /** `PositionOffset`. */
@@ -187,7 +193,8 @@ export function socketOffsets(
   const columns = [x, y, z].map((each) => each.map((value, axis) => value - origin[axis]));
   const wanted = [place[0] - origin[0], place[1] - origin[1], place[2] - origin[2]];
   const whole = determinant(columns[0], columns[1], columns[2]);
-  if (Math.abs(whole) < 1e-9) return null;
+  const longest = Math.max(...columns.map((column) => Math.hypot(...column)));
+  if (Math.abs(whole) <= MIN_SOLVABLE * longest ** 3) return null;
 
   const position: Vec3 = [
     determinant(wanted, columns[1], columns[2]) / whole,
