@@ -22,6 +22,7 @@ use crate::{
     Rule, RuleId, RuleMeta, Site,
 };
 use ltk_manager_assets::file_kind::WorkshopFileKind;
+use ltk_manager_audio::ltk_wwise::path::AudioPath;
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("audio/bank-id");
@@ -37,12 +38,6 @@ const HEADER_BYTES: usize = 16;
 /// The header chunk's own id and length come first, then the generator version,
 /// then this.
 const BANK_ID_AT: usize = 12;
-
-/// The offset basis of the 32-bit FNV hash.
-const FNV_BASIS: u32 = 0x811C_9DC5;
-
-/// The prime of the 32-bit FNV hash.
-const FNV_PRIME: u32 = 0x0100_0193;
 
 /// Reports a Wwise bank carrying no soundbank id.
 #[derive(Debug, Default)]
@@ -159,36 +154,30 @@ fn carries_no_id(bytes: &[u8]) -> bool {
 /// `None` where no unit names it either, which is a bank the game never asks
 /// for and so never loads.
 fn bank_id_for(handle: &FileHandle<'_>, units: &BankUnits) -> Option<u32> {
-    if let Some(stem) = named_stem(handle.path()) {
-        return Some(bank_id_of_name(stem));
+    if is_named(handle.path()) {
+        return Some(bank_id_of_path(handle.path()));
     }
     let named = units.path_of(handle.wad_hash()?)?;
-    named_stem(named).map(bank_id_of_name)
+    is_named(named).then(|| bank_id_of_path(named))
 }
 
-/// The bank's own name in `path`, without its extension.
+/// Returns the id the Wwise toolchain derives from the file name of `path`.
+fn bank_id_of_path(path: &str) -> u32 {
+    AudioPath::new(path).bank_id().0
+}
+
+/// Whether the file name of `path` is a bank name rather than a WAD chunk hash.
 ///
-/// `None` where the last segment is a WAD chunk hash rather than a name, which
-/// is what an unpack leaves behind for a path no hashtable resolved.
-fn named_stem(path: &str) -> Option<&str> {
-    let name = path.rsplit('/').next()?;
+/// An unpack writes a path no hashtable resolved as the hex of its hash.
+fn is_named(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
     let stem = name.rsplit_once('.').map_or(name, |(before, _)| before);
-    (!stem.is_empty() && !is_hash_named(stem)).then_some(stem)
+    !stem.is_empty() && !is_hash_named(stem)
 }
 
 /// Whether `stem` is a WAD chunk hash written as hex rather than a bank name.
 fn is_hash_named(stem: &str) -> bool {
     stem.len() == 16 && stem.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-/// `FNV-1` over the ASCII-lowercased bytes of `name`.
-///
-/// This is FNV-1 and not FNV-1a: the multiply comes first and the xor second,
-/// and swapping them gives an unrelated value.
-fn bank_id_of_name(name: &str) -> u32 {
-    name.bytes().fold(FNV_BASIS, |hash, byte| {
-        hash.wrapping_mul(FNV_PRIME) ^ u32::from(byte.to_ascii_lowercase())
-    })
 }
 
 /// What one finding says, and what the repair would write into it.
@@ -202,6 +191,7 @@ fn detail(handle: &FileHandle<'_>, units: &BankUnits) -> Detail {
             mismatch: None,
             message: Some(message),
             fix: Some(FixPreview::value("0", format!("{id:#010X}"))),
+            alternatives: Vec::new(),
         },
         None => Detail::new(message),
     }

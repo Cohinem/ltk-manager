@@ -6,6 +6,11 @@ export interface GuideFocus {
   readonly active: string | null;
   /** The block of the row under the pointer. */
   readonly hover: string | null;
+  /**
+   * The index of the row under the pointer, for a tree that lifts a block only down to that row.
+   * Null lifts the whole block.
+   */
+  readonly hoverAt: number | null;
 }
 
 /** One tree's guide focus, held outside React so a hover redraws the guides alone. */
@@ -15,7 +20,7 @@ export interface GuideStore {
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-const NO_FOCUS: GuideFocus = { active: null, hover: null };
+const NO_FOCUS: GuideFocus = { active: null, hover: null, hoverAt: null };
 
 export function createGuideStore(): GuideStore {
   let focus = NO_FOCUS;
@@ -24,7 +29,12 @@ export function createGuideStore(): GuideStore {
     get: () => focus,
     set: (next) => {
       const merged = { ...focus, ...next };
-      if (merged.active === focus.active && merged.hover === focus.hover) return;
+      const same =
+        merged.active === focus.active &&
+        merged.hover === focus.hover &&
+        merged.hoverAt === focus.hoverAt;
+      if (same) return;
+
       focus = merged;
       for (const listener of listeners) listener();
     },
@@ -45,19 +55,24 @@ const NO_LEVELS = "-1,-1";
  * Which of a line's guide `blocks` the reader stands in and which the pointer is over, as
  * levels. -1 where neither is one of them.
  *
- * The snapshot is a string, so a line re-renders only when its own levels change.
+ * A line at `index` below the row under the pointer takes no hover level, when the focus names
+ * that row. The snapshot is a string, so a line re-renders only when its own levels change.
  */
-export function useGuideLevels(blocks: readonly string[]): {
+export function useGuideLevels(
+  blocks: readonly string[],
+  index?: number,
+): {
   readonly active: number;
   readonly hover: number;
 } {
   const store = use(GuideStoreContext);
   const snapshot = useCallback(() => {
     if (store === null) return NO_LEVELS;
-    const { active, hover } = store.get();
+    const { active, hover, hoverAt } = store.get();
     const at = (key: string | null) => (key === null ? -1 : blocks.indexOf(key));
-    return `${at(active)},${at(hover)}`;
-  }, [blocks, store]);
+    const below = index !== undefined && hoverAt !== null && index > hoverAt;
+    return `${at(active)},${below ? -1 : at(hover)}`;
+  }, [blocks, index, store]);
   const levels = useSyncExternalStore(store?.subscribe ?? NO_STORE, snapshot);
   const [active, hover] = levels.split(",").map(Number);
   return { active: active ?? -1, hover: hover ?? -1 };

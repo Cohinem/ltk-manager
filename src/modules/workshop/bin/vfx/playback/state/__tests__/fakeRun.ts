@@ -31,6 +31,7 @@ export function fakeRun(over: Partial<VfxRun> = {}): { run: VfxRun; tick: () => 
     flex: [null, null, null],
     span: 2,
     resumed: false,
+    unresolvedSounds: 0,
     fitRequest: 0,
     requestFit: vi.fn(),
     setPlaying: vi.fn(),

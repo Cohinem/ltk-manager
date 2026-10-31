@@ -14,3 +14,5 @@ mod resolver;
 pub mod skin;
 pub mod spell;
 pub mod vfx;
+
+pub use resolver::skin_bin;

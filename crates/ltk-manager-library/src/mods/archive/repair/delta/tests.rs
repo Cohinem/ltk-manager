@@ -301,4 +301,50 @@ mod held {
 
         assert!(edit.is_err());
     }
+
+    fn report_with(applied: u32, change: ltk_manager_problems::FileChange) -> FixReport {
+        ltk_manager_problems::FixReport {
+            applied,
+            skipped: 0,
+            names_kept: 0,
+            tables: Vec::new(),
+            remaining: Vec::new(),
+            files: vec![ltk_manager_problems::FileOutcome {
+                layer: "base".to_owned(),
+                path: CHUNK.to_owned(),
+                applied,
+                skipped: 0,
+                change,
+            }],
+            failed: Vec::new(),
+        }
+    }
+
+    /// A file that a repair wrote beside the file of its finding counts no finding, and the
+    /// edit still reads its bytes.
+    #[test]
+    fn held_written_file_without_applied_finding_is_read() {
+        let report = report_with(0, ltk_manager_problems::FileChange::Written);
+
+        let edit = RepairEdit::held(
+            &ltk_manager_problems::HeldWrites::default(),
+            camino::Utf8Path::new("mod.fantome"),
+            &report,
+        );
+
+        assert!(edit.is_err());
+    }
+
+    #[test]
+    fn held_unchanged_file_is_not_read() {
+        let report = report_with(1, ltk_manager_problems::FileChange::Unchanged);
+
+        let edit = RepairEdit::held(
+            &ltk_manager_problems::HeldWrites::default(),
+            camino::Utf8Path::new("mod.fantome"),
+            &report,
+        );
+
+        assert!(edit.is_ok(), "{:?}", edit.err());
+    }
 }

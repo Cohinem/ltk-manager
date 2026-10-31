@@ -57,7 +57,10 @@ import {
   rowsByteLength,
   writeRows,
 } from "./pool";
-import { type Stepper, stepperFor } from "./stepper";
+import { createHearing, type HeardRun, type RunEvent } from "./runEvents";
+import { type Step, type Stepper, stepperFor } from "./stepper";
+
+export type { RunEvent } from "./runEvents";
 
 /** How many particles one system's pool holds, whatever its emitters ask for. */
 const POOL_CAP = 32_768;
@@ -201,8 +204,13 @@ export interface Driver extends Source {
   readonly orientation: Float32Array;
   /** Live particles per emitter over the run, which the timeline's lanes draw. */
   readonly histogram: Histogram;
-  /** Spend one frame's elapsed seconds. */
-  advance(frameTime: number): void;
+  /**
+   * Spends one frame's elapsed seconds and returns what the steps changed.
+   *
+   * Only this forward play reports events. A seek, a swap and a steer report none of what they
+   * replay, and a restart makes the next step report a new system start.
+   */
+  advance(frameTime: number): readonly RunEvent[];
   /**
    * Run to `time`, carrying on from the latest checkpoint at or before it.
    *
@@ -314,39 +322,65 @@ export function createDriver(
   /** The build-up's own clock and age while one runs, which the driver reports in their place. */
   let building: { now: number; age: number } | null = null;
 
+  /** The rig had the system stopped at the last step. */
+  let stopped = false;
+  const hearing = createHearing();
+  const heard: HeardRun = {
+    get system() {
+      return system;
+    },
+    get states() {
+      return states;
+    },
+    get stopped() {
+      return stopped;
+    },
+    get births() {
+      return lineage.births;
+    },
+  };
+
   relane();
 
   function run(frameTime: number): void {
-    for (const step of stepper.advance(frameTime)) {
-      const reached = phaseAt(rig, step.now, span, tail);
-      if (reached < phase) replay(step.now - step.dt);
-      phase = reached;
+    for (const step of stepper.advance(frameTime)) stepAt(step);
+  }
 
-      const now = originAt(rig.motion, reached, rig.height);
-      /* A path stands in for a missile's own game object, whose travel is its local `Y`,
-         where a unit's system is the look-at yaw of question 11. */
-      orientInto(reached);
-      const placed: SystemStep = {
-        dt: step.dt,
-        now: step.now,
-        origin: stand(world, now),
-        moved: displacement(origin, now),
-        yaw,
-        world,
-        stopped:
-          (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached, rig.height),
-        pinned: lineage.pinned,
-        surfaces: lineage.surfaces.get(""),
-      };
+  /** Runs `step` for the system, its children, the lanes and the checkpoints. */
+  function stepAt(step: Step): void {
+    const reached = phaseAt(rig, step.now, span, tail);
+    if (reached < phase) replay(step.now - step.dt);
+    phase = reached;
 
-      stepEmitters(pool, system, placed, rng, states);
-      origin = now;
-      /* shortcut: a child steps on its parent's steps, where the client steps each child
-         system on its own `stepping`; upgrade if a child's flags are found to differ. */
-      children.step(driver, system, step.dt, step.now);
-      lanes.tally(pool, reached);
-      keep(step.now);
-    }
+    const now = originAt(rig.motion, reached, rig.height);
+    /* A path replaces the game object of a missile, whose travel is its local `Y`,
+       where a unit's system is the look-at yaw of question 11. */
+    orientInto(reached);
+    const placed: SystemStep = {
+      dt: step.dt,
+      now: step.now,
+      origin: stand(world, now),
+      moved: displacement(origin, now),
+      yaw,
+      world,
+      stopped: stoppedAt(reached),
+      pinned: lineage.pinned,
+      surfaces: lineage.surfaces.get(""),
+    };
+
+    stopped = placed.stopped;
+    stepEmitters(pool, system, placed, rng, states);
+    origin = now;
+    /* shortcut: a child steps on its parent's steps, where the client steps each child
+       system on its `stepping`; upgrade if a child's flags are found to differ. */
+    children.step(driver, system, step.dt, step.now);
+    lanes.tally(pool, reached);
+    keep(step.now);
+  }
+
+  /** Returns true if the rig has the system stopped `reached` seconds into its run. */
+  function stoppedAt(reached: number): boolean {
+    return (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached, rig.height);
   }
 
   /** The lanes sized for the emitters drawn and the run they are drawn over. */
@@ -398,6 +432,7 @@ export function createDriver(
     rng = held.rng.clone();
     states = copyEmitterStates(held.states);
     phase = held.phase;
+    stopped = stoppedAt(held.phase);
     origin = held.origin;
     children.restore(held.children);
     /* A checkpoint can predate an edit to what only the draw reads, which a swap keeps it
@@ -460,6 +495,8 @@ export function createDriver(
   /* A loop starts the effect over without touching the seed, so the run stays one
      stream and a seek that crosses the boundary reproduces both passes. */
   function replay(until: number): void {
+    hearing.reset();
+    stopped = false;
     pool.count = 0;
     children.clear();
     lineage.births.length = 0;
@@ -472,6 +509,8 @@ export function createDriver(
   /* The serials start over with the stream, because a child's own stream is seeded off the
      serial of the particle it rides and a seek has to reach the children a play reaches. */
   function rewind(): void {
+    hearing.reset();
+    stopped = false;
     pool.count = 0;
     pool.born = 0;
     children.clear();
@@ -510,7 +549,14 @@ export function createDriver(
       return world;
     },
     histogram: lanes,
-    advance: run,
+    advance(frameTime) {
+      const events: RunEvent[] = [];
+      for (const step of stepper.advance(frameTime)) {
+        stepAt(step);
+        hearing.hear(heard, events);
+      }
+      return events.length === 0 ? NO_EVENTS : events;
+    },
     seek(time) {
       const wanted = Math.min(Math.max(time, 0), SEEK_STEPS * SEEK_STEP);
       const steps = Math.round(wanted / SEEK_STEP);
@@ -520,6 +566,7 @@ export function createDriver(
 
       for (let at = from?.step ?? 0; at < steps; at += 1) run(SEEK_STEP);
       lanes.reach(phaseAt(rig, stepper.now, span, tail));
+      hearing.sync(heard, stepper.now > 0);
     },
     restart: rewind,
     reseed(next) {
@@ -680,6 +727,9 @@ function stand(world: World, point: Point): Point {
   if (!world.hud) return point;
   return [point[0] + world.offset[0], point[1] + world.offset[1], point[2] + world.offset[2]];
 }
+
+/** What a frame whose steps changed nothing reports. */
+const NO_EVENTS: readonly RunEvent[] = [];
 
 /** The travel of a step that moves nothing, which every build-up step takes. */
 const STILL: Point = [0, 0, 0];

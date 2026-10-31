@@ -46,6 +46,7 @@ const PREVIEW: SpellPreview = {
   },
   effectKey: "0x00000001",
   effectName: null,
+  audioBankPaths: [],
   issues: [],
 };
 const EFFECT: EffectSystem = { key: "0x00000001", system: "0x12345678", name: null };

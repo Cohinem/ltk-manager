@@ -207,6 +207,7 @@ impl Ragged {
                     format!("{} × {}", self.width, self.height),
                     format!("{width} × {height}"),
                 )),
+                alternatives: Vec::new(),
             },
             Err(reason) => Detail::new(reason),
         }

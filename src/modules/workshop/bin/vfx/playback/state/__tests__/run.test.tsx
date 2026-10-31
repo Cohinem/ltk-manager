@@ -1,13 +1,24 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup } from "@testing-library/react";
+import { act, cleanup, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AssetRef } from "@/lib/tauri";
+import {
+  api,
+  type AssetRef,
+  type EventTree,
+  type ObjectProperties,
+  type ResolvedSounds,
+} from "@/lib/tauri";
+import { useWorkshopLayoutStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
+import type { SoundChannel } from "../../../../../audio/player/soundPlayer";
+import type { SystemModel } from "../../../engine/model/model";
+import { NO_SOUNDS } from "../../../engine/model/systemModel";
 import { readVfxSystem } from "../../../engine/parsing/readVfxSystem";
+import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
 import { useVfxRun, type VfxRun, VfxRunProvider } from "../run";
 import { handRig, useVfxRunMemoryStore, vfxRunKey } from "../vfxRunMemory";
 
@@ -37,6 +48,26 @@ vi.mock("../../../hooks/useVfxSystem", () => ({
   },
 }));
 
+/** Every channel the sound player opened, each a fake that plays nothing. */
+const channels = vi.hoisted(() => [] as SoundChannel[]);
+
+vi.mock("../../../../../audio/player/soundPlayer", async (original) => {
+  const { openFakeChannel } = await import("../../../../../audio/player/__tests__/fakeChannel");
+  return {
+    ...(await original<object>()),
+    openChannel: () => {
+      const channel = openFakeChannel();
+      channels.push(channel);
+      return channel;
+    },
+  };
+});
+
+vi.mock("@/lib/tauri", async (original) => {
+  const actual = await original<typeof import("@/lib/tauri")>();
+  return { ...actual, api: { ...actual.api, resolveSounds: vi.fn() } };
+});
+
 const ASSET: AssetRef = { kind: "layer", project: "C:/mods/ahri", layer: "base", path: "ahri.bin" };
 
 const queued = new Map<number, FrameRequestCallback>();
@@ -56,7 +87,9 @@ afterEach(() => {
   queued.clear();
   vi.unstubAllGlobals();
   useVfxRunMemoryStore.setState({ runs: {} });
+  useWorkshopLayoutStore.setState({ previewSound: false });
   authored = SYSTEM;
+  channels.length = 0;
 });
 
 function Capture() {
@@ -315,5 +348,99 @@ describe("vfxRunKey", () => {
     );
     expect(vfxRunKey(ASSET, "0x2")).not.toBe(vfxRunKey(ASSET, "0x1"));
     expect(vfxRunKey(7, "0x1")).not.toBe(vfxRunKey(8, "0x1"));
+  });
+});
+
+describe("VfxRunProvider sound", () => {
+  /** An event that plays one media of a bank. */
+  function treeOf(name: string): EventTree {
+    const media = {
+      asset: { kind: "file", path: "C:/mods/ahri_sfx_audio.bnk" },
+      path: "assets/sounds/ahri_sfx_audio.bnk",
+      source: 1,
+      container: "bank",
+    } as const;
+    const node = { kind: "sound", id: 2, source: 1, stream: "dataBank", media } as const;
+    return {
+      event: 3,
+      name,
+      actions: [{ id: 4, class: 0x0400, label: "Play", target: 2, node, delay: 0 }],
+    };
+  }
+
+  function resolved(names: readonly string[]): { ok: true; value: ResolvedSounds } {
+    const sounds = names.map((name) => ({
+      name,
+      resolution: {
+        status: "resolved" as const,
+        tree: treeOf(name),
+        properties: [] as ObjectProperties[],
+      },
+    }));
+    return { ok: true, value: { sounds, index: { status: "ready" } } };
+  }
+
+  /** The keys that the run's channel plays. */
+  function playing(): string[] {
+    return [...(channels.at(-1)?.state().playing ?? [])].sort();
+  }
+
+  /** Mounts a run of `system` with sound on and its names resolved, on a rig that plays once. */
+  async function mountSounding(system: SystemModel, stopAt: number | null = null) {
+    authored = system;
+    useWorkshopLayoutStore.setState({ previewSound: true });
+    vi.mocked(api.resolveSounds).mockImplementation(async (_document, names) => resolved(names));
+    mount();
+    await waitFor(() => expect(api.resolveSounds).toHaveBeenCalled());
+    await act(async () => {});
+    act(() =>
+      run.setRig({ source: { kind: "custom" }, rig: { ...run.rig.rig, life: "once", stopAt } }),
+    );
+  }
+
+  it("stops the system's persistent sound at the system's stop", async () => {
+    await mountSounding(
+      {
+        ...SYSTEM,
+        sounds: { ...NO_SOUNDS, soundPersistent: "Play_hum" },
+        emitters: [emitterOf(0, { rate: flat(10), particleLifetime: flat(2) })],
+      },
+      0.5,
+    );
+
+    frames(0, 3);
+    expect(playing()).toEqual(["soundPersistentDefault"]);
+
+    frames(300, 5);
+    expect(playing()).toEqual([]);
+  });
+
+  it("stops an emitter's persistent sound at the emitter's end under soundsEndOnEmitterEnd", async () => {
+    await mountSounding({
+      ...SYSTEM,
+      emitters: [
+        emitterOf(0, {
+          rate: flat(10),
+          lifetime: 0.3,
+          particleLifetime: flat(2),
+          audio: { soundOnCreate: null, soundPersistent: "Play_fizz" },
+        }),
+      ],
+    });
+
+    frames(0, 2);
+    expect(playing()).toEqual(["0:SoundPersistent"]);
+
+    frames(200, 4);
+    expect(playing()).toEqual([]);
+  });
+
+  it("fires no sound for the start that a seek passes", async () => {
+    await mountSounding({ ...SYSTEM, sounds: { ...NO_SOUNDS, soundOnCreate: "Play_cast" } });
+
+    act(() => run.seek(0.5));
+    frames(0, 2);
+
+    expect(playing()).toEqual([]);
   });
 });

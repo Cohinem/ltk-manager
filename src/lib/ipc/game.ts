@@ -19,7 +19,7 @@ export const commands = {
 	 *  Drop the built index of `source`, so the next read reads the install again.
 	 * 
 	 *  Unmounts the cached archives with it, and for the game drops the object
-	 *  index, which was fed by this one. Asking for a fresh index is the one signal
+	 *  index and the audio index, which were fed by this one. Asking for a fresh index is the one signal
 	 *  the app gets that the install changed under it, and a mount taken before a
 	 *  patch would keep answering from the chunk table it read then.
 	 */

@@ -59,6 +59,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
       forcedMapSkin: "",
       mapDecorations: {},
     },
+    audio: { wwiseConsolePath: null },
     ...overrides,
   };
 }

@@ -6,6 +6,7 @@
 
 pub mod app_update;
 pub mod atlas;
+pub mod audio;
 pub mod bin;
 pub mod desktop;
 pub mod diagnostics;

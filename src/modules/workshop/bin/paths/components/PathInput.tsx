@@ -1,35 +1,22 @@
 import { ArchiveIcon } from "@phosphor-icons/react";
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  use,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
 
-import {
-  Combobox,
-  FieldDiscardContext,
-  InputDefaultContext,
-  LayerIcon,
-  OVERLINE,
-} from "@/components";
+import { LayerIcon } from "@/components";
 import { m } from "@/i18n";
-import { twMerge } from "@/utils";
 
 import { layerTitle } from "../../../documents/utils/contentDocument";
 import { fileKindFromPath } from "../../../gameBrowser/utils/fileKind";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { describeFileKind } from "../../../shared/utils/fileKindIcon";
 import { CutText } from "../../shared/components/CutText";
+import {
+  type SuggestList,
+  type SuggestQuery,
+  SuggestInput,
+} from "../../shared/components/SuggestInput";
 import { splitPath } from "../../shared/utils/textCut";
 import { usePathSuggestions } from "../hooks/usePathSuggestions";
 import type { PathField } from "../utils/pathField";
-import type { PathGroup, PathGroupId, PathSuggestion } from "../utils/pathSuggestions";
-
-/** Why the field loses focus, when the blur must not commit the draft. */
-type Leaving = "discard" | "picked" | null;
+import type { PathGroupId, PathSuggestion } from "../utils/pathSuggestions";
 
 interface PathInputProps {
   /** The field's value: the path, or the hex of a chunk no table names. */
@@ -48,208 +35,43 @@ interface PathInputProps {
   onEnter?: () => void;
 }
 
+/** What a path field's suggestions read beside the draft. */
+interface PathSource {
+  readonly field: PathField;
+  readonly value: string;
+}
+
 /**
  * An edit field for a path value, with project and game files suggested below it.
  *
- * "A path field" in docs/ux/BIN_EDITOR.md. The draft is committed like a `Readout` draft, on
- * blur or on `Enter`, and `Escape` discards it. A picked suggestion is committed at once.
- * `Enter` picks the highlighted suggestion: the top one while the draft is search terms, and
- * none while the draft contains `/`, so a typed path is written as typed.
+ * "A path field" in docs/ux/BIN_EDITOR.md. `Enter` picks the top suggestion while the draft is
+ * search terms, and none while the draft contains `/`, so a typed path is written as typed.
  */
-export function PathInput({
-  value,
-  field,
-  placeholder,
-  "aria-label": ariaLabel,
-  invalid,
-  autoFocus,
-  onCommit,
-  onLeave,
-  onEnter,
-}: PathInputProps) {
-  const implicit = use(InputDefaultContext);
-  const discard = use(FieldDiscardContext);
-  const [draft, setDraft] = useState<{ text: string; over: string } | null>(null);
-  if (draft !== null && draft.over !== value) {
-    setDraft(null);
-  }
-
-  const [open, setOpen] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-  const highlighted = useRef<PathSuggestion | undefined>(undefined);
-  const leaving = useRef<Leaving>(null);
-  /* An `Enter` on search terms before any suggestion answered picks the top one once they do. */
-  const pickWhenAnswered = useRef(false);
-
-  const shown = draft?.text ?? (implicit ? "" : value);
-  const query = draft === null || draft.text.trim() === "" ? null : draft.text;
-  const { groups, more, searching } = usePathSuggestions({ field, value, query, open });
-  const autoHighlight = field.enterPicks && query !== null && !query.includes("/");
-  const listed = open && (groups.length > 0 || searching);
-
-  /* A committed draft stays until the value changes under it, so a refused path keeps its text. */
-  function leave() {
-    const reason = leaving.current;
-    leaving.current = null;
-    pickWhenAnswered.current = false;
-    setOpen(false);
-
-    const committed = reason === null && draft !== null && (draft.text !== value || implicit);
-    if (committed) {
-      onCommit(draft.text);
-    } else {
-      setDraft(null);
-    }
-    if (reason === "discard") discard?.();
-
-    onLeave?.();
-  }
-
-  function pick(suggestion: PathSuggestion | null, byKey: boolean) {
-    if (suggestion === null) return;
-
-    leaving.current = "picked";
-    if (suggestion.path !== value || implicit) onCommit(suggestion.path);
-    input.current?.blur();
-
-    if (byKey) onEnter?.();
-  }
-
-  useEffect(() => {
-    if (!pickWhenAnswered.current || searching) return;
-    pickWhenAnswered.current = false;
-
-    const top = groups[0]?.items[0];
-    if (top !== undefined) {
-      pick(top, true);
-      return;
-    }
-    input.current?.blur();
-    onEnter?.();
-  });
-
-  function keys(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
-      /* The combobox selects the highlighted suggestion, and `pick` then blurs the field. */
-      if (listed && isListed(groups, highlighted.current)) return;
-
-      event.preventDefault();
-      if (autoHighlight && searching && !event.ctrlKey && !event.metaKey) {
-        pickWhenAnswered.current = true;
-        return;
-      }
-      event.currentTarget.blur();
-      if (!event.ctrlKey && !event.metaKey) onEnter?.();
-    }
-
-    if (event.key === "Escape") {
-      leaving.current = "discard";
-      event.currentTarget.blur();
-    }
-  }
-
+export function PathInput({ value, field, ...props }: PathInputProps) {
   return (
-    <Combobox.Root<PathSuggestion>
-      items={groups}
-      value={null}
-      inputValue={shown}
-      onInputValueChange={(next, details) => {
-        if (details.reason !== "input-change") return;
-        setDraft({ text: next, over: value });
-        setOpen(true);
-      }}
-      onValueChange={(suggestion, details) =>
-        pick(suggestion, details.event instanceof KeyboardEvent)
-      }
-      onItemHighlighted={(suggestion) => {
-        highlighted.current = suggestion;
-      }}
-      open={listed}
-      onOpenChange={setOpen}
-      filter={() => true}
-      autoHighlight={autoHighlight}
-      itemToStringLabel={(suggestion) => suggestion.path}
-      itemToStringValue={(suggestion) => suggestion.path}
-    >
-      <Combobox.Input
-        ref={input}
-        placeholder={implicit ? (placeholder ?? value) : undefined}
-        aria-label={ariaLabel}
-        aria-invalid={invalid || undefined}
-        spellCheck={false}
-        autoComplete="off"
-        autoFocus={autoFocus}
-        data-ui="PathInput"
-        data-draft={(draft !== null && (draft.text !== value || implicit)) || undefined}
-        data-value-field
-        className={twMerge(
-          "h-[var(--readout-height,auto)] w-auto min-w-0 flex-1 rounded-sm bg-surface-veil-soft px-[var(--readout-padding-x,0.375rem)] py-0.5",
-          "font-mono text-[length:inherit] text-surface-200 tabular-nums select-text focus:ring-0 focus:outline-none",
-          /* DS-VEIL, DS-HOVER, DS-RADIUS */
-          "border-surface-veil hover:border-accent-hover focus:border-accent-500",
-          invalid && "border-danger",
-          implicit &&
-            draft === null &&
-            "border-dashed bg-transparent placeholder:text-surface-400 focus:border-solid",
-        )}
-        onFocus={(event) => {
-          if (autoFocus) event.currentTarget.select();
-          setOpen(true);
-        }}
-        onClick={stopRowClick}
-        onKeyDown={keys}
-        onBlur={leave}
-      />
-      <Combobox.Content
-        side="bottom"
-        align="start"
-        sideOffset={2}
-        data-ui="PathInput:list"
-        className="max-h-80 w-[max(var(--anchor-width),32rem)] max-w-[40rem]"
-        onMouseDown={keepFocus}
-      >
-        <Combobox.List>
-          {(group: PathGroup) => (
-            <Combobox.Group key={group.value} items={group.items}>
-              <Combobox.GroupLabel className={twMerge(OVERLINE, "px-2 pt-1.5 pb-0.5 select-none")}>
-                {groupLabel(group.value)}
-              </Combobox.GroupLabel>
-              <Combobox.Collection>
-                {(suggestion: PathSuggestion) => (
-                  <Combobox.Item
-                    key={`${suggestion.source.kind}:${suggestion.path}`}
-                    value={suggestion}
-                    className="font-mono text-mono-row"
-                  >
-                    <SuggestionRow suggestion={suggestion} />
-                  </Combobox.Item>
-                )}
-              </Combobox.Collection>
-            </Combobox.Group>
-          )}
-        </Combobox.List>
-        {more > 0 && (
-          <div className="px-2 py-1 text-meta text-surface-400 select-none">
-            {m.workshop_bin_path_more_hint({ count: more })}
-          </div>
-        )}
-        {searching && groups.length === 0 && (
-          <div className="px-2 py-1 text-meta text-surface-400 select-none">
-            {m.workshop_bin_path_searching_label()}
-          </div>
-        )}
-      </Combobox.Content>
-    </Combobox.Root>
+    <SuggestInput<PathSuggestion, PathSource>
+      {...props}
+      value={value}
+      source={{ field, value }}
+      useSuggestions={usePathList}
+      enterPicks={(query) => field.enterPicks && !query.includes("/")}
+      itemText={(suggestion) => suggestion.path}
+      itemKey={(suggestion) => `${suggestion.source.kind}:${suggestion.path}`}
+      groupLabel={groupLabel}
+      renderItem={(suggestion) => <SuggestionRow suggestion={suggestion} />}
+      moreHint={(count) => m.workshop_bin_path_more_hint({ count })}
+      searchingLabel={m.workshop_bin_path_searching_label()}
+      name="PathInput"
+    />
   );
 }
 
-/** Whether `suggestion` is in the current groups. A stale highlight can point to a removed row. */
-function isListed(groups: readonly PathGroup[], suggestion: PathSuggestion | undefined): boolean {
-  return suggestion !== undefined && groups.some((group) => group.items.includes(suggestion));
+function usePathList(draft: SuggestQuery, source: PathSource): SuggestList<PathSuggestion> {
+  return usePathSuggestions({ ...source, ...draft });
 }
 
-function groupLabel(group: PathGroupId): string {
-  switch (group) {
+function groupLabel(group: string): string {
+  switch (group as PathGroupId) {
     case "project":
       return m.workshop_bin_path_project_label();
     case "folder":
@@ -295,15 +117,4 @@ function SuggestionRow({ suggestion }: { suggestion: PathSuggestion }) {
 /** An archive's file name without the folder and the `.wad.client` suffix. */
 function archiveName(wad: string): string {
   return wad.slice(wad.lastIndexOf("/") + 1).replace(/\.wad\.client$/i, "");
-}
-
-/* Stop the click here, so the row's click handler does not run. */
-function stopRowClick(event: ReactMouseEvent<HTMLInputElement>) {
-  event.stopPropagation();
-}
-
-/* A press on the list's scrollbar or a group label would blur the field and commit the
-   search terms as a path. */
-function keepFocus(event: ReactMouseEvent<HTMLDivElement>) {
-  event.preventDefault();
 }

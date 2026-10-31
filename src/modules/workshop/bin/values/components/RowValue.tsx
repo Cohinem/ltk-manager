@@ -27,11 +27,14 @@ import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { NumberCell, UnitSuffix } from "../../../shared/components/PropertyRowParts";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext } from "../../links/hooks/useLinkTargets";
 import { PathInput } from "../../paths/components/PathInput";
 import { type PathField, pathFieldOf } from "../../paths/utils/pathField";
+import { EventInput } from "../../sounds/components/EventInput";
+import { isSoundField } from "../../sounds/utils/eventSuggestions";
 import { useRowEdit } from "../../tree/hooks/useBinEdit";
 import { type LeafEdit, LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { fieldHash, recordField, rowKey } from "../../tree/utils/binRows";
@@ -62,8 +65,6 @@ import { ColorMark } from "./ColorMark";
 import { FlagsSelect } from "./FlagsSelect";
 
 const AXES = ["x", "y", "z", "w"] as const;
-/** The room a number on its own takes, so a column of rows lines its digits up. */
-const SCALAR_WIDTH = "w-[var(--bin-scalar-width,8rem)]";
 /** One component of a vector or a matrix, which holds a float. */
 const COMPONENT_WIDTH = "w-[var(--bin-component-width,6rem)]";
 /** What stands between a random range's bounds, "The inspector" in docs/ux/BIN_EDITOR.md. */
@@ -279,6 +280,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
         <TextEdit
           text={value.value}
           path={pathFieldOf(row)}
+          sound={isSoundField(row)}
           invalid={invalid}
           autoFocus={autoFocus}
           onEnter={onEnter}
@@ -331,6 +333,8 @@ interface TextEditProps {
   label?: string;
   /** The path field settings, for a field that suggests files. Null for a plain text field. */
   path?: PathField | null;
+  /** The field holds an event name, and suggests the events of the bin's character skin. */
+  sound?: boolean;
   invalid: boolean;
   /** Open the field as the row draws, for a property just added. */
   autoFocus: boolean;
@@ -352,6 +356,7 @@ export function TextEdit({
   text,
   label = m.workshop_bin_edit_value_action(),
   path = null,
+  sound = false,
   invalid,
   autoFocus,
   onEnter,
@@ -389,6 +394,24 @@ export function TextEdit({
     [discard],
   );
 
+  if ((editing || implicit) && sound) {
+    return (
+      <FieldDiscardContext value={dropped}>
+        <span data-text-field className="flex min-w-0 flex-1">
+          <EventInput
+            value={text}
+            placeholder={text || m.workshop_bin_empty_label()}
+            aria-label={label}
+            invalid={invalid}
+            autoFocus={editing}
+            onEnter={onEnter}
+            onCommit={commit}
+            onLeave={leave}
+          />
+        </span>
+      </FieldDiscardContext>
+    );
+  }
   if ((editing || implicit) && path !== null) {
     return (
       <FieldDiscardContext value={dropped}>
@@ -604,34 +627,9 @@ interface NumberValueProps {
 }
 
 /** A number in the box it is edited in, and the unit its field is measured in after it. */
-function NumberValue({
-  text,
-  field,
-  invalid,
-  autoFocus,
-  onEnter,
-  onCommit,
-  step = 1,
-}: NumberValueProps) {
+function NumberValue({ field, ...cell }: NumberValueProps) {
   const unit = fieldUnit(field);
-  const box = (
-    <Readout
-      value={text}
-      step={step}
-      className={SCALAR_WIDTH}
-      invalid={invalid}
-      autoFocus={autoFocus}
-      onEnter={onEnter}
-      onCommit={onCommit}
-    />
-  );
-  if (unit === null) return box;
-  return (
-    <span className="flex min-w-0 items-center gap-1">
-      {box}
-      <Unit unit={unit} />
-    </span>
-  );
+  return <NumberCell {...cell} unit={unit === null ? null : UNIT_SUFFIX[unit]()} />;
 }
 
 /** A random range as the two boxes an edit sets, and the unit after them. */
@@ -656,7 +654,7 @@ function rangeText(range: ValueRange): string {
 
 /** What a number is measured in. "The inspector" in docs/ux/BIN_EDITOR.md. */
 function Unit({ unit }: { unit: FieldUnit }) {
-  return <span className="shrink-0 text-surface-400 select-none">{UNIT_SUFFIX[unit]()}</span>;
+  return <UnitSuffix unit={UNIT_SUFFIX[unit]()} />;
 }
 
 /** An enum in the box a leaf edit turns into a select, the number the file holds beside it. */

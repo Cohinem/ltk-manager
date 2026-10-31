@@ -190,6 +190,7 @@ impl PropertyRead for Reading<'_> {
                     mismatch: None,
                     message,
                     fix: None,
+                    alternatives: Vec::new(),
                 },
             );
         }

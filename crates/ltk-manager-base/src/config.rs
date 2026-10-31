@@ -175,6 +175,19 @@ pub struct Config {
     /// Which built-in mods the overlay injects above every other mod.
     #[serde(default)]
     pub builtin_mods: BuiltinModSettings,
+    /// The tools that audio editing runs.
+    #[serde(default)]
+    pub audio: AudioSettings,
+}
+
+/// The tools that audio editing runs, none by default.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase", default)]
+pub struct AudioSettings {
+    /// `WwiseConsole.exe` of a Wwise install, which converts a `.wav`, `.ogg` or `.flac` into a
+    /// Vorbis WEM. Default: none, and a replacement then takes a `.wem` only.
+    pub wwise_console_path: Option<PathBuf>,
 }
 
 /// The built-in mods a user turned on, every one off by default.
@@ -257,6 +270,7 @@ impl Default for Config {
             read_game_log: true,
             keep_incidents: default_keep_incidents(),
             builtin_mods: BuiltinModSettings::default(),
+            audio: AudioSettings::default(),
         }
     }
 }

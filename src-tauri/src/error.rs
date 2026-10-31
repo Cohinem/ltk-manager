@@ -136,6 +136,10 @@ pub enum AppErrorResponse {
     UntrustedDomain { domain: String },
     /// A call to RuneForge failed. The variant says which and carries what the dialog renders.
     Runeforge { error: RuneforgeError },
+    /// A file gives no WEM for a media replacement. The variant says why.
+    AudioConvert {
+        error: crate::services::audio::AudioConvertError,
+    },
     /// Something GitHub publishes could not be read. The kind says which
     /// remedy applies, and the feed says what was being read.
     #[serde(rename = "GITHUB")]
@@ -370,6 +374,11 @@ impl From<DomainError> for AppErrorResponse {
         let error = downcast_or!(error, WorkshopError, error => Self::Workshop { error });
         let error = downcast_or!(error, RuneforgeError, error => Self::Runeforge { error });
         let error = downcast_or!(error, BinDocumentError, error => Self::from(error));
+        let error = downcast_or!(
+            error,
+            crate::services::audio::AudioConvertError,
+            error => Self::AudioConvert { error }
+        );
 
         let detail = error.to_string();
         match error.kind() {

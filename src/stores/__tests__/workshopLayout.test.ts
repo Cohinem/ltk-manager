@@ -16,36 +16,60 @@ describe("workshopLayout", () => {
     expect(migrated).toEqual({
       explorerView: "details",
       explorerColumns: { size: 100, kind: 160 },
+      audioInspector: false,
     });
   });
 
   it("drops a placement made before one belonged to a map", async () => {
     const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
     const migrated = await migrate?.({ previewPlacement: [100, 0, 250], previewFacing: 1.5 }, 5);
-    expect(migrated).toEqual({ previewPlacement: null, previewPlacedOn: null, previewFacing: 1.5 });
+    expect(migrated).toEqual({
+      previewPlacement: null,
+      previewPlacedOn: null,
+      previewFacing: 1.5,
+      audioInspector: false,
+    });
   });
 
   it("carries the wireframe setting over as the view mode", async () => {
     const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
     const migrated = await migrate?.({ previewWireframe: "only" }, 6);
-    expect(migrated).toEqual({ previewViewMode: "wireframe", previewWireOverlay: false });
+    expect(migrated).toEqual({
+      previewViewMode: "wireframe",
+      previewWireOverlay: false,
+      audioInspector: false,
+    });
   });
 
   it("turns the overlay view mode into the lit mode with the wireframe overlay on", async () => {
     const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
     const migrated = await migrate?.({ previewViewMode: "overlay" }, 7);
-    expect(migrated).toEqual({ previewViewMode: "lit", previewWireOverlay: true });
+    expect(migrated).toEqual({
+      previewViewMode: "lit",
+      previewWireOverlay: true,
+      audioInspector: false,
+    });
   });
 
   it("hides a persisted target handle and stops persisting it", async () => {
     const { migrate, partialize } = useWorkshopLayoutStore.persist.getOptions();
     const migrated = await migrate?.({ previewTargetHandle: true }, 8);
-    expect(migrated).toEqual({ previewTargetHandle: false });
+    expect(migrated).toEqual({ previewTargetHandle: false, audioInspector: false });
 
     useWorkshopLayoutStore.setState({ previewTargetHandle: true });
     expect(partialize?.(useWorkshopLayoutStore.getState())).not.toHaveProperty(
       "previewTargetHandle",
     );
+  });
+
+  it("adds the audio inspector, hidden, to a store below version 11", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+
+    expect(await migrate?.({ explorerView: "grid" }, 10)).toEqual({
+      explorerView: "grid",
+      audioInspector: false,
+    });
+    expect(await migrate?.({ audioInspector: true }, 11)).toEqual({ audioInspector: true });
   });
 
   beforeEach(() => {

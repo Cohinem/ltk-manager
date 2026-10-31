@@ -21,6 +21,7 @@ import {
   shellHoldsCurve,
   skinLayout,
   vfxLayout,
+  voiceLinesLayout,
 } from "../classLayouts";
 
 const ENTRY = "0x2a1f3c7d";
@@ -174,6 +175,17 @@ describe("placeRows", () => {
     expect(other?.other).toBe(true);
     expect(other?.widget).toBeUndefined();
     expect(other?.rows.map((row) => row.name)).toEqual(["dynamicMaterial", "childTechniques"]);
+  });
+
+  it("marks every section of a headless layout headless, Other with them", () => {
+    const voice = [field("mSituations", list(2)), field("mObjectPath")];
+
+    expect(placeRows(voice, voiceLinesLayout).map((section) => section.headless)).toEqual([
+      true,
+      true,
+    ]);
+    expect(placeRows(roots, materialLayout).some((section) => section.headless)).toBe(false);
+    expect(placeRows(voice, voiceLinesLayout).at(-1)?.rows).toEqual([]);
   });
 
   it("draws the sections in the layout's order and names each one", () => {

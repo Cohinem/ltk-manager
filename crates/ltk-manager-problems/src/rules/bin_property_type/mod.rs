@@ -448,6 +448,7 @@ impl PropertyRead for Reporting<'_> {
                         hit.table_build,
                     ),
                     fix,
+                    alternatives: Vec::new(),
                 },
             );
         }

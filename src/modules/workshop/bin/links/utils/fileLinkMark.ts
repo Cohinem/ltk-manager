@@ -1,4 +1,4 @@
-import type { AssetInfo, WorkshopFileKind } from "@/lib/tauri";
+import type { AssetInfo, AudioContainer, WorkshopFileKind } from "@/lib/tauri";
 
 /** What follows a `file` chip. */
 export type FileLinkMark =
@@ -37,8 +37,15 @@ export function fileLinkMark(
   if (sniffed.kind === "web") {
     return { kind: "badge", fileKind: sniffed.format === "svg" ? "svg" : "unknown" };
   }
+  if (sniffed.kind === "audio") return { kind: "badge", fileKind: AUDIO_KINDS[sniffed.container] };
   return { kind: "badge", fileKind: sniffed.fileKind };
 }
+
+const AUDIO_KINDS: Record<AudioContainer, WorkshopFileKind> = {
+  package: "wwise_package",
+  bank: "wwise_bank",
+  media: "wwise_media",
+};
 
 function isTexture(kind: WorkshopFileKind): boolean {
   return kind === "texture" || kind === "texture_dds";

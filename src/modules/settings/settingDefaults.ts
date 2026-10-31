@@ -1,6 +1,6 @@
 import { MONO_FACES, SANS_FACES } from "@/lib/fonts";
-import type { BuiltinModSettings, Settings } from "@/lib/tauri";
-import type { AppearanceKey, ProjectEditorKey } from "@/stores";
+import type { AudioSettings, BuiltinModSettings, Settings } from "@/lib/tauri";
+import type { AppearanceKey, LayoutSettingKey } from "@/stores";
 
 import { LTK_PRESET } from "./api";
 import { baseSkinsOptions, mapSkinOptions } from "./builtinMods";
@@ -11,12 +11,13 @@ export function settingValue(
   key: SettingKey,
   settings: Settings,
   display: Record<AppearanceKey, unknown>,
-  layout: Record<ProjectEditorKey, unknown>,
+  layout: Record<LayoutSettingKey, unknown>,
 ): unknown {
   if (key.startsWith("display.")) return display[key.slice(8) as AppearanceKey];
-  if (key.startsWith("layout.")) return layout[key.slice(7) as ProjectEditorKey];
+  if (key.startsWith("layout.")) return layout[key.slice(7) as LayoutSettingKey];
   if (key.startsWith("builtinMods."))
     return settings.builtinMods[key.slice(12) as keyof BuiltinModSettings];
+  if (key.startsWith("audio.")) return settings.audio[key.slice(6) as keyof AudioSettings];
   return settings[key as keyof Settings];
 }
 
@@ -56,6 +57,8 @@ type SettingFormat = (value: unknown) => string;
 const onOff: SettingFormat = (value) => (value ? "On" : "Off");
 const percent: SettingFormat = (value) => `${String(value)}%`;
 const plain: SettingFormat = (value) => String(value);
+/** Reads a share from 0 to 1 as a whole percent. */
+const share: SettingFormat = (value) => `${Math.round(Number(value) * 100)}%`;
 
 /** Reads a value that means "nothing chosen" when it is absent. */
 function optional(empty: string, inner: SettingFormat): SettingFormat {
@@ -141,4 +144,6 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   "layout.searchGame": onOff,
   "layout.searchObjects": onOff,
   "layout.forwardLookingMeta": onOff,
+  "layout.previewSound": onOff,
+  "layout.previewSoundVolume": share,
 };

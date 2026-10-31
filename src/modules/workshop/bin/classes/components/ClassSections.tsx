@@ -7,6 +7,7 @@ import type { BinRow } from "@/lib/tauri";
 import { useSectionOpen, useToggleSection } from "@/stores";
 import { twMerge } from "@/utils";
 
+import { VoiceLinesSection } from "../../../audio/components/VoiceLinesView";
 import { MaterialMacros } from "../../material/components/MaterialMacros";
 import {
   MaterialParams,
@@ -120,6 +121,16 @@ function Section({ section, pages, view }: SectionProps) {
   const empty = section.rows.length === 0 && section.defaults.length === 0;
   const count = empty ? null : sectionCount(section, pages);
 
+  if (section.headless) {
+    if (empty && section.other) return null;
+
+    return (
+      <section data-ui="ClassView:section" className="font-mono text-mono-row">
+        <SectionBody section={section} pages={pages} view={view} title={title} />
+      </section>
+    );
+  }
+
   return (
     <section
       data-ui="ClassView:section"
@@ -173,6 +184,7 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   "shader-switches": ShaderSwitches,
   emitters: Emitters,
   clips: ClipsSection,
+  "voice-lines": VoiceLinesSection,
 };
 
 function SectionBody({ section, pages, view, title }: SectionProps & { title: string }) {

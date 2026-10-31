@@ -1,5 +1,84 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "rule.bin/skinhack.fix.added.description": [
+    {
+      "declarations": ["input units", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Adds the bank unit {units}.",
+        "countPlural=other": "Adds the bank units {units}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.removed-tags.description": [
+    {
+      "declarations": ["input tags", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Removes the tag {tags}.",
+        "countPlural=other": "Removes the tags {tags}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.removed-units-and-tags.description": [
+    {
+      "declarations": [
+        "input units",
+        "input unitCount",
+        "input tags",
+        "input tagCount",
+        "local unitPlural = unitCount: plural",
+        "local tagPlural = tagCount: plural"
+      ],
+      "selectors": ["unitPlural", "tagPlural"],
+      "match": {
+        "unitPlural=one, tagPlural=one": "Removes the bank unit {units} and the tag {tags}.",
+        "unitPlural=one, tagPlural=other": "Removes the bank unit {units} and the tags {tags}.",
+        "unitPlural=other, tagPlural=one": "Removes the bank units {units} and the tag {tags}.",
+        "unitPlural=other, tagPlural=other": "Removes the bank units {units} and the tags {tags}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.removed-units.description": [
+    {
+      "declarations": ["input units", "input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Removes the bank unit {units}.",
+        "countPlural=other": "Removes the bank units {units}."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.renamed.description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Renames {count} event to its base event.",
+        "countPlural=other": "Renames {count} events to their base events."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.silent-clips.description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} clip event plays nothing.",
+        "countPlural=other": "{count} clip events play nothing."
+      }
+    }
+  ],
+  "rule.bin/skinhack.fix.silent-vfx.description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} VFX event plays nothing.",
+        "countPlural=other": "{count} VFX events play nothing."
+      }
+    }
+  ],
   "workshop.DECLARATIONS_CHANGED_ON_DISK.description": "{path} was written by something else since it was read, so the edit was not saved over it.",
   "workshop.DECLARATIONS_CHANGED_ON_DISK.title": "The game data file changed on disk",
   "workshop.DECLARATIONS_INVALID.description": "{path}: {message}",
@@ -806,6 +885,7 @@
       }
     }
   ],
+  "workshop_bin_event_game_label": "Other game events",
   "workshop_bin_field_declared_on_label": "Declared on",
   "workshop_bin_field_default_label": "Default",
   "workshop_bin_field_mismatch_description": "The file writes *{file}*, the schema declares *{declared}*.",
@@ -1013,6 +1093,7 @@
   "workshop_bin_layout_shader_label": "Shader",
   "workshop_bin_layout_skin_label": "Skin",
   "workshop_bin_layout_vfx_label": "System",
+  "workshop_bin_layout_voice_lines_label": "Voice lines",
   "workshop_bin_map_box_select_label": "Box select",
   "workshop_bin_map_delete_action": "Delete",
   "workshop_bin_map_duplicate_action": "Duplicate",
@@ -1884,6 +1965,7 @@
   "workshop_bin_section_textures_label": "Textures",
   "workshop_bin_section_tracks_label": "Tracks",
   "workshop_bin_section_vfx_label": "VFX",
+  "workshop_bin_section_voice_lines_label": "Voice lines",
   "workshop_bin_set_class_action": "Set class",
   "workshop_bin_shader_default_label": "Default",
   "workshop_bin_shader_mark_absent_label": "Not a define of this shader",
@@ -3007,6 +3089,11 @@
   "workshop_preview_font_sample_placeholder": "Type a sample",
   "workshop_preview_font_unreadable_description": "{name} did not load as a font.",
   "workshop_preview_media_unreadable_description": "{name} did not play.",
+  "workshop_preview_save_copy_action": "Save a copy…",
+  "workshop_preview_save_copy_dialog_title": "Save a copy",
+  "workshop_preview_save_copy_failed_title": "Could not save a copy",
+  "workshop_preview_save_copy_label": "Save a copy of {name}",
+  "workshop_preview_save_copy_saved_title": "Saved a copy",
   "workshop_preview_text_format_action": "Format",
   "workshop_preview_text_format_label": "Indent the JSON",
   "workshop_preview_text_lines_label": [

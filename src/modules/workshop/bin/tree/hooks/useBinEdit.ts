@@ -88,6 +88,8 @@ const DOCUMENT_READS = [
   ["ui-materials"],
   ["skin"],
   ["skin-graph"],
+  /* The voice lines read the open document of a contextual action object. */
+  ["audio-voice-lines"],
   ["skin-programs"],
   ["material-program"],
   ["spell"],

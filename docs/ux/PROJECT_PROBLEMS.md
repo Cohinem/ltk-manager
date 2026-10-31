@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-30 | `bin/skinhack` removes the audio of another skin             |
 | 2026-10-26 | `bin/skinhack` is off with the anti-skinhack scan            |
 | 2026-10-25 | `bin/skinhack` reports a base skin built from another skin   |
 | 2026-10-22 | The material name table claims live patch 16.21              |
@@ -14,7 +15,6 @@
 | 2026-10-12 | `bin/object-link` reports a link to an undefined object      |
 | 2026-10-02 | Check only packed files, and report packed working files     |
 | 2026-09-30 | Name each unchecked file once, with its reason               |
-| 2026-09-17 | Open a bin finding at the node it names                      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -57,11 +57,13 @@ This table holds every major feature of Problems. A status word has one meaning.
 | The migration tables | Available | One file per build, `include_str!` into the core crate. 397 rows       |
 | Texture size rule    | Available | `tex/block-alignment`. A confirmed crash, and it repairs               |
 | Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
+| Bank conversion      | Available | An experimental alternative of `audio/bank-version`, from the library  |
 | Working file rule    | Available | `project/working-file`. A packed source file, with no ignore rules     |
 | Object link rule     | Available | `bin/object-link`. A link to an object no mod or game bin defines      |
 | Texture file rule    | Available | `bin/texture-file`. A texture property that names a non-image file     |
 | Base skin copy rule  | Available | `bin/base-skin-copy`. A skin bin that is a copy of the base skin       |
 | Skinhack rule        | Available | `bin/skinhack`. A base skin with another skin's mesh or name           |
+| Skinhack repair      | Available | The fix of `bin/skinhack` removes another skin's audio                 |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
@@ -849,6 +851,63 @@ the game is on the first table's build, the rule is active, because that table's
 live. A finding of a later table is drawn at warning with its fix withheld, and a fix run skips
 it, so a repair never writes a type the installed game does not read.
 
+## The skinhack rule
+
+`bin/skinhack` reads the `skin0.bin` of a champion in that champion's own WAD, and compares it
+with the installed game. The rule reports nothing if the project has no installed game.
+
+| Hit             | What the rule reads                                                          |
+| --------------- | ---------------------------------------------------------------------------- |
+| Mesh            | `Skeleton` or `SimpleSkin` has the content of the mesh of another skin       |
+| Skin name       | `ChampionSkinName` names another skin, such as `AhriSkin07`                  |
+| Audio tag       | A `SkinAudioProperties.TagEventList` entry names another skin                |
+| Audio bank unit | A `SkinAudioProperties.BankUnits` entry is named for the SFX of another skin |
+
+A mesh hit is reported alone. Otherwise the row names every hit, so a bin with an audio tag and a
+bank unit of another skin reports both in one message.
+
+### The repair
+
+The repair is the rule's fix, and it is offered only if every hit is audio. A mesh hit or a skin
+name hit gets no fix, and the row keeps the rule's `unfixable` sentence.
+
+The fix writes `skin0.bin` in the layer of the finding.
+
+- It removes each bank unit and each tag that names another skin
+- It keeps the base units and every voice-over unit
+- If no remaining unit lists a path of an SFX unit of the game's skin 0, it adds those units from
+  the game's skin 0
+- It removes a bank file of a removed unit that the layer ships, if no remaining unit asks for it
+
+The fix also renames an event of another skin in a clip `SoundEventData` or a VFX sound field, in
+each bin of the champion's WAD in that layer. It renames `Play_sfx_AhriSkin07_Cast` to
+`Play_sfx_Ahri_Cast`, and only if a unit of the game's skin 0 lists the base event. An event with
+no base event is unchanged, and it plays nothing once its unit is gone.
+
+The preview carries the removed units and tags, the added units, the count of renamed events and
+the counts of clip and VFX events that play nothing. The Problems panel words them as the note,
+from the catalog keys of the rule id. The before and the after are the tags if a tag is removed,
+and the unit names otherwise.
+
+```
+note    Removes the bank unit Lux_Skin07_SFX and the tag LuxSkin07. 1 clip event plays nothing.
+before  Lux, LuxSkin07
+after   Lux
+```
+
+The fix derives the repair again from the file when it runs, as [A fix re-checks
+first](#a-fix-re-checks-first) describes. It skips the file in these cases:
+
+- The preview of the derived repair differs from the preview of the check
+- `skin0.bin` does not read or parse, or does not declare the skin object
+- The game's skin 0 has no SFX unit and no base unit remains. The row says that the base audio
+  is missing
+- The repaired bin would still be reported
+
+**The fix never copies, renames or re-points the banks or the media of another skin.** A copy under
+new names keeps the paid audio in the mod and only hides it from the check. The rule does not
+offer that repair as a fix or as an alternative.
+
 ## Applying a fix
 
 ### What a scope reaches
@@ -968,7 +1027,8 @@ sides of it, and the ones it finished read the same as if it had finished.
 
 ### What a fix never does
 
-- It never touches a file it raised no problem in
+- It never touches a file it raised no problem in, except the bins and the banks that the
+  [skinhack repair](#the-repair) lists in its preview
 - It never writes outside the project's own `content/` directories
 - It never changes a property the table does not name
 - It never applies a change the file no longer matches

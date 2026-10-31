@@ -53,7 +53,7 @@ export const KIND_GROUPS: readonly KindGroup[] = [
       "light_grid",
     ],
   },
-  { id: "audio", kinds: ["wwise_bank", "wwise_package"] },
+  { id: "audio", kinds: ["wwise_bank", "wwise_media", "wwise_package"] },
   { id: "other", kinds: [] },
 ];
 

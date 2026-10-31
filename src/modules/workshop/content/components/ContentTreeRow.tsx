@@ -10,6 +10,7 @@ import { formatBytes } from "@/utils";
 import { entryChunkPath } from "../../bin/links/hooks/useLinkTargets";
 import { ProblemMark } from "../../problems/components/ProblemMark";
 import { useProblemsAt } from "../../problems/utils/runCatalogue";
+import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import {
   FolderGlyph,
   IndentRails,
@@ -229,6 +230,7 @@ function FileRow({
   const Icon = descriptor.icon;
   const excluded = node.entry.ignoredBy;
   const problems = useProblemsAt(layer, node.entry.relativePath);
+  const project = useOptionalProjectContext();
 
   return (
     <div
@@ -245,7 +247,9 @@ function FileRow({
       onDoubleClick={() => onOpen?.(node)}
       onPointerDown={(event) => {
         const path = entryChunkPath(node.entry.relativePath);
-        if (path !== null) beginAssetDrag(event, path);
+        const file =
+          project === null ? null : `${project.path}/content/${layer}/${node.entry.relativePath}`;
+        if (path !== null) beginAssetDrag(event, path, file);
       }}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}

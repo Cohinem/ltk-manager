@@ -127,6 +127,7 @@ services! {
         check_mod_health,
         sweep_mod_health,
         repair_mod,
+        repair_mod_alternative,
         repair_mods,
         cancel_mod_health_run,
         get_health_check_readiness,
@@ -154,6 +155,28 @@ services! {
         module_objects,
         find_references,
         cancel_reference_walk,
+    }
+    audio("audio") {
+        read_audio_media,
+        export_audio_media,
+        read_audio_events,
+        read_audio_event,
+        read_bank_references,
+        resolve_sounds,
+        // An event bank document
+        audio_bank_open,
+        audio_bank_close,
+        audio_bank_edit,
+        audio_bank_import,
+        audio_bank_replace_preview,
+        audio_bank_replace,
+        audio_bank_step,
+        audio_bank_save,
+        audio_bank_nodes,
+        audio_scoped_events,
+        audio_search_events,
+        audio_voice_lines,
+        audio_voice_rule_template,
     }
     preview("preview") {
         // Asset preview

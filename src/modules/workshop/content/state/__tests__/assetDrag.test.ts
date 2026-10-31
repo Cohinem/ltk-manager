@@ -20,7 +20,23 @@ describe("a content drag", () => {
     window.dispatchEvent(new PointerEvent("pointermove", { clientX: 20, clientY: 0 }));
     window.dispatchEvent(new PointerEvent("pointerup", { clientX: 20, clientY: 0 }));
 
-    expect(dropped).toHaveBeenCalledWith({ path: "assets/fx/glow.tex", x: 20, y: 0 });
+    expect(dropped).toHaveBeenCalledWith({ path: "assets/fx/glow.tex", file: null, x: 20, y: 0 });
+  });
+
+  it("sends the file on disk that the row stands for", () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const dropped = vi.fn();
+    target.addEventListener(ASSET_DROP_EVENT, (event) => dropped((event as CustomEvent).detail));
+    document.elementFromPoint = () => target;
+
+    beginAssetDrag(press(0, 0), "assets/sounds/cast.wem", "C:/mod/content/base/cast.wem");
+    window.dispatchEvent(new PointerEvent("pointermove", { clientX: 20, clientY: 0 }));
+    window.dispatchEvent(new PointerEvent("pointerup", { clientX: 20, clientY: 0 }));
+
+    expect(dropped).toHaveBeenCalledWith(
+      expect.objectContaining({ file: "C:/mod/content/base/cast.wem" }),
+    );
   });
 
   it("drops nothing for a press that never travels", () => {

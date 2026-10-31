@@ -9,7 +9,7 @@ import { usePreviewEffectsQuality } from "@/stores";
 import { Notice } from "../../shared/preview/Notice";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { type GraphSource, useSkinGraphSource } from "../../skin/hooks/useGraphSource";
-import { clipFrameSeconds } from "../../skin/utils/clipEvents";
+import { clipFrameSeconds, soundCues, timedSteps } from "../../skin/utils/clipEvents";
 import { systemModel } from "../../skin/utils/skinScene";
 import { abilityQueries } from "../api/abilityQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
@@ -70,6 +70,13 @@ function AbilityRead({
           ),
     [skeleton.data, clip.data, recipe.clip, chosen],
   );
+  const castCues = useMemo(
+    () =>
+      chosen === undefined || pose === null
+        ? []
+        : soundCues(timedSteps([chosen], [pose.duration], [clip.data?.fps ?? null])),
+    [chosen, pose, clip.data],
+  );
   const effects = useMemo(
     () =>
       [
@@ -123,11 +130,13 @@ function AbilityRead({
   return (
     <AbilityScene
       key={JSON.stringify(recipe)}
+      document={document}
       skin={skin}
       mesh={mesh.data}
       pose={pose}
       recipe={recipe}
       steps={steps}
+      castCues={castCues}
     />
   );
 }

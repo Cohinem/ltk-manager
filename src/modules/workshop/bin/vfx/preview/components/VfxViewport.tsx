@@ -26,6 +26,7 @@ import {
 import { CameraMenu } from "../../../shared/preview/CameraMenu";
 import { ShadersToggle } from "../../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../../shared/preview/PreviewViewport";
+import { SoundToggle } from "../../../shared/preview/SoundToggle";
 import { ViewModeMenu } from "../../../shared/preview/ViewModeMenu";
 import {
   ControlDivider,
@@ -104,6 +105,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     setPinned,
     setWarming,
     document,
+    unresolvedSounds,
   } = useVfxRun();
   const host = useVfxHost();
   const posed = host.joints !== null || rig.rig.joints != null;
@@ -292,6 +294,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           <div className="flex shrink-0 items-center gap-0.5">
             <ShowMenu />
             <ShadersToggle />
+            <SoundToggle unresolved={unresolvedSounds} />
             <ViewModeMenu />
           </div>
           <ControlDivider />

@@ -19,19 +19,13 @@
 
 use std::collections::HashMap;
 
-use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_manager_base::hashing::named;
+use ltk_hash::{Hash as _, WadHash};
+use ltk_manager_audio::{BANK_PATH, BANK_UNIT};
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Leaf, Node, TreeNode as _, TreeValue, Visit, Visitor};
 use parking_lot::Mutex;
 
 use crate::{BinVisitor, Coverage, Fact, Sink, Walk};
-
-/// `BankUnit`, the class naming the files one unit of a skin's audio needs.
-pub(crate) const BANK_UNIT: BinHash = named("BankUnit");
-
-/// `bankPath` on that class, which is the list of those files.
-pub(crate) const BANK_PATH: BinHash = named("bankPath");
 
 /// Every file this mod's bank units name, by the hash a WAD addresses it by.
 ///

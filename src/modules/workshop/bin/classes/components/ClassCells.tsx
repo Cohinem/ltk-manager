@@ -74,6 +74,8 @@ export interface ViewContext {
   readonly onNotOpen: Reopen;
   /** The frame it is drawn in, which a widget with two halves reads to place them. */
   readonly frame: LayoutFrame;
+  /** Switch the tab to Properties and reveal the row under `key` there. */
+  readonly onShowInProperties?: (key: string) => void;
 }
 
 /** What one section's widget is given: what it placed, what the read answered, and the open. */

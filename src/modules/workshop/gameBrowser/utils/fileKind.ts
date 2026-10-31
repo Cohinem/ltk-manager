@@ -23,6 +23,7 @@ const KIND_BY_EXTENSION: Readonly<Record<string, WorkshopFileKind>> = {
   luaobj: "lua_obj",
   bnk: "wwise_bank",
   wpk: "wwise_package",
+  wem: "wwise_media",
 };
 
 /** The file kind a path's extension names, for the shared kind icons. */

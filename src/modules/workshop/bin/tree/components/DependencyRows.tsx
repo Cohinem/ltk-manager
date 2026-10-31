@@ -19,6 +19,7 @@ import type { AppError } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 import type { Result } from "@/utils/result";
 
+import { RowAction } from "../../../shared/components/PropertyRowParts";
 import { LinkChangeMark } from "../../documents/components/DeclaredLayer";
 import { DependencyChip } from "../../links/components/LinkChip";
 import { useChunkOpen } from "../../links/hooks/useLinkTargets";
@@ -27,7 +28,7 @@ import { useDependencyAbilities, useSendDependencyEdit } from "../hooks/useDepen
 import { DependencyEditingContext } from "../state/dependencyEditing";
 import { type AddLine, lineParent, type VisibleRow } from "../utils/binRows";
 import { AddLineFrame, LINE_FIELD_CLASSES } from "./AddLineFrame";
-import { Guides, RowAction } from "./BinRow";
+import { Guides } from "./BinRow";
 
 type DependenciesLine = Extract<VisibleRow, { kind: "dependencies" }>;
 

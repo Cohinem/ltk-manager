@@ -8,7 +8,7 @@ describe("createGuideStore", () => {
     store.set({ active: "a:" });
     store.set({ hover: "b:" });
 
-    expect(store.get()).toEqual({ active: "a:", hover: "b:" });
+    expect(store.get()).toEqual({ active: "a:", hover: "b:", hoverAt: null });
   });
 
   /* A pointer crossing twenty rows of one block asks twenty times, and redraws nothing. */

@@ -62,6 +62,7 @@ import {
   useSetPreviewDisplay,
 } from "@/stores";
 
+import { useViewportSound } from "../../../audio/hooks/useViewportSound";
 import { assetKey } from "../../../preview/utils/assetRef";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { sandboxProject } from "../../../sandbox/utils/sandboxRef";
@@ -76,6 +77,8 @@ import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { Notice } from "../../shared/preview/Notice";
 import { PreviewToggle, ShadersToggle } from "../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../shared/preview/PreviewViewport";
+import { SoundCues } from "../../shared/preview/SoundCues";
+import { SoundToggle } from "../../shared/preview/SoundToggle";
 import { useFitRequest } from "../../shared/preview/useFitRequest";
 import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
 import {
@@ -84,6 +87,7 @@ import {
   SplitToggle,
   ViewportControls,
 } from "../../shared/preview/ViewportControls";
+import { runSoundCues } from "../../vfx/playback/utils/runSound";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
 import { skinQueries } from "../api/skinQueries";
@@ -100,6 +104,7 @@ import {
   clipFrameSeconds,
   hiddenAt,
   snapCues,
+  soundCues,
   timedSteps,
   type VisibilityEntry,
   visibilityTimeline,
@@ -352,6 +357,15 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     timed,
     conditions,
   );
+  const sounds = useMemo(() => soundCues(timed), [timed]);
+  const heardSounds = useMemo(
+    () => [
+      ...sounds,
+      ...cueModels.flatMap((system) => (system === null ? [] : runSoundCues(system))),
+    ],
+    [sounds, cueModels],
+  );
+  const sound = useViewportSound(document, heardSounds, playing && !scrubbing);
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const textures = useAssetTextures(assets);
@@ -453,6 +467,9 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           onBackdropOrigin={setOrigin}
         >
           <Clock clock={clock} playing={playing && !scrubbing} speed={speed} />
+          {sound.on && (
+            <SoundCues clock={clock} cues={sounds} duration={duration} output={sound.output} />
+          )}
           <VisibilityCues
             timeline={timeline}
             clock={clock}
@@ -528,6 +545,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                       clock={clock}
                       scale={scale}
                       duration={duration}
+                      sound={sound.on ? sound.output : null}
                     />
                   );
                 })}
@@ -649,6 +667,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 />
               )}
               <ShadersToggle />
+              <SoundToggle unresolved={sound.unresolved} />
               <BakeTangentsButton
                 document={document}
                 entry={entry}
