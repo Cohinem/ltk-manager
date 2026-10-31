@@ -51,10 +51,10 @@ export function DiskUsageSection() {
       {!usage && !error && <Spinner />}
       {usage && (
         <Stack gap={3}>
-          <p className="truncate font-mono text-xs text-surface-500 select-text">
+          <p className="truncate font-mono text-xs text-surface-400 select-text">
             {usage.location}
           </p>
-          <Grid columns={AREA_COLUMNS} gap={3}>
+          <Grid columns={AREA_COLUMNS} gap={3} align="center">
             {usage.areas.map((entry) => (
               <AreaRow
                 key={entry.area}
@@ -95,10 +95,11 @@ function AreaAction({ area, label, bytes, clearPending }: AreaActionProps) {
   const confirm = useConfirm();
   const toast = useToast();
 
-  if (area === "mods") return <span />;
+  /* The height of the `xs` button in the other rows, so every row keeps one height. */
+  if (area === "mods") return <span className="h-6" />;
   if (clearPending) {
     return (
-      <span className="self-center text-xs text-surface-400 select-none">
+      <span className="text-xs text-surface-400 select-none">
         {m.settings_disk_clear_pending_label()}
       </span>
     );

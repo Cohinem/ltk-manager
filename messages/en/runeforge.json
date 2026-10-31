@@ -1,6 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "runeforge_account_fallback_label": "RuneForge account",
+  "runeforge_account_scopes_label": "Scopes",
   "runeforge_account_token_label": "Token",
   "runeforge_account_token_prefix_label": "rf_{prefix}...",
   "runeforge_account_username_label": "@{username}",
@@ -19,8 +20,8 @@
   "runeforge_connect_token_label": "API token",
   "runeforge_connect_token_placeholder": "rf_...",
   "runeforge_disconnect_action": "Disconnect",
-  "runeforge_missing_scopes_description": "Publishing uses {scopes}. Create a token with them and connect it again.",
-  "runeforge_missing_scopes_title": "This token lacks scopes",
+  "runeforge_missing_scopes_description": "Create a token on RuneForge with every scope listed above, then replace this one.",
+  "runeforge_missing_scopes_title": "Missing publishing scopes",
   "runeforge_post_field_category_label": "Category",
   "runeforge_post_field_champions_label": "Champions",
   "runeforge_post_field_description_label": "Description",
@@ -102,8 +103,10 @@
   "runeforge_reconnect_action": "Reconnect",
   "runeforge_rejected_description": "The token is invalid, revoked or expired. Connect a new token.",
   "runeforge_rejected_title": "RuneForge refused the token",
+  "runeforge_replace_cancel_action": "Cancel",
   "runeforge_replace_token_action": "Replace token",
   "runeforge_section_description": "Options for publishing projects to RuneForge",
   "runeforge_section_title": "RuneForge",
-  "runeforge_token_page_action": "Manage tokens on RuneForge"
+  "runeforge_status_failed_title": "Failed to read the RuneForge connection",
+  "runeforge_token_page_action": "Manage tokens"
 }

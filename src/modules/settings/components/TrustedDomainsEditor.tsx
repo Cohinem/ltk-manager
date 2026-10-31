@@ -71,7 +71,7 @@ export function TrustedDomainsEditor() {
         <span className="truncate font-mono text-sm text-surface-200 select-text">{domain}</span>
       )}
       empty={
-        <p className="rounded-lg border border-dashed border-surface-700 px-3 py-4 text-center text-xs text-surface-500">
+        <p className="rounded-lg border border-dashed border-surface-700 px-3 py-4 text-center text-xs text-surface-400">
           No trusted domains, so one-click links install from any source.
         </p>
       }

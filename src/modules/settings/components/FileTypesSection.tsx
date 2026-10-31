@@ -7,6 +7,7 @@ import type { FileTypeOwner, FileTypeStatus, ModFileType } from "@/lib/tauri";
 import { useLoadedSettings } from "../api";
 import { useFileTypes, useOpenDefaultApps } from "../api/useIntegrations";
 import { SettingRow } from "./SettingRow";
+import { SettingRows } from "./SettingRows";
 import { SettingSwitch } from "./SettingSwitch";
 
 function typeLabel(fileType: ModFileType): string {
@@ -94,17 +95,19 @@ export function FileTypesSection() {
         description={m.settings_file_types_description()}
         icon={<FileArchiveIcon weight="duotone" className="size-5" />}
       >
-        <SettingRow
-          setting="registerFileTypes"
-          description={m.settings_file_types_register_description()}
-          control={<SettingSwitch setting="registerFileTypes" />}
-        />
-        {statuses.map((status) => (
-          <FileTypeRow key={status.fileType} status={status} hidden={!registered} />
-        ))}
-        {registered && othersOwn && (
-          <p className="ml-4 text-meta text-surface-400">{m.settings_file_types_choose_hint()}</p>
-        )}
+        <SettingRows>
+          <SettingRow
+            setting="registerFileTypes"
+            description={m.settings_file_types_register_description()}
+            control={<SettingSwitch setting="registerFileTypes" />}
+          />
+          {statuses.map((status) => (
+            <FileTypeRow key={status.fileType} status={status} hidden={!registered} />
+          ))}
+          {registered && othersOwn && (
+            <p className="ml-4 text-meta text-surface-400">{m.settings_file_types_choose_hint()}</p>
+          )}
+        </SettingRows>
       </SectionCard>
     </div>
   );

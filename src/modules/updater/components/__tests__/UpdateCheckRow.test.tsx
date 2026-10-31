@@ -25,7 +25,7 @@ describe("UpdateCheckRow", () => {
     renderWithProviders(<UpdateCheckRow />);
 
     expect(screen.getByText("LTK Manager is up to date")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Check for Updates" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Check for updates" })).toBeVisible();
   });
 
   it("names a failed check", () => {

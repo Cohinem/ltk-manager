@@ -23,7 +23,7 @@ export function ZoomLevelPicker() {
         step={ZOOM_STEP}
         aria-label="Zoom level"
       />
-      <div className="flex shrink-0 items-center">
+      <div className="flex w-10 shrink-0 items-center justify-end">
         <NumberField
           value={preview}
           onValueChange={(value) => {
@@ -37,9 +37,9 @@ export function ZoomLevelPicker() {
           max={ZOOM_MAX}
           step={ZOOM_STEP}
           aria-label="Zoom percent"
-          className="w-11"
+          className="w-8"
         />
-        <span className="text-xs text-surface-400">%</span>
+        <span className="font-mono text-xs text-surface-300">%</span>
       </div>
     </div>
   );
