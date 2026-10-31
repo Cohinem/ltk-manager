@@ -40,7 +40,8 @@ import { AddModifierMenu } from "./AddModifierMenu";
 import { type PhysicsScope, PhysicsScopeContext, usePhysicsScope } from "./PhysicsCells";
 import { ModifierFields, PhysicsFields, PhysicsHead } from "./PhysicsDetail";
 import { PhysicsList } from "./PhysicsList";
-import { SocketFields, SocketGizmoMode } from "./SocketFields";
+import { SocketFields } from "./SocketFields";
+import { SocketGizmoMode } from "./SocketGizmoMode";
 
 export interface PhysicsPaneProps {
   readonly view: ViewContext;

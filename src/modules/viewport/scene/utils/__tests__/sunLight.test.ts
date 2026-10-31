@@ -14,6 +14,8 @@ const RIFT: MapSun = {
   horizonColor: [1, 1, 1, 1],
   skyScale: 1,
   lightMapColorScale: 0.6,
+  hdrEnvDiffuseScale: 3,
+  pbrSunAdditionalScale: 10,
   fogEnabled: true,
   fogColor: [0.447, 0.737, 0.78, 1],
   fogAlternateColor: [0.1, 0.1, 0.2, 1],

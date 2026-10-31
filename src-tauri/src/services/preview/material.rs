@@ -20,7 +20,7 @@ use ltk_manager_game::material::defs::ShaderDefsCache;
 use ltk_manager_game::material::SHADER_DEFS_PATH;
 use ltk_manager_game::program::{
     MaterialProgram, ParticleDefine, ParticleShader, PassProgram, ProgramOptions, ProgramTarget,
-    ShaderProgram,
+    ShaderProgram, SkinnedShading,
 };
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
@@ -219,8 +219,12 @@ fn on_source<T>(
 #[derive(specta::Type)]
 pub enum EnginePass {
     /// The pass a skinned submesh draws with where its skin names no material, with
-    /// `LIT_UBER` translated, over the shader cache `document` resolves against.
-    DefaultSkinned { document: BinDocumentId },
+    /// the `LIT_UBER` permutation of `shading` translated, over the shader cache `document`
+    /// resolves against.
+    DefaultSkinned {
+        document: BinDocumentId,
+        shading: SkinnedShading,
+    },
     /// An engine particle shader's pass for the defines an emitter sets, over the shader
     /// cache `document` resolves against, and the install's alone where it is none.
     Particle {
@@ -249,10 +253,11 @@ pub async fn read_engine_program(
         let mut read = asset_reader(&app_handle);
 
         match pass {
-            EnginePass::DefaultSkinned { document } => {
+            EnginePass::DefaultSkinned { document, shading } => {
                 read_resolved(&app_handle, document, |_, _, assets| {
                     Ok(ltk_manager_game::program::read_default_skinned_program(
                         assets,
+                        shading,
                         options,
                         &translations,
                         &mut read,

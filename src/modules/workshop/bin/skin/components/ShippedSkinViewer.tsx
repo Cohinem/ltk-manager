@@ -148,7 +148,7 @@ function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinMode
     (submesh: string) => bindingOf(skin, textures, submesh, maps),
     [skin, textures, maps],
   );
-  const programsFor = useSkinPrograms(document, skin, true);
+  const programsFor = useSkinPrograms(document, skin, true, Boolean(mesh.data?.tangents));
   const outlineFor = useSkinOutlines(document, skin, true);
   const colors = useSceneColors();
   const bounds = useMemo(

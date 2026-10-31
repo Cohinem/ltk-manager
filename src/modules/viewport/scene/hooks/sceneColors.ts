@@ -15,8 +15,10 @@ const TOKENS = {
   gizmo: "--color-accent-400",
   /* A label written on the scene's own chrome, which is the view cube's faces. */
   ink: "--color-surface-100",
-  /* The run's triangle edges in the wireframe modes, a step lighter than the gizmo. */
+  /* A rig's and a dynamics volume's lines, a step lighter than the gizmo. */
   wire: "--color-accent-300",
+  /* A mesh's triangle edges in the wireframe modes. */
+  edge: "--color-mesh-edge",
   /* A character's submesh no texture reaches. */
   untextured: "--color-surface-500",
   /* A character's submesh whose material link resolves to nothing. */
@@ -61,6 +63,7 @@ export function sceneColors(): SceneColors {
     gizmo: read(TOKENS.gizmo),
     ink: read(TOKENS.ink),
     wire: read(TOKENS.wire),
+    edge: read(TOKENS.edge),
     untextured: read(TOKENS.untextured),
     errored: read(TOKENS.errored),
     markerParticle: read(TOKENS.markerParticle),

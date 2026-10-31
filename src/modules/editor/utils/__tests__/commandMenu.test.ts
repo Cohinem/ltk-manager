@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   type CommandMenuEntry,
+  type CommandMenuItem,
   compactMenuItems,
   compactMenus,
   flattenMenuCommands,
   MENU_SEPARATOR,
+  reasonRuns,
 } from "../commandMenu";
 
 const command = (id: string, run: (() => void) | null = () => {}): CommandMenuEntry => ({
@@ -13,6 +15,46 @@ const command = (id: string, run: (() => void) | null = () => {}): CommandMenuEn
   id,
   title: id,
   run,
+});
+
+describe("reasonRuns", () => {
+  const off = (id: string, reason: string): CommandMenuItem => ({
+    kind: "command",
+    id,
+    title: id,
+    run: null,
+    reason,
+  });
+  const on: CommandMenuItem = { kind: "command", id: "on", title: "on", run: () => {} };
+
+  it("joins items of one reason across a separator", () => {
+    expect(reasonRuns([off("a", "x"), off("b", "x"), MENU_SEPARATOR, off("c", "x")])).toEqual([
+      { reason: "x", first: 0, last: 3 },
+    ]);
+  });
+
+  it("leaves a lone reason on its item", () => {
+    expect(reasonRuns([off("a", "x"), off("b", "y")])).toEqual([]);
+  });
+
+  it("ends a run at an item that applies or that shows another reason", () => {
+    expect(
+      reasonRuns([off("a", "x"), off("b", "x"), on, off("c", "x"), off("d", "y"), off("e", "y")]),
+    ).toEqual([
+      { reason: "x", first: 0, last: 1 },
+      { reason: "y", first: 4, last: 5 },
+    ]);
+  });
+
+  it("joins a slot that declares the reason and keeps a run open over a disabled switch", () => {
+    expect(
+      reasonRuns([
+        off("a", "x"),
+        { kind: "check", id: "c", title: "c", checked: false, run: null },
+        { kind: "slot", id: "s", node: null, reason: "x" },
+      ]),
+    ).toEqual([{ reason: "x", first: 0, last: 2 }]);
+  });
 });
 
 describe("compactMenuItems", () => {

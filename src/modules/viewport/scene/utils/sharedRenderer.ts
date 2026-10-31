@@ -89,13 +89,13 @@ export function transparentOrder(a: RenderItem, b: RenderItem): number {
 }
 
 /**
- * A renderer on a drawing buffer with a stencil buffer, no alpha channel and no multisampling.
+ * A renderer on a multisampled drawing buffer with a stencil buffer and no alpha channel.
  *
  * ThreeJS asks the canvas for an alpha channel whatever its own `alpha` says, and a
  * compositor then shows the pane through wherever a blend left the alpha short of one.
- * The game draws its frame with one sample and smooths it afterwards, which
- * `AntiAliasingPass` does here. A particle emitter's `stencilMode` tests and writes the stencil
- * buffer. Its draws are ordered by [`opaqueOrder`] and [`transparentOrder`].
+ * A character outline's shell is under a pixel wide, which breaks up at one sample and which no
+ * pass over the finished frame can repair. A particle emitter's `stencilMode` tests and writes
+ * the stencil buffer. Its draws are ordered by [`opaqueOrder`] and [`transparentOrder`].
  */
 export function createOpaqueRenderer(
   canvas: HTMLCanvasElement,
@@ -103,7 +103,7 @@ export function createOpaqueRenderer(
 ): WebGLRenderer {
   const context = canvas.getContext("webgl2", {
     alpha: false,
-    antialias: false,
+    antialias: true,
     stencil: true,
     powerPreference,
   });

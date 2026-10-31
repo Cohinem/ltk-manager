@@ -75,7 +75,8 @@ on, and each is kept with the preview's other display settings.
 `materialOverride`, else its category's `Material`. The game draws the outline only in a mode
 whose `ConfigsClient` lists an object of class `0xb9ce95d8`, such as Map453's. The preview has no
 mode, and almost every shipped skin that names a category is built for a mode that draws it, so the
-preview draws the outline whenever the skin names one. The category and its material are declared
+preview draws the outline by default whenever the skin names one, and View - Character outline turns
+it off. The category and its material are declared
 in a map bin, which the skin does not link, so the read finds them through the object index, or in
 the target of the project's module that creates them. With game shaders on, the outline draws with
 `Jade_CharacterOutline` translated. Otherwise a stock material draws the same shell from the
@@ -447,14 +448,17 @@ ground ahead of the unit, and the pane says so.
 
 A socket is placed in the viewport and not by its numbers alone. The overlay draws each socket
 as its three axes and a line to the joint it rides, so a socket that stands far off its joint
-still reads as that joint's. While the Sockets list shows, the picked socket carries a gizmo
-in the viewport, and the picked row holds its two modes: move and turn. A release writes the
-offset the drag left, solved on the pose at that moment: a move writes `PositionOffset`, with
-any frozen axis taken into account, and a turn writes `RotationOffset`. A press that moves
-nothing writes nothing. A world socket has no rotation, and a frozen angle comes from the bind
-pose, which no offset reaches by itself, so such a socket offers no turn and says why. The
-socket follows its joint through the clip, so a reader pauses the clip to take hold of the
-gizmo, and the handle follows the unit while the unit is dragged.
+still reads as that joint's. The viewport draws one gizmo at a time: the unit's Move gizmo while
+Move is on, else the picked socket's while the Sockets list shows. Picking a socket turns Move off,
+and turning Move on hides the socket's gizmo until a press on a socket's buttons takes it back. The
+picked row and a bar in the viewport's corner hold the gizmo's buttons: move (W), turn (E), and local
+axes (X), which is on by default so a move runs along the socket's own orientation. Ctrl snaps a drag
+to 5 units or 15 degrees, and Esc during a drag puts the handle back and writes nothing. A press
+pauses the clip, so a drag is measured on the pose it started on. A release writes the offset the
+drag left: a move writes `PositionOffset`, with any frozen axis taken into account, and a turn writes
+`RotationOffset`. A press that moves nothing writes nothing. A world socket has no rotation, and a
+frozen angle comes from the bind pose, which no offset reaches by itself, so such a socket offers no
+turn and says why. The handle follows the unit while the unit is dragged.
 
 A socket's parent joint is a hash in the file, which a reader cannot type. Its field is a
 list of the skeleton's joints by name, narrowed by what is typed in it.

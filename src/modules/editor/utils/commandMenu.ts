@@ -57,6 +57,8 @@ export interface CommandMenuSlot {
   readonly kind: "slot";
   readonly id: string;
   readonly node: ReactNode;
+  /** The reason that the slot's disabled `Menu.Item` passes, which joins a `ReasonRun`. */
+  readonly reason?: string;
 }
 
 export interface CommandMenuSeparator {
@@ -121,6 +123,63 @@ export function compactMenuItems(entries: readonly CommandMenuEntry[]): CommandM
   if (kept.at(-1)?.kind === "separator") kept.pop();
 
   return kept;
+}
+
+/** Items of a list, `first` to `last` inclusive, that one disabled reason covers. */
+export interface ReasonRun {
+  readonly reason: string;
+  readonly first: number;
+  readonly last: number;
+}
+
+/** The reason that `item` shows, and null if it shows none. */
+function reasonOf(item: CommandMenuItem): string | null {
+  if (item.kind === "command") return item.run === null ? (item.reason ?? null) : null;
+  if (item.kind === "slot") return item.reason ?? null;
+  return null;
+}
+
+/** Whether `item` leaves a run open: a separator, or a disabled switch that shows no reason. */
+function staysInRun(item: CommandMenuItem): boolean {
+  return item.kind === "separator" || (item.kind === "check" && item.run === null);
+}
+
+/**
+ * Returns the runs of `items` in which two or more items show the same disabled reason, so a
+ * menu writes the reason once. An item that applies, or that shows another reason, ends a run.
+ */
+export function reasonRuns(items: readonly CommandMenuItem[]): ReasonRun[] {
+  const runs: ReasonRun[] = [];
+  let open: { reason: string; first: number; last: number; count: number } | null = null;
+
+  const close = () => {
+    if (open !== null && open.count > 1) {
+      runs.push({ reason: open.reason, first: open.first, last: open.last });
+    }
+    open = null;
+  };
+
+  items.forEach((item, at) => {
+    if (staysInRun(item)) return;
+
+    const reason = reasonOf(item);
+    if (reason === null) {
+      close();
+      return;
+    }
+
+    if (open?.reason === reason) {
+      open.last = at;
+      open.count += 1;
+      return;
+    }
+
+    close();
+    open = { reason, first: at, last: at, count: 1 };
+  });
+  close();
+
+  return runs;
 }
 
 /** Returns `menus` with their entries compacted, without the menus that hold no entry. */

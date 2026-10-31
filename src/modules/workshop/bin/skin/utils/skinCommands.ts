@@ -16,6 +16,7 @@ export const SKIN_SUN_COMMAND = "skin.sun";
 export const SKIN_POST_EFFECTS_COMMAND = "skin.postEffects";
 export const SKIN_EFFECTS_COMMAND = "skin.effects";
 export const SKIN_OVERLAY_COMMAND = "skin.overlay";
+export const SKIN_OUTLINE_COMMAND = "skin.outline";
 export const SKIN_SUBMESH_LIST = "skin.submesh";
 export const SKIN_RATE_LIST = "skin.rate";
 export const SKIN_PARAMETER_LIST = "skin.parameter";

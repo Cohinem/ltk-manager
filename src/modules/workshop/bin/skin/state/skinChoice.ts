@@ -3,6 +3,7 @@ import { createContext, useCallback, useMemo, useState } from "react";
 import {
   createSceneClock,
   DEFAULT_RATE,
+  type GizmoSpace,
   type PlacementMode,
   type SceneClock,
 } from "@/modules/viewport";
@@ -91,6 +92,9 @@ export interface SkinChoice {
   /** Whether the socket's gizmo moves it or turns it. */
   readonly socketMode: PlacementMode;
   readonly setSocketMode: (mode: PlacementMode) => void;
+  /** Whether the socket gizmo's handles run along the socket's axes or the scene's. */
+  readonly socketSpace: GizmoSpace;
+  readonly setSocketSpace: (space: GizmoSpace) => void;
 }
 
 /** The rate a clip opens at, which is the speed the game plays it. */
@@ -167,6 +171,7 @@ export function useSkinChoice(): SkinChoice {
   const [joint, setJoint] = useState<string | null>(null);
   const [socket, setSocket] = useState<string | null>(null);
   const [socketMode, setSocketMode] = useState<PlacementMode>("translate");
+  const [socketSpace, setSocketSpace] = useState<GizmoSpace>("local");
 
   return useMemo(
     () => ({
@@ -211,6 +216,8 @@ export function useSkinChoice(): SkinChoice {
       setSocket,
       socketMode,
       setSocketMode,
+      socketSpace,
+      setSocketSpace,
     }),
     [
       clock,
@@ -241,6 +248,7 @@ export function useSkinChoice(): SkinChoice {
       joint,
       socket,
       socketMode,
+      socketSpace,
     ],
   );
 }

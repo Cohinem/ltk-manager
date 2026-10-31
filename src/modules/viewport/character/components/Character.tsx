@@ -125,7 +125,11 @@ const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
   ["a_TEXCOORD", "uv"],
   ["a_BLENDWEIGHT", "skinWeight"],
   ["a_COLOR", "color"],
+  ["a_TEXCOORD6", "tangent"],
 ];
+
+/** `PbrSunAdditionalScale` of a light that states none, the class default. */
+const DEFAULT_PBR_SUN_SCALE = 10;
 
 /**
  * One skinned mesh on its skeleton, posed at the clock's time.
@@ -176,6 +180,7 @@ export function Character({
   useLayoutEffect(() => {
     environment.grid = lightGrid;
     environment.light = sun;
+    environment.sunScale = sun.pbrSunScale ?? DEFAULT_PBR_SUN_SCALE;
     environment.selfIllumination = selfIllumination;
     ambient.selfIllumination.value = selfIllumination;
   }, [environment, ambient, lightGrid, sun, selfIllumination]);

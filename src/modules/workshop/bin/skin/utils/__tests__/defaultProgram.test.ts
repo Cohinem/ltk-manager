@@ -5,6 +5,9 @@ import type { AssetRef, MaterialPreview, PassProgram, SkinModel, StageProgram } 
 import {
   DEFAULT_DIFFUSE,
   DEFAULT_EMISSIVE,
+  DEFAULT_NORMAL,
+  DEFAULT_RMA,
+  type DefaultPrograms,
   defaultProgramAssets,
   defaultProgramOf,
   drawsDefaultProgram,
@@ -154,10 +157,16 @@ describe("defaultProgramOf", () => {
     ["submesh:cape", "cape-texture"],
     [EMISSIVE_KEY, "black"],
   ]);
+  const programs = (over: Partial<DefaultPrograms> = {}): DefaultPrograms => ({
+    base: LIT_UBER,
+    roughnessMetallic: LIT_UBER,
+    roughnessMetallicNormal: LIT_UBER,
+    ...over,
+  });
 
   it("binds the submesh's colour texture and the skin's emissive one, a material per texture", () => {
-    const body = defaultProgramOf(skin(), LIT_UBER, textures, "Body");
-    const cape = defaultProgramOf(skin(), LIT_UBER, textures, "cape");
+    const body = defaultProgramOf(skin(), programs(), textures, "Body", true);
+    const cape = defaultProgramOf(skin(), programs(), textures, "cape", true);
 
     expect([...(body?.textures ?? [])]).toEqual([
       [DEFAULT_DIFFUSE, "body-texture"],
@@ -168,21 +177,47 @@ describe("defaultProgramOf", () => {
   });
 
   it("draws nothing for a submesh a material covers or before the program translates", () => {
-    expect(defaultProgramOf(skin(), LIT_UBER, textures, "Eyes")).toBeNull();
-    expect(defaultProgramOf(skin(), null, textures, "Body")).toBeNull();
+    expect(defaultProgramOf(skin(), programs(), textures, "Eyes", true)).toBeNull();
+    expect(defaultProgramOf(skin(), programs({ base: null }), textures, "Body", true)).toBeNull();
     expect(
       defaultProgramOf(
         skin(),
-        { ...LIT_UBER, program: { kind: "failed", reason: "no cache" } },
+        programs({ base: { ...LIT_UBER, program: { kind: "failed", reason: "no cache" } } }),
         textures,
         "Body",
+        true,
       ),
     ).toBeNull();
   });
 
-  it("draws nothing for a submesh whose skin names a roughness map", () => {
-    const pbr = skin({ roughnessMetallicAoTexture: { path: "body_rma.tex", asset: BODY } });
+  describe("under a roughness map", () => {
+    const pbr = skin({
+      roughnessMetallicAoTexture: { path: "body_rma.tex", asset: BODY },
+      normalMapTexture: { path: "body_nm.tex", asset: GLOW },
+    });
+    const loaded = new Map([...textures, ["rma", "rma-texture"], ["normal", "normal-texture"]]);
 
-    expect(defaultProgramOf(pbr, LIT_UBER, textures, "Body")).toBeNull();
+    it("binds the roughness and normal maps in place of the emissive mask", () => {
+      const body = defaultProgramOf(pbr, programs(), loaded, "Body", true);
+
+      expect([...(body?.textures ?? [])]).toEqual([
+        [DEFAULT_DIFFUSE, "body-texture"],
+        [DEFAULT_RMA, "rma-texture"],
+        [DEFAULT_NORMAL, "normal-texture"],
+      ]);
+    });
+
+    it("leaves the normal map out of a mesh without tangents", () => {
+      const body = defaultProgramOf(pbr, programs(), loaded, "Body", false);
+
+      expect(body?.textures.has(DEFAULT_NORMAL)).toBe(false);
+    });
+
+    it("draws nothing while the roughness map or the permutation's program is unread", () => {
+      expect(defaultProgramOf(pbr, programs(), textures, "Body", true)).toBeNull();
+      expect(
+        defaultProgramOf(pbr, programs({ roughnessMetallicNormal: null }), loaded, "Body", true),
+      ).toBeNull();
+    });
   });
 });

@@ -56,6 +56,7 @@ import {
   usePreviewMove,
   usePreviewMoveMode,
   usePreviewPlacedOn,
+  usePreviewOutlines,
   usePreviewPhysics,
   usePreviewPlacement,
   usePreviewPostEffects,
@@ -121,6 +122,7 @@ import {
   SKIN_EFFECTS_COMMAND,
   SKIN_FIT_COMMAND,
   SKIN_HIDE_UI_COMMAND,
+  SKIN_OUTLINE_COMMAND,
   SKIN_OVERLAY_COMMAND,
   SKIN_PARAMETER_LIST,
   SKIN_POST_EFFECTS_COMMAND,
@@ -154,6 +156,7 @@ import { PhysicsMenu } from "./PhysicsMenu";
 import { SkinEffectCommands, SkinEffectsMenu } from "./SkinEffectsMenu";
 import { SkinPhysicsOverlay } from "./SkinPhysicsOverlay";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
+import { SocketGizmoMode } from "./SocketGizmoMode";
 
 const NO_CLIPS: readonly GraphClip[] = [];
 
@@ -218,6 +221,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const { parameter, setParameter, shown, setShown, resetShown } = use(SkinChoiceContext) ?? own;
   const { simulatedRate, setSimulatedRate, muted } = use(SkinChoiceContext) ?? own;
   const { joint, setJoint, socket: movedSocket, socketMode } = use(SkinChoiceContext) ?? own;
+  const { setSocketMode, socketSpace, setSocketSpace } = use(SkinChoiceContext) ?? own;
 
   const ground = usePreviewGround();
   const backdrop = usePreviewBackdrop();
@@ -400,7 +404,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     (submesh: string) => bindingOf(skin, textures, submesh, maps),
     [skin, textures, maps],
   );
-  const programsFor = useSkinPrograms(document, skin, shaders);
+  const programsFor = useSkinPrograms(document, skin, shaders, Boolean(mesh.data?.tangents));
   const outlineFor = useSkinOutlines(document, skin, shaders);
   const heldValue = useHeldValue();
   const colors = useSceneColors();
@@ -427,10 +431,35 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   /* Fit answers the F key and the button. A change of preset frames again on its own. */
   const [fitToken, refit] = useFitRequest();
 
-  const keys = useSkinKeys({ clock, playing, setPlaying, speed, setSpeed, fit: refit });
+  /* The viewport draws one gizmo, and `previewMove` says which: the unit's while it is on, else
+     the picked socket's. Picking a socket hands the gizmo to the socket. */
+  const socketEditable = handle !== null && sendDynamics !== null;
+  const socketPath = socketEditable ? handle.path : null;
+  useEffect(() => {
+    if (socketPath !== null) setDisplay({ previewMove: false });
+  }, [socketPath, setDisplay]);
+  const socketGizmo = socketEditable && !move && !controlsHidden;
+  const heldSocket = socketGizmo ? skin.sockets.find((each) => each.path === socketPath) : null;
+
+  const keys = useSkinKeys({
+    clock,
+    playing,
+    setPlaying,
+    speed,
+    setSpeed,
+    fit: refit,
+    socketGizmo: socketGizmo
+      ? {
+          move: () => setSocketMode("translate"),
+          turn: () => setSocketMode("rotate"),
+          toggleAxes: () => setSocketSpace(socketSpace === "local" ? "world" : "local"),
+        }
+      : null,
+  });
 
   const bake = useBakeTangents({ document, entry, asset, mesh: skin.mesh?.asset ?? null });
   const physics = usePreviewPhysics();
+  const outlines = usePreviewOutlines();
   const visibilitySlot = useRef<HTMLSpanElement>(null);
   const sunSlot = useRef<HTMLSpanElement>(null);
   const postEffectsSlot = useRef<HTMLSpanElement>(null);
@@ -466,6 +495,10 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     [SKIN_EFFECTS_COMMAND]: {
       run: idle.length > 0 || cues.length > 0 ? () => setEffects(!effects) : null,
       checked: effects,
+    },
+    [SKIN_OUTLINE_COMMAND]: {
+      run: skin.outlines.length > 0 ? () => setDisplay({ previewOutlines: !outlines }) : null,
+      checked: outlines,
     },
     [SKIN_OVERLAY_COMMAND]: {
       run: overlaid ? () => setDisplay({ previewPhysics: !physics }) : null,
@@ -692,16 +725,18 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 />
               )}
             </Placement>
-            {handle !== null && sendDynamics !== null && !controlsHidden && (
+            {handle !== null && sendDynamics !== null && socketGizmo && (
               <SocketGizmo
                 pose={pose}
                 clock={clock}
                 scale={scale}
                 slot={handle.slot}
                 mode={handle.mode}
+                space={socketSpace}
                 position={stood}
                 facing={facing}
                 anchor={unit}
+                onGrab={() => setPlaying(false)}
                 onMove={(place) =>
                   sendDynamics(socketDragEdits(pose, skin.sockets, handle.path, place, handle.mode))
                 }
@@ -715,6 +750,18 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               aria-hidden
               className="pointer-events-none absolute inset-0 font-mono text-fine select-none"
             />
+          )}
+
+          {heldSocket != null && (
+            <ViewportControls
+              data-ui="SkinViewport:socket-gizmo"
+              className="top-auto right-auto bottom-2 left-2"
+            >
+              <span className="max-w-48 truncate px-1.5 text-meta text-surface-200 select-none">
+                {heldSocket.name}
+              </span>
+              <SocketGizmoMode socket={heldSocket} />
+            </ViewportControls>
           )}
 
           {!controlsHidden && (

@@ -16,6 +16,15 @@ export interface SkinKeyTarget {
   readonly speed: number;
   readonly setSpeed: (speed: number) => void;
   readonly fit: () => void;
+  /** The socket gizmo the keys of `SOCKET_KEYS` drive, and absent while none draws. */
+  readonly socketGizmo?: SocketGizmoKeys | null;
+}
+
+/** What the keys of `SOCKET_KEYS` reach of the socket gizmo. */
+export interface SocketGizmoKeys {
+  readonly move: () => void;
+  readonly turn: () => void;
+  readonly toggleAxes: () => void;
 }
 
 /** One key of the preview: its `react-hotkeys-hook` name, its keycaps and its action. */
@@ -75,10 +84,31 @@ export const SKIN_KEYS: Readonly<Record<SkinKeyId, SkinKey>> = {
   fit: { hotkey: "f", shortcut: "F", run: (target) => target.fit() },
 };
 
+/** The keys of the socket gizmo, the same keys that the map editor's gizmo takes. */
+export const SOCKET_KEYS = {
+  move: {
+    hotkey: "w",
+    shortcut: "W",
+    run: (target) => target.socketGizmo?.move(),
+  },
+  turn: {
+    hotkey: "e",
+    shortcut: "E",
+    run: (target) => target.socketGizmo?.turn(),
+  },
+  axes: {
+    hotkey: "x",
+    shortcut: "X",
+    run: (target) => target.socketGizmo?.toggleAxes(),
+  },
+} as const satisfies Readonly<Record<string, SkinKey>>;
+
 /** The key that shows the preview's controls again after Hide UI. */
 export const SKIN_SHOW_UI_KEY = { key: "Escape", shortcut: "Esc" } as const;
 
 /** Returns the entry of `SKIN_KEYS` that answers the `react-hotkeys-hook` name `hotkey`. */
 export function skinKeyOf(hotkey: string): SkinKey | undefined {
-  return Object.values(SKIN_KEYS).find((key) => key.hotkey === hotkey);
+  return [...Object.values(SKIN_KEYS), ...Object.values(SOCKET_KEYS)].find(
+    (key) => key.hotkey === hotkey,
+  );
 }

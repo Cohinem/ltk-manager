@@ -60,6 +60,7 @@ export function useEmitterMenu(scope: MenuScope, commands: RunCommands): Command
       {
         kind: "slot",
         id: "emitter.mask",
+        reason: readOnly ?? reason ?? emitterReason,
         node: <MaskSubmenu reason={readOnly ?? reason ?? emitterReason} />,
       },
       MENU_SEPARATOR,

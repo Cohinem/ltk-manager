@@ -10,6 +10,7 @@ import type {
   MaterialProgram,
   NamedAsset,
   SkinModel,
+  SkinnedShading,
   SkinOutline,
   SubmeshOverride,
   VfxSystem,
@@ -158,15 +159,15 @@ function materialKey(material: MaterialPreview): string {
 }
 
 /** The key prefix of a `RoughnessMetallicAoTexture`, alone for the skin's own. */
-const RMA_TEXTURE = "rma";
+export const RMA_TEXTURE = "rma";
 
 /** The key prefix of a `normalMapTexture`, alone for the skin's own. */
-const NORMAL_TEXTURE = "normal";
+export const NORMAL_TEXTURE = "normal";
 
 /** The key of the skin's `emissiveTexture`, which no override names. */
 const EMISSIVE_TEXTURE = "emissive";
 
-function pbrKey(kind: string, submesh: string | null): string {
+export function pbrKey(kind: string, submesh: string | null): string {
   return submesh === null ? kind : `${kind}:${submesh.toLowerCase()}`;
 }
 
@@ -199,14 +200,19 @@ export function dataTextureAssets(skin: SkinModel): Map<string, AssetRef> {
 }
 
 /**
- * Whether `submesh` draws with `LIT_UBER`'s physically based variant: it has no material,
- * and its override or else its skin names a `RoughnessMetallicAoTexture`.
+ * The `LIT_UBER` permutation that the maps of `submesh` select: its override's, else its skin's.
+ *
+ * A map that this machine does not hold selects nothing. A normal map selects its feature only
+ * on a mesh with `tangents`, because the permutation reads them.
  */
-export function drawsPbr(skin: SkinModel, submesh: string): boolean {
-  if (submeshMaterial(skin, submesh) !== null) return false;
-  const rma =
-    overrideOf(skin, submesh)?.roughnessMetallicAoTexture ?? skin.roughnessMetallicAoTexture;
-  return rma !== null;
+export function shadingOf(skin: SkinModel, submesh: string, tangents: boolean): SkinnedShading {
+  const override = overrideOf(skin, submesh);
+  const rma = override?.roughnessMetallicAoTexture ?? skin.roughnessMetallicAoTexture;
+  if (!rma?.asset) return "base";
+
+  const normal = override?.normalMapTexture ?? skin.normalMapTexture;
+  if (tangents && normal?.asset) return "roughnessMetallicNormal";
+  return "roughnessMetallic";
 }
 
 function pbrMapsOf<T>(maps: ReadonlyMap<string, T>, submesh: string): PbrMaps<T> | null {
