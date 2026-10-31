@@ -1,6 +1,7 @@
 import type { TemplateEmitter } from "@/lib/tauri";
 
 import type { CanvasNode } from "../drivers/components/canvasNodes";
+import { pressedKey } from "../utils/vfxKeys";
 import type { EmitterRef } from "./emitterCopy";
 
 /** Returns the emitters of the selected master nodes of `nodes`, as emitters of the system `entry`. */
@@ -65,30 +66,34 @@ export function runEmitterKey(
   if (clipboard === null || entry === "") return false;
 
   const { copy, duplicate, paste, remove } = clipboard;
-  const bare = !(chord.ctrlKey || chord.metaKey || chord.shiftKey || chord.altKey);
-  if (bare && chord.key === "Delete") {
+
+  if (pressedKey(chord, "remove")) {
     if (selected.length === 0 || remove === null) return false;
 
     void remove(selected);
     return true;
   }
 
-  if (!(chord.ctrlKey || chord.metaKey) || chord.shiftKey || chord.altKey) return false;
+  if (pressedKey(chord, "duplicate")) {
+    if (selected.length === 0 || duplicate === null) return false;
 
-  switch (chord.key.toLowerCase()) {
-    case "d":
-      if (selected.length === 0 || duplicate === null) return false;
-      void duplicate(selected);
-      return true;
-    case "c":
-      if (selected.length === 0) return false;
-      void copy(selected);
-      return true;
-    case "v":
-      if (paste === null) return false;
-      void paste(entry, picked);
-      return true;
-    default:
-      return false;
+    void duplicate(selected);
+    return true;
   }
+
+  if (pressedKey(chord, "copy")) {
+    if (selected.length === 0) return false;
+
+    void copy(selected);
+    return true;
+  }
+
+  if (pressedKey(chord, "paste")) {
+    if (paste === null) return false;
+
+    void paste(entry, picked);
+    return true;
+  }
+
+  return false;
 }

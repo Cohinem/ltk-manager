@@ -95,7 +95,11 @@ interface AutosaveStatusProps {
   onReload: () => void;
 }
 
-function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
+/**
+ * Returns the reload of `document` and whether its last save failed on a change on disk, which
+ * is when a reload is what the reader can do.
+ */
+export function useBinReload(document: BinDocumentId, asset: AssetRef, onReload: () => void) {
   const key = binSaveKey(useSandbox(), asset);
   const save = useBinSave(key);
   const invalidate = useInvalidateBinReads();
@@ -113,7 +117,18 @@ function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
     });
   }
 
-  if (save.state === "failed" && save.error?.code === "BIN_CHANGED_ON_DISK") {
+  return {
+    changedOnDisk: save.state === "failed" && save.error?.code === "BIN_CHANGED_ON_DISK",
+    reload,
+  };
+}
+
+function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
+  const key = binSaveKey(useSandbox(), asset);
+  const save = useBinSave(key);
+  const { changedOnDisk, reload } = useBinReload(document, asset, onReload);
+
+  if (changedOnDisk && save.error !== null) {
     return (
       <span className="flex shrink-0 items-center gap-1.5">
         <Tooltip content={errorSummary(save.error)}>

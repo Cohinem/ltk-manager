@@ -3,10 +3,11 @@ import { createPortal } from "react-dom";
 import { twMerge } from "tailwind-merge";
 
 /**
- * Where a shell's crumb and its Panes menu draw, in the object tab's own header row, and where its
- * toolbar draws, a second row under that one.
+ * Where a view's menu bar, a shell's crumb and its actions draw, in the object tab's own header
+ * row, and where its toolbar draws, a second row under that one.
  */
 export interface ShellHeaderSlots {
+  readonly menubar: HTMLElement | null;
   readonly crumb: HTMLElement | null;
   readonly panes: HTMLElement | null;
   readonly toolbar: HTMLElement | null;
@@ -14,7 +15,7 @@ export interface ShellHeaderSlots {
 
 export type ShellHeaderSlotName = keyof ShellHeaderSlots;
 
-const NO_SLOTS: ShellHeaderSlots = { crumb: null, panes: null, toolbar: null };
+const NO_SLOTS: ShellHeaderSlots = { menubar: null, crumb: null, panes: null, toolbar: null };
 
 /**
  * The header row's slots, which a shell mounted under the tab fills.

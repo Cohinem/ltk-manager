@@ -19,6 +19,7 @@ bins of the installed client.
 
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
+| 2026-10-31 | Add the menu bar, one key table and the combined save     |
 | 2026-10-19 | Record the import preview, export and reimport status     |
 | 2026-10-19 | Custom map skin from geometry keeps the skin's placeables |
 | 2026-10-19 | Record the New project Map entry status                   |
@@ -27,9 +28,6 @@ bins of the installed client.
 | 2026-10-18 | Record the Lighting pane, map settings and icons status   |
 | 2026-10-18 | Record the visibility authoring status                    |
 | 2026-10-17 | Record the placeable tools and the client code research   |
-| 2026-10-17 | Apply the review decisions and the meta wiki class sweep  |
-| 2026-10-17 | Add meshes from glTF, FBX, OBJ and NVR files              |
-| 2026-10-17 | Add the map editor spec                                   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -310,7 +308,7 @@ across the top edge holds labeled controls: the options of the current tool, suc
 Place adds, Add mesh and Save, and the variant menu on the left, and the Show menu, the view mode,
 the camera and Frame on the right. The Show menu switches particles, structures, the sky, shaders,
 event effects and placeable markers. The orientation gizmo sits in the bottom right corner. Each
-tool has a single-key shortcut that works while the viewport has focus.
+tool has a single-key shortcut that works while the viewport or the outliner has focus.
 
 | Tool   | Key | Action                                                |
 | ------ | --- | ----------------------------------------------------- |
@@ -319,7 +317,8 @@ tool has a single-key shortcut that works while the viewport has focus.
 | Rotate | `E` | Gizmo rotate                                          |
 | Scale  | `R` | Gizmo scale                                           |
 | Place  | `P` | Adds the palette's current class at the clicked point |
-| Paint  | `B` | Paints the chosen map texture                         |
+
+The Paint tool of "Painting" is Planned. The rail has no Paint tool, and `B` has no binding.
 
 **The gizmo commits on release.** A drag updates the scene on every frame and sends no edit.
 Releasing the pointer sends one edit, and Esc during the drag restores the start transform. This
@@ -340,8 +339,39 @@ the drawn ground.
 inspector shows the position, rotation in degrees and scale of the lead, and a typed value applies
 on Enter.
 
-**Frame and focus.** `F` frames the selection. A double click on an outliner row frames its item,
-as Enter does today.
+**Frame and focus.** `F` frames the middle of every selected mesh and placeable, in the viewport,
+the outliner, the selection bar and the menu bar. A click on an outliner row frames that row's
+object, as Enter does.
+
+### Menu bar
+
+The tab's header row draws the bar above the panes, so it works in every frame and in Properties.
+A `.mapgeo` or `.materials.bin` tab draws the same bar in its toolbar, with its own Save, Undo and
+Redo. Each item runs the action of the rail, the top bar or the row menu that it mirrors. The
+handler and the menus read the keys from one table, `MAP_KEYS` in `map/utils/mapKeys.ts`.
+
+| Menu   | Items                                                                                                                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| File   | Save. Add mesh, Export map, Save `.mapgeo`, Export selected, Reimport. The object's File items                                                                                             |
+| Edit   | Undo, Redo. Delete, Duplicate, Rename, Drop to the floor. Select all, Clear the selection, Box select. The object's Edit items                                                             |
+| Insert | The classes of the Place menu by group, Place a lighting volume, New controller                                                                                                            |
+| Tools  | Select, Move, Rotate, Scale and Place as a choice. Local axes and Snap to grid as switches                                                                                                 |
+| View   | Layout and Properties. Show, Camera, View mode. Frame map, Frame the selection. Hide or Show the selection, Show everything, Reset visibility. Sun, Post effects. Panes, Keys and gestures |
+| Map    | Map skin, Target chunk. Select all in the chunk or controller, Move to chunk, Mesh controller, Visibility controllers                                                                      |
+
+A command that does not apply stays listed and disabled, and shows its reason. A menu of choices
+and switches on a map that takes no edits starts with a disabled line that gives the reason. Map
+skin is left out of a map with one skin.
+
+The Hide item names what `H` does: it hides the selection if any of it is shown, and it shows the
+selection if all of it is hidden. `H` acts the same way in the viewport and the outliner.
+
+Sun and Post effects apply on a read-only map and in the layout, because they open the popovers of
+the top bar. An editable map edits both in the Lighting pane.
+
+Select all selects every mesh and placeable that the outliner's filter keeps, in folded rows too.
+`Ctrl+A` in the viewport does the same. `Ctrl+A` in the outliner selects the rows on screen. `End`
+drops the selection from the viewport, and in the outliner it steps to the last row.
 
 ## Meshes
 
@@ -420,8 +450,10 @@ materials and textures into the project. The materials are copied into the conta
 
 ### Saving geometry
 
-**A `.mapgeo` saves on request.** Ctrl+S saves it. The editor also saves it before Test runs and
-when the tab closes. The toolbar shows a marker while the file has unsaved edits. A Summoner's Rift
+**A `.mapgeo` saves on request.** Ctrl+S from any pane and the bar's Save write the tab's bin, the
+queued `.materials.bin` and the `.mapgeo` once each. Save `.mapgeo` writes the `.mapgeo` alone. The
+editor also saves it before Test runs and when the tab closes. A quit asks about it and does not
+write it first. The toolbar shows a marker while the file has unsaved edits. A Summoner's Rift
 `.mapgeo` is about 92 MB and every save bakes its scene graphs, so it does not use the automatic
 save of a bin.
 
@@ -722,8 +754,8 @@ Import image support painting over the render in an image editor.
 
 ## Painting
 
-The Paint tool paints a map-wide texture in world space. The toolbar's paint menu selects the
-texture:
+This section specifies a Planned tool, per "Feature status". The Paint tool paints a map-wide
+texture in world space. The toolbar's paint menu selects the texture:
 
 - Grass tint (`MapSkin.mGrassTintTexture`, or the state's alternate asset)
 - Fog of war overlay (`MapAlternateAsset.mFowOverlayTextureName`)
@@ -856,21 +888,21 @@ The bins and the textures save on their own, after the same 600 ms delay as a bi
 
 ## Keys
 
-| Key                     | Action                                    |
-| ----------------------- | ----------------------------------------- |
-| `Q` `W` `E` `R` `P` `B` | Select, Move, Rotate, Scale, Place, Paint |
-| `X`                     | Toggle world and local space              |
-| `F`                     | Frame the selection                       |
-| `F2`                    | Rename the lead placeable                 |
-| `End`                   | Drop the selected placeables to the floor |
-| `H`                     | Hide the selection                        |
-| `Alt+H`                 | Show everything hidden                    |
-| `Ctrl+D`                | Duplicate                                 |
-| `Delete`                | Delete, skipping guides                   |
-| `Ctrl+A`                | Select every listed item                  |
-| `Ctrl+S`                | Save the `.mapgeo`                        |
-| `Ctrl+Z`, `Ctrl+Y`      | Undo, redo across the map document        |
-| `Esc`                   | Cancel a drag, then clear the selection   |
+| Key                 | Action                                             |
+| ------------------- | -------------------------------------------------- |
+| `Q` `W` `E` `R` `P` | Select, Move, Rotate, Scale, Place                 |
+| `X`                 | Toggle world and local space                       |
+| `F`                 | Frame the selection                                |
+| `F2`                | Rename the lead placeable                          |
+| `End`               | Drop the selected placeables to the floor          |
+| `H`                 | Hide the selection, or show it if all of it hidden |
+| `Alt+H`             | Show everything hidden                             |
+| `Ctrl+D`            | Duplicate                                          |
+| `Delete`            | Delete, skipping guides                            |
+| `Ctrl+A`            | Select every listed item                           |
+| `Ctrl+S`            | Save the tab's files                               |
+| `Ctrl+Z`, `Ctrl+Y`  | Undo, redo across the map document                 |
+| `Esc`               | Cancel a drag, then clear the selection            |
 
 ## Delivery order
 

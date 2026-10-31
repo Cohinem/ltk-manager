@@ -7,6 +7,7 @@ import type { BinRow } from "@/lib/tauri";
 
 import type { ViewContext } from "../../classes/components/ClassCells";
 import { FieldLabelsContext } from "../../classes/state/fieldLabels";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { Notice } from "../../shared/preview/Notice";
 import { useColliderEdit, useColliderFiles } from "../hooks/useColliders";
 import { useDynamicsEdit } from "../hooks/useDynamicsEdit";
@@ -15,10 +16,26 @@ import { type Picked, usePicked } from "../hooks/usePicked";
 import { useSkinBind } from "../hooks/useSkinBind";
 import { SkinChoiceContext } from "../state/skinChoice";
 import { dynamicsDiagnostics } from "../utils/dynamicsDiagnostics";
-import { addSocketEdits, socketName, takenNames } from "../utils/dynamicsEdits";
+import {
+  addModifierEdits,
+  addSocketEdits,
+  removeEdits,
+  socketName,
+  takenNames,
+} from "../utils/dynamicsEdits";
 import { POSE_MODIFIERS, SOCKETS } from "../utils/dynamicsFields";
 import { dynamicsLabel } from "../utils/dynamicsLabels";
 import { modifierItem, type PhysicsItem, socketItem } from "../utils/physicsItems";
+import { MODIFIER_KINDS } from "../utils/poseModifiers";
+import {
+  listCommands,
+  PHYSICS_ADD_SOCKET_COMMAND,
+  PHYSICS_MODIFIER_LIST,
+  PHYSICS_MUTE_COMMAND,
+  PHYSICS_NEXT_COMMAND,
+  PHYSICS_PREVIOUS_COMMAND,
+  PHYSICS_REMOVE_COMMAND,
+} from "../utils/skinCommands";
 import { AddModifierMenu } from "./AddModifierMenu";
 import { type PhysicsScope, PhysicsScopeContext, usePhysicsScope } from "./PhysicsCells";
 import { ModifierFields, PhysicsFields, PhysicsHead } from "./PhysicsDetail";
@@ -100,14 +117,54 @@ function Lists() {
   const socket = skin.sockets.find((each) => each.path === socketPick.item?.path);
   const socketRow = rowAt(socketRows, socketPick.item?.path);
 
+  const choice = use(SkinChoiceContext);
+
   /* The viewport's gizmo stands on the socket picked here, while the sockets show. */
-  const setSocket = use(SkinChoiceContext)?.setSocket;
+  const setSocket = choice?.setSocket;
   const moved = tab === "sockets" ? (socketPick.item?.path ?? null) : null;
   useEffect(() => {
     setSocket?.(moved);
 
     return () => setSocket?.(null);
   }, [moved, setSocket]);
+
+  const addSocket = useAddSocket();
+  const shown = tab === "modifiers" ? modifierPick : socketPick;
+  const shownItems = tab === "modifiers" ? modifiers : sockets;
+  const shownItem = shown.item;
+  const stepTo = (by: number) => {
+    const next = shownItems[shown.index + by];
+
+    return next === undefined ? null : () => shown.pick(next.path);
+  };
+
+  usePaneCommands("skin.physics", {
+    ...listCommands(
+      PHYSICS_MODIFIER_LIST,
+      MODIFIER_KINDS.map((kind) => ({
+        title: kind.title(),
+        run: send === null ? null : () => send(addModifierEdits(skin, kind.class)),
+      })),
+    ),
+    [PHYSICS_ADD_SOCKET_COMMAND]: {
+      run: addSocket.run,
+      title: addSocket.title,
+      reason: m.workshop_bin_menu_skin_joint_reason(),
+    },
+    [PHYSICS_PREVIOUS_COMMAND]: { run: stepTo(-1) },
+    [PHYSICS_NEXT_COMMAND]: { run: stepTo(1) },
+    [PHYSICS_MUTE_COMMAND]: {
+      run:
+        choice !== null && shownItem?.previewed === true
+          ? () => choice.toggleMuted(shownItem.path)
+          : null,
+      checked: shownItem !== null && choice?.muted.has(shownItem.path) !== true,
+    },
+    [PHYSICS_REMOVE_COMMAND]: {
+      run: send !== null && shownItem !== null ? () => send(removeEdits(shownItem.path)) : null,
+      reason: m.workshop_bin_menu_skin_item_reason(),
+    },
+  });
 
   return (
     <>
@@ -249,32 +306,37 @@ function TabLabel({ title, count }: { title: string; count: number }) {
   );
 }
 
-/** Adds a socket on the joint selected in the Skeleton pane or the viewport. */
-function AddSocketButton() {
+/** Returns the add of a socket on the selected joint, with its words, and a null run without one. */
+function useAddSocket(): { readonly title: string; readonly run: (() => void) | null } {
   const { entry, skin, pose } = usePhysicsScope();
   const send = useDynamicsEdit(entry);
   const selected = use(SkinChoiceContext)?.joint ?? null;
   const slot = selected === null ? -1 : pose.jointNamed(selected);
   if (slot < 0 || send === null) {
-    return (
-      <Button variant="ghost" size="xs" left={<PlusIcon />} disabled>
-        {m.workshop_bin_physics_add_socket_label()}
-      </Button>
-    );
+    return { title: m.workshop_bin_physics_add_socket_label(), run: null };
   }
 
   const joint = pose.skeleton.joints[slot].name;
+
+  return {
+    title: m.workshop_bin_physics_add_socket_action({ joint }),
+    run: () => send(addSocketEdits(skin, joint, socketName(joint, takenNames(pose, skin.sockets)))),
+  };
+}
+
+/** Adds a socket on the joint selected in the Skeleton pane or the viewport. */
+function AddSocketButton() {
+  const { title, run } = useAddSocket();
 
   return (
     <Button
       variant="ghost"
       size="xs"
       left={<PlusIcon />}
-      onClick={() =>
-        send(addSocketEdits(skin, joint, socketName(joint, takenNames(pose, skin.sockets))))
-      }
+      disabled={run === null}
+      onClick={run ?? undefined}
     >
-      {m.workshop_bin_physics_add_socket_action({ joint })}
+      {title}
     </Button>
   );
 }

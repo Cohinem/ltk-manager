@@ -2554,6 +2554,10 @@ the palette, a dialog or a menu stands over the editor belongs to whatever is on
 home, mods and workshop. Visual Studio Code on Windows binds a tab by index to `Alt` as well,
 so the keys a reader brings from it are the keys they get here.
 
+`Ctrl+D` routes to Diagnostics outside a project. Inside a project the route takes no such key,
+because an editor binds it to Duplicate and a press that the editor does not answer stays in the
+project.
+
 **`Ctrl+S`** writes whatever the active document holds. A document that autosaves writes what
 its debounce still owes, and its save status reads saving and then clean. Mod details runs the
 same save as its button. A document that offers no write of its own - a game browser, a
@@ -3933,7 +3937,7 @@ name, and it opens the object tab expanded down to that row.
 
 | Query                             | Asked from                                  | Answered from      |
 | --------------------------------- | ------------------------------------------- | ------------------ |
-| Every object of a class           | An object row, an object tab's kebab        | The index          |
+| Every object of a class           | An object row, an object tab's Edit menu    | The index          |
 | Every use of an embedded class    | An `embed` or `pointer` row                 | A walk of the bins |
 | Every object linking to an object | Find references on every menu an object has | The same walk      |
 | Every object naming a file        | A file row of the game tree or Content tree | The same walk      |

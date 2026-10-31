@@ -20,9 +20,12 @@ import { AbilityScene } from "./AbilityScene";
 export default function AbilityPreview({
   source,
   recipe,
+  shown,
 }: {
   source: AbilitySource;
   recipe: AbilityRecipe;
+  /** `true` while the preview pane draws this scene rather than the skin. */
+  shown: boolean;
 }) {
   const read = useSkinGraphSource(source.document, source.entry);
   if (read.skin.isError) return <Notice text={m.workshop_bin_preview_failed_empty()} />;
@@ -35,6 +38,7 @@ export default function AbilityPreview({
           skin={read.skin.data}
           graph={read.source}
           recipe={recipe}
+          shown={shown}
         />
       )}
     </>
@@ -46,11 +50,13 @@ function AbilityRead({
   skin,
   graph: source,
   recipe,
+  shown,
 }: {
   document: BinDocumentId;
   skin: SkinModel;
   graph: GraphSource;
   recipe: AbilityRecipe;
+  shown: boolean;
 }) {
   const graph = useQuery(skinQueries.graph(source.document, source.graph));
   const chosen = graph.data?.clips.find((clip) => clip.hash === recipe.clip);
@@ -137,6 +143,7 @@ function AbilityRead({
       recipe={recipe}
       steps={steps}
       castCues={castCues}
+      shown={shown}
     />
   );
 }

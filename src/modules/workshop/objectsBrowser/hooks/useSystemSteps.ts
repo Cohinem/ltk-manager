@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useRef } from "react";
 
+import { pressedKey } from "../../bin/vfx/utils/vfxKeys";
 import { objectTreeQueries } from "../api/queries";
 import { type FocusMark, focusMark, restoreFocus } from "../utils/focusHandoff";
 import { objectPreviewKind } from "../utils/objectPreview";
@@ -116,12 +117,13 @@ export function useSystemSteps({
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>) => {
       if (!enabled || event.defaultPrevented) return;
-      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+      const previous = pressedKey(event, "systemPrevious");
+      if (!previous && !pressedKey(event, "systemNext")) return;
       if (isTextEntry(event.target)) return;
 
       event.preventDefault();
-      const direction = event.key === "ArrowUp" ? -1 : 1;
+      const direction = previous ? -1 : 1;
       const mark = root.current === null ? null : focusMark(root.current, document.activeElement);
       const folder = ancestorPrefixes(objectPath).at(-1) ?? "";
 

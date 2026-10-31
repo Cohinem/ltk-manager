@@ -2,6 +2,7 @@ import { use, useMemo } from "react";
 
 import { useDeclares } from "../../../documents/hooks/useDeclared";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
+import { pressedKey } from "../../utils/vfxKeys";
 import type { GraphItem, StructItem } from "../utils/graphItems";
 import { holderRow } from "../utils/holderRow";
 import {
@@ -68,12 +69,11 @@ export function runNodeKey(
   structure: NodeStructure,
   picked: GraphItem | null,
 ): boolean {
-  if (picked === null || chord.shiftKey || chord.altKey) return false;
+  if (picked === null) return false;
 
-  const modified = chord.ctrlKey || chord.metaKey;
   let action: (() => void) | null = null;
-  if (!modified && chord.key === "Delete") action = structure.remove(picked);
-  if (modified && chord.key.toLowerCase() === "d") action = structure.duplicate(picked);
+  if (pressedKey(chord, "remove")) action = structure.remove(picked);
+  if (pressedKey(chord, "duplicate")) action = structure.duplicate(picked);
   if (action === null) return false;
 
   action();

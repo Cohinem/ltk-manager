@@ -1,57 +1,24 @@
 import type { RefObject } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import type { SceneClock } from "@/modules/viewport";
-
-import { speedDetent } from "../../vfx/playback/components/Transport";
-import { FRAME } from "../../vfx/playback/state/run";
 import { ignoredKey } from "../../vfx/playback/utils/ignoredKey";
+import { SKIN_KEYS, skinKeyOf, type SkinKeyTarget } from "../utils/skinKeys";
 
-/** How many frames Shift and an arrow move, which is a tenth of a second. */
-const SHIFT_FRAMES = 6;
-
-/** What a key reaches of a skin's preview: its clock, its transport and its camera. */
-export interface SkinKeys {
-  readonly clock: SceneClock;
-  readonly playing: boolean;
-  readonly setPlaying: (playing: boolean) => void;
-  readonly speed: number;
-  readonly setSpeed: (speed: number) => void;
-  /** Frame the character, which the Fit button asks for too. */
-  readonly fit: () => void;
-}
-
-/** What each key does to the preview, "The keys" in docs/ux/BIN_EDITOR.md. */
-const KEYS: Record<string, (keys: SkinKeys) => void> = {
-  space: (keys) => keys.setPlaying(!keys.playing),
-  left: (keys) => step(keys, -1),
-  right: (keys) => step(keys, 1),
-  "shift+left": (keys) => step(keys, -SHIFT_FRAMES),
-  "shift+right": (keys) => step(keys, SHIFT_FRAMES),
-  home: (keys) => keys.clock.restart(),
-  f: (keys) => keys.fit(),
-  bracketleft: (keys) => keys.setSpeed(speedDetent(keys.speed, -1)),
-  bracketright: (keys) => keys.setSpeed(speedDetent(keys.speed, 1)),
-};
-
-/** Pause, and move the clip by whole frames. */
-function step(keys: SkinKeys, frames: number): void {
-  keys.setPlaying(false);
-  keys.clock.seek(keys.clock.time + frames * FRAME);
-}
+const HOTKEYS = Object.values(SKIN_KEYS)
+  .map((key) => key.hotkey)
+  .join(", ");
 
 /**
- * The preview's keys, live wherever focus stands inside the box the ref is on.
+ * Answers the keys of `SKIN_KEYS` while focus is inside the box the returned ref is on.
  *
- * The particle shell's own set less the timeline's: a skin has no lanes, so nothing to
- * mute or solo. The box takes focus itself, so a click on bare preview is enough to arm
- * them.
+ * The box contains the preview and its transport, and takes focus, so a click on bare preview
+ * arms the keys and a press on a transport control keeps them.
  */
-export function useSkinKeys(keys: SkinKeys): RefObject<HTMLDivElement | null> {
+export function useSkinKeys(target: SkinKeyTarget): RefObject<HTMLDivElement | null> {
   return useHotkeys<HTMLDivElement>(
-    Object.keys(KEYS).join(", "),
-    (_, handler) => KEYS[handler.hotkey]?.(keys),
+    HOTKEYS,
+    (_, handler) => skinKeyOf(handler.hotkey)?.run(target),
     { preventDefault: true, ignoreEventWhen: ignoredKey },
-    [keys],
+    [target],
   );
 }

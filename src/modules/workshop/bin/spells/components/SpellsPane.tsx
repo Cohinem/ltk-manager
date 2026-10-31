@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, PlayIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button, Field } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -8,7 +8,14 @@ import type { AssetRef } from "@/lib/tauri";
 
 import { useWarmOnAbsent } from "../../../objectsBrowser/api/useObjectIndex";
 import { readyValue } from "../../../shared/api/indexQueries";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { Notice } from "../../shared/preview/Notice";
+import {
+  listCommands,
+  SPELL_BACK_COMMAND,
+  SPELL_FILTER_COMMAND,
+  SPELL_PICK_LIST,
+} from "../../skin/utils/skinCommands";
 import { spellQueries } from "../api/spellQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
 import { characterOf, spellGroups } from "../utils/catalog";
@@ -62,6 +69,54 @@ function CharacterSpells({
   const spells = readyValue(read.data)?.spells;
   const available = useQuery(spellQueries.availability(spells ?? [], onSelect !== undefined));
   const groups = useMemo(() => spellGroups(spells ?? [], filter), [spells, filter]);
+  const filterField = useRef<HTMLInputElement>(null);
+  const missile = selected !== null && skin !== undefined;
+  const hintOf = (spell: (typeof groups)[number]["spells"][number]) => {
+    const status = available.data?.[spell.objectHash];
+    if (status === undefined && !available.isError) return m.workshop_spells_checking_label();
+    if (status === "ambiguous") return m.workshop_spells_ambiguous_label();
+    if (status === "unavailable" || available.isError) return m.workshop_spells_unavailable_label();
+
+    return m.workshop_spells_unsupported_label();
+  };
+  const supportedSpell = (spell: (typeof groups)[number]["spells"][number]) =>
+    available.data?.[spell.objectHash] === "supported" && skin !== undefined;
+  const pick = (spell: (typeof groups)[number]["spells"][number]) => {
+    if (!supportedSpell(spell)) return;
+
+    (onSelect ?? setSelected)({
+      asset: spell.declarations[0].asset,
+      entry: spell.objectHash,
+      name: spell.name,
+    });
+  };
+
+  usePaneCommands("spells.list", {
+    [SPELL_FILTER_COMMAND]: {
+      run:
+        missile || read.data?.status !== "ready"
+          ? null
+          : () => requestAnimationFrame(() => filterField.current?.focus()),
+      reason: m.workshop_bin_menu_skin_spell_list_reason(),
+    },
+    [SPELL_BACK_COMMAND]: missile ? { run: () => setSelected(null) } : undefined,
+    ...listCommands(
+      SPELL_PICK_LIST,
+      missile
+        ? []
+        : groups.flatMap((group) =>
+            group.spells.map((spell) => {
+              const supported = supportedSpell(spell);
+
+              return {
+                title: spell.name.split("/").at(-1),
+                run: supported ? () => pick(spell) : null,
+                reason: supported ? undefined : hintOf(spell),
+              };
+            }),
+          ),
+    ),
+  });
 
   if (selected !== null && skin !== undefined)
     return (
@@ -106,6 +161,7 @@ function CharacterSpells({
     <div data-ui="SpellsPane" className="flex min-h-0 flex-1 flex-col select-none">
       <div className="flex shrink-0 flex-col gap-2 border-b border-surface-700/50 p-2">
         <Field.Control
+          ref={filterField}
           aria-label={m.workshop_spells_filter_label()}
           placeholder={m.workshop_spells_filter_placeholder()}
           value={filter}
@@ -123,14 +179,8 @@ function CharacterSpells({
               {group.name ?? m.workshop_spells_ungrouped_label()}
             </h3>
             {group.spells.map((spell) => {
-              const status = available.data?.[spell.objectHash];
-              const supported = status === "supported" && skin !== undefined;
-              let hint = m.workshop_spells_unsupported_label();
-              if (status === undefined && !available.isError)
-                hint = m.workshop_spells_checking_label();
-              if (status === "ambiguous") hint = m.workshop_spells_ambiguous_label();
-              if (status === "unavailable" || available.isError)
-                hint = m.workshop_spells_unavailable_label();
+              const supported = supportedSpell(spell);
+              const hint = hintOf(spell);
               return (
                 <Button
                   key={spell.objectHash}
@@ -138,14 +188,7 @@ function CharacterSpells({
                   size="sm"
                   disabled={!supported}
                   className="h-8 w-full justify-between gap-3 rounded-none px-2 text-left disabled:opacity-60"
-                  onClick={() => {
-                    if (!supported) return;
-                    (onSelect ?? setSelected)({
-                      asset: spell.declarations[0].asset,
-                      entry: spell.objectHash,
-                      name: spell.name,
-                    });
-                  }}
+                  onClick={() => pick(spell)}
                 >
                   <span className="min-w-0 truncate">{spell.name.split("/").at(-1)}</span>
                   {supported && (

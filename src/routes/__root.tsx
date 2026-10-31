@@ -185,8 +185,10 @@ function RootLayout() {
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
   useHotkeys("ctrl+2", () => navigate({ to: "/mods" }), { preventDefault: true });
   useHotkeys("ctrl+3", () => navigate({ to: "/workshop" }), { preventDefault: true });
+  /* An editor binds Duplicate to this key, and a press it does not answer must not leave the project. */
   useHotkeys("ctrl+d", () => navigate({ to: "/diagnostics", search: { tab: "games" } }), {
     preventDefault: true,
+    enabled: !location.pathname.startsWith("/workshop/"),
   });
   useHotkeys("ctrl+,", () => navigate({ to: "/settings" }), { preventDefault: true });
   useHotkeys("ctrl+shift+g", () => navigate({ to: "/gallery" }), {

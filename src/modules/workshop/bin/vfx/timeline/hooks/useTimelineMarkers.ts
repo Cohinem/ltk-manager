@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { use, useMemo } from "react";
 
 import { useOptionalProjectContext } from "../../../../projects/state/ProjectContext";
 import { useWorkshopEditorStore } from "../../../../shell/state/workshopEditor";
-import { useVfxRun } from "../../playback/state/run";
+import { VfxRunContext } from "../../playback/state/run";
 import {
   addedMarker,
   markerKey,
@@ -30,14 +30,14 @@ const NO_MARKERS: readonly TimelineMarker[] = [];
 /**
  * The open system's timeline markers, kept in its project's `.ltk/editor.json`.
  *
- * Null for a system outside a project, and for one keyed on the open rather than a file, which
- * has nowhere to keep them. An action reads the store's markers when it runs, so one
+ * Null outside a run, for a system outside a project, and for one keyed on the open rather than a
+ * file, which has nowhere to keep them. An action reads the store's markers when it runs, so one
  * raised later, such as a toast's Undo, never writes over a newer list.
  */
 export function useTimelineMarkers(): TimelineMarkerList | null {
   const project = useOptionalProjectContext();
-  const { asset, entry } = useVfxRun();
-  const key = asset === null ? null : markerKey(asset, entry);
+  const run = use(VfxRunContext);
+  const key = run === null || run.asset === null ? null : markerKey(run.asset, run.entry);
   const path = project?.path ?? null;
 
   const markers = useWorkshopEditorStore((state) =>

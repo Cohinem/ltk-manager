@@ -173,6 +173,52 @@ creation, and a game element gains a `remove: true` (ADR-0049). A link to a remo
 anywhere but a group's `Elements`, such as a button's state list or its hit region, is left as
 the file has it. Delete shows only where an element can be added.
 
+### Menu bar
+
+The tab's menu bar mirrors the toolbar, the panes and the context menus, and each of those stays.
+An item is built from a table that the key handler or the control also reads, so an item shows the
+key that the handler answers: `CANVAS_BINDINGS` in `canvas/canvasKeys.ts`, `PREVIEW_KEYS` in
+`canvas/previewKeys.ts` and `SPRITE_KEYS`.
+
+| Menu    | Items of a UI view                                                                                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| File    | Save. Sprite export, sprite replace. The object's File items                                                                                                             |
+| Edit    | Undo, Redo. Delete, Nudge. Select all, Clear selection, Select group, Select layer. Copy element name and path, Open object. The object's Edit items                     |
+| Insert  | The kinds of the components pane, by category, each of which starts placing. Cancel placing                                                                              |
+| View    | The layout and Properties choice. Fit, Actual size, Zoom in, Zoom out, Frame. Hide element, Hide scene, Scene frames. Panes, Collapse all, Keys and gestures             |
+| Canvas  | Transform, Interact. Screen size with HUD scale. Safe zone, Show disabled, Effects, Sample content, Stack scenes. Play, progress. Button state, Variants, Tooltip sample |
+| Arrange | Bring to front, Bring forward, Send backward, Send to back. Move to scene, Align. Distribute horizontally, Distribute vertically                                         |
+
+The bar of a UI element has File, Edit, View, Canvas and Arrange. It lists no sprite commands, no
+Delete, no Hide scene, no Scene frames, no Variants and no Tooltip sample, because a canvas that
+draws one element shows every scene, deletes nothing and places nothing.
+
+The bar of a `GameFontDescription` has File, Edit, View and Preview. Preview lists Screen size
+without HUD scale, and Focus sample field. It has no canvas keys and no edit scope.
+
+The canvas and the panes offer their commands through `usePaneCommands`. The canvas stays mounted
+in Properties mode and in the stack frame, so an item reads its offer in both. A command that moves
+the view, and Insert, are disabled in Properties mode with the reason "Applies in" and the layout's
+title. A command of a pane that is not mounted is disabled with the reason that names the pane. An
+edit of a document that takes no edit is disabled with the reason of the document.
+
+Frame, sprite export and select all act on the pane that took focus last:
+
+| Pane    | Frame                   | Sprite export                  | Select all                    |
+| ------- | ----------------------- | ------------------------------ | ----------------------------- |
+| Canvas  | The primary selection   | The primary selection's sprite | Every element                 |
+| Layers  | The active element row  | Not offered                    | Every element, or the matches |
+| Sprites | The active sprite's use | The active sprite              | Not offered                   |
+
+The item's words name that target. With nothing selected, Frame on the canvas fits, as the F key
+does. The E key is Effects on the canvas and sprite export in the sprites pane, so the keys sheet
+lists the second under Gestures and the File item shows no key.
+
+Select layer lists the elements at the centre of the primary selection, topmost first, because a
+menu has no pointer. Screen size and progress offer fixed steps, 66, 75, 85 and 100% for the HUD and
+every quarter for progress, and the sliders of the toolbar hold every other value. A slot is lazy
+where it reads the view: Variants, Tooltip sample and Scene frames.
+
 ## 4 Panes
 
 `SHELL_PANES.atlas`, in the order the Panes menu lists them:

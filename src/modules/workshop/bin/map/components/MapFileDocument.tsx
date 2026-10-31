@@ -1,12 +1,16 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { SegmentedControl } from "@/components";
 import { m } from "@/i18n";
 import type { MapPath } from "@/lib/tauri";
-import { DocumentToolbar } from "@/modules/editor";
+import { DocumentToolbar, useDocumentHistory } from "@/modules/editor";
 
 import { CollapseAllButton } from "../../../shared/components/CollapseAllButton";
-import { MapSceneHost, type MapSceneSource } from "../state/mapScene";
+import { createPaneCommandHub, PaneCommandsContext } from "../../menus/state/paneCommands";
+import { typing } from "../hooks/useMapEditKeys";
+import { useMapTabSave } from "../hooks/useMapTabSave";
+import { MapSceneHost, type MapSceneSource, useMapScene } from "../state/mapScene";
+import { MapFileMenubar } from "./MapFileMenubar";
 import { MapOutliner } from "./MapOutliner";
 import { MapPreview, preloadMapViewport } from "./MapPreview";
 import { MapVisibilityPane } from "./MapVisibilityPane";
@@ -18,6 +22,8 @@ type MapFileView = "map" | "objects";
 type MapFileSide = "outliner" | "visibility";
 
 export interface MapFileDocumentProps {
+  /** The editor's id for the tab, which the save, the history and the palette are keyed on. */
+  readonly documentId: string;
   /** The map that file belongs to. */
   readonly map: MapPath;
   readonly active: boolean;
@@ -36,7 +42,13 @@ export interface MapFileDocumentProps {
  * A `.materials.bin` keeps its objects a switch away, since the map is what a reader of
  * either file came for and the objects of the bin are where they edit it.
  */
-export function MapFileDocument({ map, active, actions, objects }: MapFileDocumentProps) {
+export function MapFileDocument({
+  documentId,
+  map,
+  active,
+  actions,
+  objects,
+}: MapFileDocumentProps) {
   const [view, setView] = useState<MapFileView>("map");
   const [collapseAllSignal, setCollapseAllSignal] = useState(0);
   useEffect(preloadMapViewport, []);
@@ -64,34 +76,84 @@ export function MapFileDocument({ map, active, actions, objects }: MapFileDocume
   }
 
   return (
-    <>
-      <DocumentToolbar active={active}>
-        {viewSwitch}
-        <CollapseAllButton onCollapse={() => setCollapseAllSignal((count) => count + 1)} />
-        {actions}
-      </DocumentToolbar>
-      <MapFileScene map={map} collapseAllSignal={collapseAllSignal} />
-    </>
+    <MapFileScene
+      documentId={documentId}
+      map={map}
+      active={active}
+      collapseAllSignal={collapseAllSignal}
+      toolbar={
+        <>
+          {viewSwitch}
+          <CollapseAllButton onCollapse={() => setCollapseAllSignal((count) => count + 1)} />
+          {actions}
+        </>
+      }
+    />
   );
 }
 
 interface MapFileSceneProps {
+  readonly documentId: string;
   readonly map: MapPath;
+  readonly active: boolean;
   /** A count the toolbar's collapse-all button raises. */
   readonly collapseAllSignal: number;
+  /** What the toolbar draws after the menu bar. */
+  readonly toolbar: ReactNode;
 }
 
 /**
  * The map beside a panel that switches between its chunk graph and its visibility, which is
- * the map shell without an object to inspect.
+ * the map shell without an object to inspect. The toolbar sits under the scene host, because its
+ * menu bar reads the scene.
  */
-function MapFileScene({ map, collapseAllSignal }: MapFileSceneProps) {
+function MapFileScene({ map, ...rest }: MapFileSceneProps) {
   const source = useMemo<MapSceneSource>(() => ({ kind: "file", map }), [map]);
-  const [side, setSide] = useState<MapFileSide>("outliner");
+  const [paneCommands] = useState(createPaneCommandHub);
 
   return (
     <MapSceneHost source={source}>
-      <div data-ui="MapFileDocument" className="flex min-h-0 flex-1 bg-surface-950">
+      <PaneCommandsContext value={paneCommands}>
+        <MapFileBody {...rest} />
+      </PaneCommandsContext>
+    </MapSceneHost>
+  );
+}
+
+function MapFileBody({
+  documentId,
+  active,
+  collapseAllSignal,
+  toolbar,
+}: Omit<MapFileSceneProps, "map">) {
+  const { editable, stepHistory } = useMapScene();
+  const [side, setSide] = useState<MapFileSide>("outliner");
+  const root = useRef<HTMLDivElement>(null);
+
+  useMapTabSave(documentId);
+  useDocumentHistory(
+    documentId,
+    (step, target) => {
+      if (typing(target)) return false;
+
+      void stepHistory(step === "undo");
+      return true;
+    },
+    editable,
+  );
+
+  return (
+    <>
+      <DocumentToolbar active={active}>
+        <MapFileMenubar documentId={documentId} keyScope={root} />
+        {toolbar}
+      </DocumentToolbar>
+      <div
+        ref={root}
+        data-ui="MapFileDocument"
+        tabIndex={-1}
+        className="flex min-h-0 flex-1 bg-surface-950 outline-none"
+      >
         <MapPreview document={null} />
         <div className="flex w-80 shrink-0 flex-col border-l border-surface-700/50">
           <div className="flex shrink-0 justify-center border-b border-surface-700/50 p-1.5">
@@ -116,6 +178,6 @@ function MapFileScene({ map, collapseAllSignal }: MapFileSceneProps) {
           {side === "visibility" && <MapVisibilityPane />}
         </div>
       </div>
-    </MapSceneHost>
+    </>
   );
 }

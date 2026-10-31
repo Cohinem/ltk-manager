@@ -361,6 +361,37 @@ the reader edits the new curve or range.
 
 A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app-wide.
 
+### Menu bar
+
+The object tab's menu bar lists what the rails, the transport, the toolbars and the context menus
+of a particle system offer. Those surfaces stay. `VfxMenubar` in
+`src/modules/workshop/bin/vfx/components/VfxMenubar.tsx` draws the bar, and each key comes from
+one table, `VFX_KEYS` in `src/modules/workshop/bin/vfx/utils/vfxKeys.ts`, that the handlers read
+too.
+
+| Menu     | Items                                                                                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File     | Save, Show in file, Duplicate object, Reload after a conflict, Declare edits                                                                                                                                                                                                        |
+| Edit     | Undo, Redo. Copy, Duplicate, Paste, Delete, whose words name the emitter or the node they act on. Select all, Select none. Adjust hue and scale. Find references, Copy                                                                                                              |
+| Insert   | Quick add (`Tab`), Field or force, Add force, Add from template, Add item, Add property                                                                                                                                                                                             |
+| View     | Layout or Properties. Show, View mode, Camera, Frame the system (`F`), Viewport handle. Inspector filters, Snapping, Histogram. Cards or Table. Previous system (`Alt+Up`), Next system (`Alt+Down`). Panes, Collapse all, Keys and gestures                                        |
+| Playback | Play (`Space`), Restart (`Home`), Go to end (`End`). Step a frame (`Left`, `Right`), 0.1 seconds (`Shift+Left`, `Shift+Right`). Loop (`L`), Slower (`[`), Faster (`]`). Add marker (`Ctrl+M`), Rename marker, Delete marker                                                         |
+| Emitter  | Solo (`S`), Mute (`M`). Mask. Child particles, each with Open, Move up, Move down and Remove child                                                                                                                                                                                  |
+| Graph    | Zoom in, Zoom out, Fit. Collapse all, Expand all. Preview in graph, node preview loop, Minimap, Preview backdrop, Reset layout. Frame with inputs, Collapse inputs, Collapse others, Change class, Copy class name, Copy class hash. Duplicate node (`Ctrl+D`), Delete node (`Del`) |
+| Curve    | Add key, Delete key (`Del`). Add random, Remove random. Channels of a vector. Graph, Table                                                                                                                                                                                          |
+
+A pane offers its commands to the bar while the pane shows. An item whose pane does not show is
+listed disabled with the reason, and it shows no key. Copy, Duplicate, Paste and Delete act on the
+pane that had focus last, of the Graph pane and the lanes. In a narrow stack they act on the open
+card. A document that takes no edit lists its edits disabled, with the reason of the document.
+
+Properties mode disables what acts on the run or the layout, with a reason that names the layout.
+A class that has no run lists no Playback or Emitter menu, and no item of the preview in View.
+
+Rename marker and Delete marker act on the marker nearest the playhead. `Del` deletes a key while
+focus is in the curve surface, which no emitter or node key reaches. Adding from the bar opens the
+quick add at the middle of the canvas, on the emitter of the node selected alone.
+
 ### The actions offered depend on the pointer's place
 
 - the quick add lists the unwritten fields and the forces of the emitter under the pointer, or

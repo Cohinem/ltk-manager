@@ -2,6 +2,7 @@ import { CaretDownIcon, EyeIcon } from "@phosphor-icons/react";
 
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
+import { type CommandMenuCheck, CommandMenuItems } from "@/modules/editor";
 import {
   usePreviewGizmo,
   usePreviewGround,
@@ -11,15 +12,58 @@ import {
   useSetPreviewDisplay,
 } from "@/stores";
 
-/** The preview's overlays as ticks in one menu, which stays open while they are set. */
-export function ShowMenu() {
+/** Returns the preview's overlays as menu switches, which this menu and the menu bar both draw. */
+export function useShowEntries(): readonly CommandMenuCheck[] {
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
   const gizmo = usePreviewGizmo();
   const stats = usePreviewStats();
   const masks = usePreviewMasks();
   const setDisplay = useSetPreviewDisplay();
-  const shown = [ground, ground && midlane, gizmo, masks, stats].filter(Boolean).length;
+
+  return [
+    {
+      kind: "check",
+      id: "show.ground",
+      title: m.workshop_bin_preview_stage_label(),
+      checked: ground,
+      run: () => setDisplay({ previewGround: !ground }),
+    },
+    {
+      kind: "check",
+      id: "show.midlane",
+      title: m.workshop_bin_preview_midlane_label(),
+      checked: ground && midlane,
+      run: ground ? () => setDisplay({ previewMidlane: !midlane }) : null,
+    },
+    {
+      kind: "check",
+      id: "show.gizmo",
+      title: m.workshop_bin_preview_gizmo_label(),
+      checked: gizmo,
+      run: () => setDisplay({ previewGizmo: !gizmo }),
+    },
+    {
+      kind: "check",
+      id: "show.masks",
+      title: m.workshop_bin_preview_masks_label(),
+      checked: masks,
+      run: () => setDisplay({ previewMasks: !masks }),
+    },
+    {
+      kind: "check",
+      id: "show.stats",
+      title: m.workshop_bin_preview_stats_label(),
+      checked: stats,
+      run: () => setDisplay({ previewStats: !stats }),
+    },
+  ];
+}
+
+/** The preview's overlays as ticks in one menu, which stays open while they are set. */
+export function ShowMenu() {
+  const entries = useShowEntries();
+  const shown = entries.filter((entry) => entry.checked).length;
 
   return (
     <Menu.Root>
@@ -37,37 +81,7 @@ export function ShowMenu() {
         }
       />
       <Menu.Content align="end" data-ui="ShowMenu" className="w-44">
-        <Menu.CheckboxItem
-          checked={ground}
-          onCheckedChange={(checked) => setDisplay({ previewGround: checked })}
-        >
-          {m.workshop_bin_preview_stage_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={ground && midlane}
-          disabled={!ground}
-          onCheckedChange={(checked) => setDisplay({ previewMidlane: checked })}
-        >
-          {m.workshop_bin_preview_midlane_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={gizmo}
-          onCheckedChange={(checked) => setDisplay({ previewGizmo: checked })}
-        >
-          {m.workshop_bin_preview_gizmo_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={masks}
-          onCheckedChange={(checked) => setDisplay({ previewMasks: checked })}
-        >
-          {m.workshop_bin_preview_masks_label()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem
-          checked={stats}
-          onCheckedChange={(checked) => setDisplay({ previewStats: checked })}
-        >
-          {m.workshop_bin_preview_stats_label()}
-        </Menu.CheckboxItem>
+        <CommandMenuItems items={entries} />
       </Menu.Content>
     </Menu.Root>
   );

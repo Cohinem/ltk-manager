@@ -1,22 +1,28 @@
 import { WaveSineIcon } from "@phosphor-icons/react";
-import { use, useEffect, useMemo, useState } from "react";
+import { type KeyboardEvent, use, useEffect, useMemo, useState } from "react";
 
 import { OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, BinRow } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import type { PaneCommand } from "../../menus/state/paneCommands";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
 import { ownField } from "../../values/components/RowValue";
 import { useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { fieldUnit } from "../../values/utils/fieldUnits";
 import type { CurveKey, ValueMark } from "../../values/utils/valueRows";
+import { useReadOnlyReason, useShownPaneCommands } from "../../vfx/hooks/usePaneOffers";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
 import { emitterChain, emitterRows, fieldChain } from "../../vfx/inspector/utils/emitterCards";
+import { ignoredKey } from "../../vfx/playback/utils/ignoredKey";
+import { curveChannelCommand, VFX_COMMAND, VFX_PANE } from "../../vfx/utils/vfxCommands";
+import { pressedKey } from "../../vfx/utils/vfxKeys";
 import { useCurvePlayhead } from "../hooks/curvePlayhead";
 import { type CurveTab, useCurveDock } from "../state/curveTarget";
 import { RandomEditContext, useRandomEditor } from "../state/randomEdit";
+import { CHANNELS } from "../utils/curveChannels";
 import {
   commitCurveKey,
   moveCurveKey,
@@ -224,80 +230,130 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
     return true;
   }
 
+  const removable = editable && selected.length > 0;
+  const addsRandom = bare;
+  const removesRandom = editable && draw !== null && (mark?.tables.length ?? 0) > 0;
+  const chips = family === "vector" && width > 1 ? width : 0;
+  const readOnly = useReadOnlyReason();
+
+  useShownPaneCommands(VFX_PANE.curve, {
+    [VFX_COMMAND.keyAdd]: { run: editable ? () => void add() : null, reason: readOnly },
+    [VFX_COMMAND.keyDelete]: {
+      run: removable ? () => void remove() : null,
+      reason: readOnly ?? m.workshop_bin_menu_vfx_key_reason(),
+    },
+    [VFX_COMMAND.randomAdd]: {
+      run: addsRandom ? () => void addRandom() : null,
+      reason: readOnly ?? m.workshop_bin_menu_vfx_random_add_reason(),
+    },
+    [VFX_COMMAND.randomRemove]: {
+      run: removesRandom ? () => void removeRandom() : null,
+      reason: readOnly ?? m.workshop_bin_menu_vfx_random_remove_reason(),
+    },
+    [VFX_COMMAND.curveGraph]: { run: () => onTab("graph"), checked: shown === "graph" },
+    [VFX_COMMAND.curveTable]: {
+      run: tabled ? () => onTab("table") : null,
+      checked: shown === "table",
+      reason: m.workshop_bin_menu_vfx_table_reason(),
+    },
+    ...Object.fromEntries(
+      Array.from({ length: chips }, (_, channel): [string, PaneCommand] => [
+        curveChannelCommand(channel),
+        {
+          run: () => toggle(channel),
+          checked: !muted.has(channel),
+          title: CHANNELS[family][channel] ?? String(channel),
+        },
+      ]),
+    ),
+  });
+
+  function deleteKey(event: KeyboardEvent) {
+    if (ignoredKey(event.nativeEvent) || !pressedKey(event, "curveKeyDelete") || !removable) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    void remove();
+  }
+
   return (
-    <RandomEditContext value={randomEditor}>
-      <CurveToolbar
-        lead={
-          <>
-            {named && <PaneLabel />}
-            <span className="min-w-0 shrink truncate text-surface-200">{chain}</span>
-            <span
-              title={row.path}
-              className="min-w-0 flex-1 truncate font-mono text-meta text-surface-500 select-text"
-            >
-              {row.path}
-            </span>
-          </>
-        }
-        family={family}
-        width={width}
-        muted={muted}
-        onToggle={toggle}
-        draw={draw}
-        field={field}
-        tab={shown}
-        tabled={tabled}
-        onTab={onTab}
-        keyCount={keys.length}
-        selectedCount={selected.length}
-        editable={editable}
-        onAdd={() => void add()}
-        onRemove={() => void remove()}
-        onAddRandom={bare ? () => void addRandom() : null}
-        onRemoveRandom={
-          editable && draw !== null && (mark?.tables.length ?? 0) > 0
-            ? () => void removeRandom()
-            : null
-        }
-      />
-      <div className="flex min-h-0 flex-1 flex-col border-t border-surface-700/40">
-        {shown === "graph" && (
-          <div className="flex min-h-24 min-w-0 flex-1 overflow-y-auto bg-surface-950/20 p-2 scrollbar-sm">
-            <CurveGraph
+    <div
+      data-ui="CurveReading"
+      /* Focusable so a press on the plot takes the keyboard, which Delete reads. */
+      tabIndex={-1}
+      className="flex min-h-0 flex-1 flex-col gap-1 outline-none"
+      onKeyDown={deleteKey}
+    >
+      <RandomEditContext value={randomEditor}>
+        <CurveToolbar
+          lead={
+            <>
+              {named && <PaneLabel />}
+              <span className="min-w-0 shrink truncate text-surface-200">{chain}</span>
+              <span
+                title={row.path}
+                className="min-w-0 flex-1 truncate font-mono text-meta text-surface-500 select-text"
+              >
+                {row.path}
+              </span>
+            </>
+          }
+          family={family}
+          width={width}
+          muted={muted}
+          onToggle={toggle}
+          draw={draw}
+          field={field}
+          tab={shown}
+          tabled={tabled}
+          onTab={onTab}
+          keyCount={keys.length}
+          selectedCount={selected.length}
+          editable={editable}
+          onAdd={() => void add()}
+          onRemove={() => void remove()}
+          onAddRandom={addsRandom ? () => void addRandom() : null}
+          onRemoveRandom={removesRandom ? () => void removeRandom() : null}
+        />
+        <div className="flex min-h-0 flex-1 flex-col border-t border-surface-700/40">
+          {shown === "graph" && (
+            <div className="flex min-h-24 min-w-0 flex-1 overflow-y-auto bg-surface-950/20 p-2 scrollbar-sm">
+              <CurveGraph
+                keys={keys}
+                family={family}
+                draw={draw}
+                unit={unit}
+                muted={muted}
+                playhead={playhead}
+                live={live}
+                selected={selectedSet}
+                editable={editable}
+                onSelect={select}
+                onSelectMany={selectMany}
+                onChange={commit}
+                onAdd={(key) => void add(key)}
+              />
+            </div>
+          )}
+          {shown === "table" && (
+            <KeyTable
               keys={keys}
               family={family}
-              draw={draw}
-              unit={unit}
-              muted={muted}
-              playhead={playhead}
-              live={live}
-              selected={selectedSet}
-              editable={editable}
-              onSelect={select}
-              onSelectMany={selectMany}
-              onChange={commit}
-              onAdd={(key) => void add(key)}
+              selected={primary}
+              onSelect={(at) => select(at, "replace")}
             />
-          </div>
-        )}
-        {shown === "table" && (
-          <KeyTable
+          )}
+          <CurveKeyEditor
             keys={keys}
             family={family}
-            selected={primary}
-            onSelect={(at) => select(at, "replace")}
+            selected={selected}
+            unit={unit}
+            editable={editable}
+            onCommit={(key) => commit(primary, key)}
           />
-        )}
-        <CurveKeyEditor
-          keys={keys}
-          family={family}
-          selected={selected}
-          unit={unit}
-          editable={editable}
-          onCommit={(key) => commit(primary, key)}
-        />
-      </div>
-    </RandomEditContext>
+        </div>
+      </RandomEditContext>
+    </div>
   );
 }
 

@@ -16,6 +16,7 @@ import {
   type WidgetProps,
 } from "../../classes/components/ClassCells";
 import { CONDITION } from "../../classes/utils/classLayouts";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { FoldCaret } from "../../shared/components/FoldCaret";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { useHeldRows } from "../../tree/state/rowRegistry";
@@ -31,6 +32,12 @@ import {
   itemIndex,
 } from "../utils/conditionEdits";
 import { listLength } from "../utils/effectEdits";
+import {
+  listCommands,
+  SKIN_ADD_CONDITION_COMMAND,
+  SKIN_APPLY_CONDITION_LIST,
+  SKIN_REMOVE_CONDITION_LIST,
+} from "../utils/skinCommands";
 import { EffectList } from "./EffectList";
 import { type EffectScope, ResolverScope } from "./ResolverScope";
 import { SubmeshLine } from "./SubmeshLine";
@@ -73,6 +80,35 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
           sendCalls((declares) => conditionAdd(view.entry, count, declares));
         };
 
+  const choice = use(SkinChoiceContext);
+  const removeItem = use(LeafEditContext)?.removeItem;
+  const titled = conditions.flatMap((condition) => {
+    const index = itemIndex(condition);
+
+    return index === null
+      ? []
+      : [{ condition, index, title: conditionTitle(condition, index, pages) }];
+  });
+
+  usePaneCommands("skin.conditions", {
+    [SKIN_ADD_CONDITION_COMMAND]: { run: add },
+    ...listCommands(
+      SKIN_APPLY_CONDITION_LIST,
+      titled.map(({ index, title }) => ({
+        title,
+        checked: choice?.conditions.has(index) === true,
+        run: choice === null ? null : () => choice.toggleCondition(index),
+      })),
+    ),
+    ...listCommands(
+      SKIN_REMOVE_CONDITION_LIST,
+      titled.map(({ condition, title }) => ({
+        title,
+        run: removeItem === undefined ? null : () => void removeItem(condition),
+      })),
+    ),
+  });
+
   return (
     <div data-ui="ConditionRows" className="flex flex-col">
       {conditions.length === 0 && <None />}
@@ -105,6 +141,22 @@ export function ConditionRows({ section, pages, view }: WidgetProps) {
       )}
     </div>
   );
+}
+
+/** Returns the words of a condition in a menu: its place, then the class of its first driver. */
+function conditionTitle(condition: BinRow, index: number, pages: LayoutPages): string {
+  const fields = fieldsOf(pages.get(rowKey(condition)));
+  const driverOf = (field: string) => {
+    const driver = fields(field);
+
+    return driverSummary(driver, fieldsOf(driver && pages.get(rowKey(driver))));
+  };
+  const driver = driverOf(CONDITION.owner) ?? driverOf(CONDITION.source);
+
+  return m.workshop_bin_menu_skin_condition_item_label({
+    index: index + 1,
+    driver: driver?.className ?? m.workshop_bin_skin_condition_always_label(),
+  });
 }
 
 interface ConditionRowProps {

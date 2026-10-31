@@ -7,15 +7,18 @@ import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId } from "@/lib/tauri";
 import type { Pose } from "@/modules/viewport";
 
+import type { OpenIntent } from "../../../palette/utils/types";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { clickIntent, type HostHint } from "../../../state";
 import { declaringQueries } from "../../documents/api/declaringQueries";
+import { usePaneCommands } from "../../menus/state/paneCommands";
 import { spellQueries } from "../../spells/api/spellQueries";
 import { type EffectTarget, useOpenEffect } from "../../vfx/context/OpenEffect";
 import type { RigModel } from "../../vfx/engine/model/rig";
 import type { ParticleCue } from "../utils/clipEvents";
 import type { WornEffect } from "../utils/conditionScene";
+import { listCommands, SKIN_OPEN_EFFECT_LIST } from "../utils/skinCommands";
 import { cueRig, jointRig } from "../utils/skinScene";
 
 export interface SkinEffectsMenuProps {
@@ -34,6 +37,8 @@ export interface SkinEffectsMenuProps {
   readonly scale: number;
 }
 
+type LoadedEffectsProps = SkinEffectsMenuProps & { readonly pose: Pose };
+
 /**
  * The skin preview's Open effect menu: each idle effect, and each particle event of the clip
  * playing, opened in its own tab on the joint it rides here. Nothing draws outside a project,
@@ -47,7 +52,43 @@ export function SkinEffectsMenu(props: SkinEffectsMenuProps) {
   return <EffectsMenu {...props} pose={props.pose} />;
 }
 
-function EffectsMenu({
+/** Offers each effect of the Open effect menu to the bar, which the Skin menu lists. */
+export function SkinEffectCommands(props: SkinEffectsMenuProps) {
+  const project = useOptionalProjectContext();
+  if (project === null || props.pose === null) return null;
+
+  return <PublishedEffects {...props} pose={props.pose} />;
+}
+
+function PublishedEffects(props: LoadedEffectsProps) {
+  const { leafOf, openIdle, openCue } = useEffectOpeners(props);
+  const { idle, cues } = props;
+
+  usePaneCommands(
+    "skin.viewport.effects",
+    listCommands(SKIN_OPEN_EFFECT_LIST, [
+      ...idle.map((held) => ({
+        title: m.workshop_bin_menu_skin_effect_item_label({
+          name: leafOf(held.system),
+          where: held.effect.bone,
+        }),
+        run: () => openIdle(held, "default"),
+      })),
+      ...cues.map((cue) => ({
+        title: m.workshop_bin_menu_skin_effect_item_label({
+          name: leafOf(cue.system),
+          where: m.workshop_bin_preview_time_label({ seconds: cue.at.toFixed(2) }),
+        }),
+        run: () => openCue(cue, "default"),
+      })),
+    ]),
+  );
+
+  return null;
+}
+
+/** Returns the openers of the effects of `props`, and the last path segment of a system. */
+function useEffectOpeners({
   document,
   asset,
   skin,
@@ -57,7 +98,7 @@ function EffectsMenu({
   cues,
   pose,
   scale,
-}: SkinEffectsMenuProps & { readonly pose: Pose }) {
+}: LoadedEffectsProps) {
   const sandbox = useSandbox();
   const hashes = [...idle.map((each) => each.system), ...cues.map((cue) => cue.system)];
   const names = useQuery(spellQueries.effects(sandbox, document, hashes));
@@ -79,14 +120,13 @@ function EffectsMenu({
   };
   const leafOf = (system: string) => names.data?.objects[system]?.path.split("/").at(-1) ?? system;
 
-  const openIdle = ({ effect, system }: WornEffect, event: MouseEvent) => {
+  const openIdle = ({ effect, system }: WornEffect, intent: OpenIntent) => {
     const rig: RigModel = { ...jointRig(pose, effect, scale), life: "continuous" };
     const host: HostHint = { skin, clip, offset: 0 };
     const label = m.workshop_bin_vfx_context_idle_label({ bone: effect.bone });
-    const intent = clickIntent(event);
     void targetOf(system).then((target) => openEffect(target, rig, label, intent, host));
   };
-  const openCue = (cue: ParticleCue, event: MouseEvent) => {
+  const openCue = (cue: ParticleCue, intent: OpenIntent) => {
     const base = cueRig(pose, cue, scale);
     const motion =
       base.motion.kind === "bone" ? { ...base.motion, period: pose.duration } : base.motion;
@@ -96,9 +136,17 @@ function EffectsMenu({
       clip: clipName ?? clip,
       time: cue.at.toFixed(2),
     });
-    const intent = clickIntent(event);
     void targetOf(cue.system).then((target) => openEffect(target, rig, label, intent, host));
   };
+
+  return { leafOf, openIdle, openCue };
+}
+
+function EffectsMenu(props: LoadedEffectsProps) {
+  const { clip, clipName, idle, cues } = props;
+  const { leafOf, openIdle, openCue } = useEffectOpeners(props);
+  const onIdle = (held: WornEffect, event: MouseEvent) => openIdle(held, clickIntent(event));
+  const onCue = (cue: ParticleCue, event: MouseEvent) => openCue(cue, clickIntent(event));
 
   const action = m.workshop_bin_vfx_open_effect_action();
   return (
@@ -111,7 +159,7 @@ function EffectsMenu({
           <Menu.Group>
             <Menu.GroupLabel>{m.workshop_bin_mesh_preview_idle_effects_label()}</Menu.GroupLabel>
             {idle.map((held) => (
-              <Menu.Item key={held.key} onClick={(event) => openIdle(held, event)}>
+              <Menu.Item key={held.key} onClick={(event) => onIdle(held, event)}>
                 <EffectLine name={leafOf(held.system)} where={held.effect.bone} />
               </Menu.Item>
             ))}
@@ -122,7 +170,7 @@ function EffectsMenu({
           <Menu.Group>
             <Menu.GroupLabel>{clipName ?? clip}</Menu.GroupLabel>
             {cues.map((cue) => (
-              <Menu.Item key={cue.key} onClick={(event) => openCue(cue, event)}>
+              <Menu.Item key={cue.key} onClick={(event) => onCue(cue, event)}>
                 <EffectLine
                   name={leafOf(cue.system)}
                   where={m.workshop_bin_preview_time_label({ seconds: cue.at.toFixed(2) })}

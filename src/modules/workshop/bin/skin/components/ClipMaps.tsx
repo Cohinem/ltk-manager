@@ -4,11 +4,11 @@ import { DataTable, type DataTableColumn, DataTableCells, DataTableHeaders } fro
 import { NO_OVERSCROLL } from "@/hooks";
 import { m } from "@/i18n";
 import type { AnimationGraph, Mask } from "@/lib/tauri";
-import { useSetPreviewDisplay } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { None } from "../../classes/components/ClassCells";
 import { FoldCaret } from "../../shared/components/FoldCaret";
+import { useWeighMask } from "../hooks/useClipCommands";
 import { type ClipTab, SkinChoiceContext } from "../state/skinChoice";
 import { foldLabel } from "./ClipTable";
 
@@ -100,7 +100,7 @@ interface MapTableProps {
  */
 export function MapTable({ graph, tab, joints }: MapTableProps) {
   const choice = use(SkinChoiceContext);
-  const setDisplay = useSetPreviewDisplay();
+  const weigh = useWeighMask();
   switch (tab) {
     case "tracks":
       return <Rows tab={tab} rows={graph.tracks} columns={TRACK_COLUMNS} />;
@@ -111,12 +111,7 @@ export function MapTable({ graph, tab, joints }: MapTableProps) {
           rows={graph.masks}
           columns={MASK_COLUMNS}
           pressed={choice?.mask ?? null}
-          onPick={(mask) => {
-            if (choice === null) return;
-            const weighing = choice.mask !== mask.hash;
-            choice.setMask(weighing ? mask.hash : null);
-            if (weighing) setDisplay({ previewArmature: true });
-          }}
+          onPick={(mask) => weigh(mask.hash)}
           detail={(mask) => <MaskJoints mask={mask} joints={joints} />}
         />
       );

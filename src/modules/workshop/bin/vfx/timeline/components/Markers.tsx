@@ -1,13 +1,16 @@
 import { FlagIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, use, useEffect, useRef, useState } from "react";
 
 import { ContextMenu, Field, useToast } from "@/components";
 import { m } from "@/i18n";
 
+import { useShownPaneCommands } from "../../hooks/usePaneOffers";
+import { VfxRunContext } from "../../playback/state/run";
+import { VFX_COMMAND, VFX_PANE } from "../../utils/vfxCommands";
 import type { TimelineMarkerList } from "../hooks/useTimelineMarkers";
 import type { TimeSnap } from "../hooks/useTimeSnap";
 import { type TimeWindow, timeAt, xOf } from "../utils/laneModel";
-import type { TimelineMarker } from "../utils/markers";
+import { nearestMarker, type TimelineMarker } from "../utils/markers";
 
 /** How far a pointer moves on a marker before a press is a drag rather than a click, in pixels. */
 const DRAG_SLOP = 3;
@@ -40,6 +43,7 @@ export function MarkerRuler({ view, width, snap, markers, onSeek, children }: Ma
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const { toast } = useToast();
+  const driver = use(VfxRunContext)?.driver;
 
   const remove = (id: string) => {
     const marker = markers.markers.find((each) => each.id === id);
@@ -59,6 +63,26 @@ export function MarkerRuler({ view, width, snap, markers, onSeek, children }: Ma
 
   const timeOf = (clientX: number) =>
     timeAt(view, width, clientX - (box.current?.getBoundingClientRect().left ?? 0));
+
+  /* The clock is read on the press, so a playing run re-renders nothing here. */
+  const atPlayhead = () => nearestMarker(markers.markers, driver?.phase ?? 0);
+  const hasMarkers = markers.markers.length > 0;
+  const emptyReason = m.workshop_bin_menu_vfx_marker_empty_reason();
+  useShownPaneCommands(VFX_PANE.markers, {
+    [VFX_COMMAND.markerRename]: {
+      run: hasMarkers ? () => setRenaming(atPlayhead()?.id ?? null) : null,
+      reason: emptyReason,
+    },
+    [VFX_COMMAND.markerDelete]: {
+      run: hasMarkers
+        ? () => {
+            const marker = atPlayhead();
+            if (marker !== undefined) remove(marker.id);
+          }
+        : null,
+      reason: emptyReason,
+    },
+  });
 
   return (
     <ContextMenu.Root>

@@ -225,6 +225,7 @@ export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProp
                       entry,
                     }}
                     recipe={activeAbility}
+                    shown={showSpell}
                   />
                 </Suspense>
               </RetainedContent>
@@ -367,8 +368,9 @@ export function ObjectPath({ path }: { path: string }) {
 }
 
 /**
- * The crumb and the Panes menu, in the tab's header row where it offers the slots, and on
- * a row of the shell's own where it does not.
+ * The crumb and the shell's actions, in the tab's header row where it offers the slots, whose
+ * menu bar holds the Panes submenu. On a row of the shell's own, with a Panes menu, where it does
+ * not.
  *
  * "One row holds the object tab's header and the crumb", "The shell" in
  * docs/ux/BIN_EDITOR.md.
@@ -389,10 +391,7 @@ export function ShellHeader({
     return (
       <>
         <ShellHeaderPortal slot="crumb">{crumb}</ShellHeaderPortal>
-        <ShellHeaderPortal slot="panes">
-          {actions}
-          <PanesMenu kind={kind} />
-        </ShellHeaderPortal>
+        <ShellHeaderPortal slot="panes">{actions}</ShellHeaderPortal>
       </>
     );
   }

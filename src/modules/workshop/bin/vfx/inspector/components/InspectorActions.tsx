@@ -55,9 +55,6 @@ export function InspectorActions({
  */
 function ViewMenu() {
   const definedOnly = useDefinedOnly();
-  const toggleDefinedOnly = useToggleDefinedOnly();
-  const preview = useInspectorPreview();
-  const togglePreview = useToggleInspectorPreview();
   const changedOnly = useChangeViewStore((state) => state.changedOnly);
 
   return (
@@ -77,15 +74,29 @@ function ViewMenu() {
         }
       />
       <Menu.Content align="start" data-ui="InspectorViewMenu" className="w-48">
-        <Menu.CheckboxItem checked={definedOnly} onCheckedChange={() => toggleDefinedOnly()}>
-          {m.workshop_bin_inspector_defined_only_action()}
-        </Menu.CheckboxItem>
-        <Menu.CheckboxItem checked={preview} onCheckedChange={() => togglePreview()}>
-          {m.workshop_bin_inspector_preview_action()}
-        </Menu.CheckboxItem>
-        <Menu.Separator />
-        <ChangeMenuItems />
+        <InspectorViewItems />
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+/** The items of the inspector's View menu, which a menu bar also draws as a submenu. */
+export function InspectorViewItems() {
+  const definedOnly = useDefinedOnly();
+  const toggleDefinedOnly = useToggleDefinedOnly();
+  const preview = useInspectorPreview();
+  const togglePreview = useToggleInspectorPreview();
+
+  return (
+    <>
+      <Menu.CheckboxItem checked={definedOnly} onCheckedChange={() => toggleDefinedOnly()}>
+        {m.workshop_bin_inspector_defined_only_action()}
+      </Menu.CheckboxItem>
+      <Menu.CheckboxItem checked={preview} onCheckedChange={() => togglePreview()}>
+        {m.workshop_bin_inspector_preview_action()}
+      </Menu.CheckboxItem>
+      <Menu.Separator />
+      <ChangeMenuItems />
+    </>
   );
 }

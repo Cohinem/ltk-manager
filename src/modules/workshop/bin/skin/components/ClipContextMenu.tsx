@@ -4,13 +4,13 @@ import { ContextMenu } from "@/components";
 import { m } from "@/i18n";
 import type { GraphClip } from "@/lib/tauri";
 
-import { previewDocument } from "../../../documents/utils/contentDocument";
 import { useOpenDocumentAs } from "../../../state";
+import { clipDocument } from "../hooks/useClipCommands";
 
 export function ClipContextMenu({ clip }: { clip: GraphClip }) {
   const open = useOpenDocumentAs();
   const animation = clip.animation;
-  const document = animation?.asset ? previewDocument(animation.asset, animation.path) : null;
+  const document = clipDocument(clip);
   return (
     <ContextMenu.Content>
       <ContextMenu.Item

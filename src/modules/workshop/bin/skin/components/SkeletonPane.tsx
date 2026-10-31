@@ -33,7 +33,7 @@ import { useSkinBind } from "../hooks/useSkinBind";
 import { SkinChoiceContext } from "../state/skinChoice";
 import { type JointRoles, jointRoles } from "../utils/dynamicsModel";
 import { jointSlot } from "../utils/skinScene";
-import { JointActions } from "./JointActions";
+import { JointActions, JointCommands } from "./JointActions";
 
 /** How far one level of the outline is indented, in pixels. */
 const INDENT_PX = 12;
@@ -109,6 +109,7 @@ function Outline({ view, entry }: { view: ViewContext; entry: string }) {
   const selected = picked === null ? -1 : bound.jointNamed(picked);
   const before = trail.before === null ? -1 : bound.jointNamed(trail.before);
   const joints = shown.filter((row) => row.kind === "joint");
+  const selectedRoles = rows.find((row) => row.kind === "joint" && row.slot === selected)?.roles;
   const toggle = (slot: number) =>
     setFolded((held) => {
       const next = new Set(held);
@@ -144,6 +145,18 @@ function Outline({ view, entry }: { view: ViewContext; entry: string }) {
 
   return (
     <div data-ui="SkeletonPane" className="flex min-h-0 flex-1 flex-col select-none">
+      {editable && selectedRoles != null && (
+        <JointCommands
+          document={view.document}
+          entry={entry}
+          skin={model}
+          pose={bound}
+          slot={selected}
+          roles={selectedRoles}
+          selected={selected}
+          before={before}
+        />
+      )}
       <div className="flex shrink-0 items-center gap-1 border-b border-surface-700/50 px-2 py-1.5">
         <Fill>
           <SearchField

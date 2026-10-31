@@ -61,6 +61,7 @@ export function PreviewDocument({
     return (
       <MapFileDocument
         key={document.id}
+        documentId={document.id}
         map={map}
         active={active}
         actions={<PreviewActions document={document} />}

@@ -30,7 +30,11 @@ export function ClipsHost({ view, entry, className }: ClipsHostProps) {
   return (
     <div className={className}>
       {view.classHash === ANIMATION_GRAPH && (
-        <ClipsPane source={{ document: view.document, graph: entry }} joints={null} />
+        <ClipsPane
+          source={{ document: view.document, graph: entry }}
+          joints={null}
+          previewed={false}
+        />
       )}
       {view.classHash !== ANIMATION_GRAPH && <SkinClips view={view} entry={entry} />}
     </div>

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { MapChunk, MapGeometryMesh } from "@/lib/tauri";
 
 import { NO_FILTER } from "../mapOutline";
-import { groupId, sceneRows } from "../sceneOutline";
+import { groupId, listedIds, sceneRows } from "../sceneOutline";
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -25,6 +25,44 @@ function mesh(index: number, controller: string | null, material = "Maps/Grass")
 
 const CHUNK: MapChunk = { entry: "0xaaaaaaaa", name: null, items: [] };
 const names = (hash: string) => (hash === "0x2" ? "Baron" : "Arena");
+
+describe("listedIds", () => {
+  it("lists the meshes and the placeables that the filter keeps, in folded chunks too", () => {
+    const chunk: MapChunk = {
+      entry: "0xaaaaaaaa",
+      name: null,
+      items: [
+        {
+          key: "0x00000001",
+          name: "Brazier",
+          class: "MapParticle",
+          kind: "particle",
+          position: [0, 0, 0],
+          transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+          shape: null,
+          visibility: 255,
+          controller: null,
+        },
+      ],
+    };
+
+    const all = listedIds({
+      meshes: [mesh(0, null), mesh(1, "0x2")],
+      chunks: [chunk],
+      filter: NO_FILTER,
+      controllerName: names,
+    });
+    const narrowed = listedIds({
+      meshes: [mesh(0, null), mesh(1, "0x2")],
+      chunks: [chunk],
+      filter: { ...NO_FILTER, text: "baron" },
+      controllerName: names,
+    });
+
+    expect(all).toEqual(["mesh:0", "mesh:1", "0xaaaaaaaa/0x00000001"]);
+    expect(narrowed).toEqual(["mesh:1"]);
+  });
+});
 
 describe("sceneRows", () => {
   it("lists chunks alone when the map has no meshes", () => {

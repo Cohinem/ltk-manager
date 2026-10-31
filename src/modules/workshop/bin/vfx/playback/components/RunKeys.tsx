@@ -4,41 +4,19 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { useContentVisible } from "@/hooks";
 
 import { useEmitters } from "../../inspector/state/emitterChoice";
-import {
-  type TimelineMarkerList,
-  useTimelineMarkers,
-} from "../../timeline/hooks/useTimelineMarkers";
-import { chosenEmitters, togglesAll } from "../../timeline/utils/selection";
-import { useVfxRun, type VfxRun } from "../state/run";
+import { useTimelineMarkers } from "../../timeline/hooks/useTimelineMarkers";
+import { hotkeyOf, type RunKey, VFX_KEYS } from "../../utils/vfxKeys";
+import { useVfxRun } from "../state/run";
 import { ignoredKey } from "../utils/ignoredKey";
-import { speedDetent } from "./Transport";
+import { RUN_ACTIONS, runSelection } from "../utils/runActions";
 
-/** How many frames Shift and an arrow move, which is a tenth of a second. */
-const SHIFT_FRAMES = 6;
-
-/** What each key does to the run, "The keys" in docs/ux/BIN_EDITOR.md. Esc is the pane tree's. */
-const KEYS: Record<
-  string,
-  (run: VfxRun, selected: readonly number[], markers: TimelineMarkerList | null) => void
-> = {
-  space: (run) => run.setPlaying(!run.playing),
-  left: (run) => run.step(-1),
-  right: (run) => run.step(1),
-  "shift+left": (run) => run.step(-SHIFT_FRAMES),
-  "shift+right": (run) => run.step(SHIFT_FRAMES),
-  home: (run) => {
-    run.restart();
-    run.setPlaying(true);
-  },
-  end: (run) => run.seekEnd(),
-  l: (run) => run.setLooping(!run.looping),
-  f: (run) => run.requestFit(),
-  s: (run, selected) => selected.length > 0 && run.setSoloed((held) => togglesAll(held, selected)),
-  m: (run, selected) => selected.length > 0 && run.setMuted((held) => togglesAll(held, selected)),
-  bracketleft: (run) => run.setSpeed(speedDetent(run.speed, -1)),
-  bracketright: (run) => run.setSpeed(speedDetent(run.speed, 1)),
-  "ctrl+m": (run, _, markers) => markers?.add(run.driver.phase),
-};
+/** The action of each key, by the key's `react-hotkeys-hook` spelling. */
+const KEYS = new Map(
+  (Object.keys(RUN_ACTIONS) as RunKey[]).map((name) => [
+    hotkeyOf(VFX_KEYS[name]),
+    RUN_ACTIONS[name],
+  ]),
+);
 
 /**
  * The run's keys, live wherever focus is inside this box and outside an editable field.
@@ -53,13 +31,9 @@ export function RunKeys({ children }: { children: ReactNode }) {
   const visible = useContentVisible();
 
   const ref = useHotkeys<HTMLDivElement>(
-    Object.keys(KEYS).join(", "),
+    [...KEYS.keys()].join(", "),
     (_, handler) => {
-      /* A selected child lane leaves the set empty, and its parent's open card stands for it. */
-      const places = cards.filter((card) => selected.has(card.key));
-      if (places.length === 0 && root !== undefined) places.push(root);
-
-      KEYS[handler.hotkey]?.(run, chosenEmitters(run.system, places), markers);
+      KEYS.get(handler.hotkey)?.(run, runSelection(run.system, cards, root, selected), markers);
     },
     {
       preventDefault: true,

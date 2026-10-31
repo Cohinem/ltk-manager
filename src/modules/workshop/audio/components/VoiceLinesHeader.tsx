@@ -5,6 +5,7 @@ import { Badge, Code, Inline, SearchField, Select, TogglePill, Tooltip } from "@
 import { m } from "@/i18n";
 import type { Audience, VoiceLinesResponse, VoiceSkin } from "@/lib/tauri";
 
+import { ShellHeaderPortal } from "../../bin/shell/state/shellHeader";
 import { skinLabel } from "../utils/voiceLines";
 import type { TriggerContext } from "../utils/voiceTrigger";
 import { TextControl } from "./VoiceFieldRows";
@@ -67,7 +68,9 @@ export function VoiceLinesHeader({
   return (
     <div data-ui="VoiceLinesHeader" className="flex flex-col border-b border-surface-700/50">
       <div className="flex min-w-0 items-center gap-2 border-b border-surface-700/40 py-1 pr-2 pl-1 select-none">
-        {menubar}
+        <ShellHeaderPortal slot="menubar" fallback={menubar}>
+          {menubar}
+        </ShellHeaderPortal>
         <span className="flex w-56 min-w-32 shrink items-center">
           <SearchField
             value={filter}

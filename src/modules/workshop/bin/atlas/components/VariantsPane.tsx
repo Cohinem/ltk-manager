@@ -18,7 +18,7 @@ import { useAtlasView } from "../hooks/useAtlasSources";
 import { useAtlasPreviewActions, useViewVariant, viewKey } from "../state/atlasPreview";
 
 /** The radio value of the base, which no controller field name can be. */
-const BASE = ":base";
+export const VARIANT_BASE = ":base";
 
 export interface VariantsPaneProps {
   readonly document: BinDocumentId;
@@ -55,12 +55,12 @@ export function VariantsPane({ document, entry }: VariantsPaneProps) {
     >
       <RadioGroup.Root
         aria-label={m.workshop_bin_pane_variants_label()}
-        value={drawn ?? BASE}
-        onValueChange={(value) => setVariant(key, value === BASE ? null : String(value))}
+        value={drawn ?? VARIANT_BASE}
+        onValueChange={(value) => setVariant(key, value === VARIANT_BASE ? null : String(value))}
         className="gap-1"
       >
         <RadioGroup.Card
-          value={BASE}
+          value={VARIANT_BASE}
           title={m.workshop_bin_atlas_variants_base_label()}
           description={base === undefined ? undefined : fileName(base.path)}
           className="p-2"

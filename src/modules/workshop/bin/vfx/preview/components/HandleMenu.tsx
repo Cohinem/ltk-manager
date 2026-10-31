@@ -14,6 +14,8 @@ import {
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
 
+import { usePaneCommandLookup } from "../../../menus/state/paneCommands";
+import { handleAddsCommand, handleCommand } from "../../utils/vfxCommands";
 import { HANDLE_KINDS, type HandleKind } from "../utils/spatialHandles";
 
 const NONE = "none";
@@ -82,46 +84,90 @@ export function HandleMenu({
         }
       />
       <Menu.Content align="end" data-ui="HandleMenu" className="w-52">
-        <Menu.RadioGroup
-          value={value ?? NONE}
-          onValueChange={(each) => onChange(each === NONE ? null : (each as HandleKind))}
-        >
-          <Menu.RadioItem value={NONE}>{m.workshop_bin_handle_none_label()}</Menu.RadioItem>
-          <Menu.Separator />
-          {HANDLE_KINDS.map((kind) => {
-            const reason = blocked(kind);
-            const ItemIcon = HANDLE_ICON[kind];
-            return (
-              <Menu.RadioItem key={kind} value={kind} disabled={reason !== null}>
-                <span className="flex min-w-0 items-center gap-2">
-                  <ItemIcon weight="bold" className="size-3.5 shrink-0" />
-                  <span className="flex min-w-0 flex-col">
-                    {HANDLE_LABEL[kind]()}
-                    {reason !== null && (
-                      <span className="text-meta text-surface-500">{reason}</span>
-                    )}
-                  </span>
-                  {reason === null && adds(kind) && (
-                    <PlusIcon
-                      weight="bold"
-                      aria-hidden
-                      className="size-3 shrink-0 text-surface-400"
-                    />
-                  )}
-                </span>
-              </Menu.RadioItem>
-            );
-          })}
-        </Menu.RadioGroup>
-        {HANDLE_KINDS.some((kind) => blocked(kind) === null && adds(kind)) && (
-          <>
-            <Menu.Separator />
-            <p className="px-2 py-1 text-meta text-surface-400 select-none">
-              {m.workshop_bin_handle_adds_hint()}
-            </p>
-          </>
-        )}
+        <HandleItems value={value} blocked={blocked} adds={adds} onChange={onChange} />
       </Menu.Content>
     </Menu.Root>
+  );
+}
+
+interface HandleItemsProps {
+  value: HandleKind | null;
+  /** Why each handle is unavailable, and null for one the emitter takes. */
+  blocked: (kind: HandleKind) => string | null;
+  /** Whether choosing the handle writes its property to the emitter first. */
+  adds: (kind: HandleKind) => boolean;
+  onChange: (kind: HandleKind | null) => void;
+  /** No handle takes a press, because no emitter is open. */
+  noneDisabled?: boolean;
+}
+
+/** The items of `HandleMenu`, which a menu bar also draws as a submenu. */
+export function HandleItems({ value, blocked, adds, onChange, noneDisabled }: HandleItemsProps) {
+  return (
+    <>
+      <Menu.RadioGroup
+        value={value ?? NONE}
+        onValueChange={(each) => onChange(each === NONE ? null : (each as HandleKind))}
+      >
+        <Menu.RadioItem value={NONE} disabled={noneDisabled}>
+          {m.workshop_bin_handle_none_label()}
+        </Menu.RadioItem>
+        <Menu.Separator />
+        {HANDLE_KINDS.map((kind) => {
+          const reason = blocked(kind);
+          const ItemIcon = HANDLE_ICON[kind];
+          return (
+            <Menu.RadioItem key={kind} value={kind} disabled={reason !== null}>
+              <span className="flex min-w-0 items-center gap-2">
+                <ItemIcon weight="bold" className="size-3.5 shrink-0" />
+                <span className="flex min-w-0 flex-col">
+                  {HANDLE_LABEL[kind]()}
+                  {reason !== null && <span className="text-meta text-surface-500">{reason}</span>}
+                </span>
+                {reason === null && adds(kind) && (
+                  <PlusIcon
+                    weight="bold"
+                    aria-hidden
+                    className="size-3 shrink-0 text-surface-400"
+                  />
+                )}
+              </span>
+            </Menu.RadioItem>
+          );
+        })}
+      </Menu.RadioGroup>
+      {HANDLE_KINDS.some((kind) => blocked(kind) === null && adds(kind)) && (
+        <>
+          <Menu.Separator />
+          <p className="px-2 py-1 text-meta text-surface-400 select-none">
+            {m.workshop_bin_handle_adds_hint()}
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+
+/** `HandleItems` over what the viewport offers, for a surface above the viewport. */
+export function PaneHandleItems() {
+  const lookup = usePaneCommandLookup();
+  const none = lookup(handleCommand("none"));
+
+  const blocked = (kind: HandleKind) => {
+    const offer = lookup(handleCommand(kind));
+    if (offer === null) return m.workshop_bin_menu_vfx_preview_reason();
+    if (offer.run !== null) return null;
+
+    return offer.reason ?? none?.reason ?? m.workshop_bin_menu_vfx_emitter_reason();
+  };
+
+  return (
+    <HandleItems
+      value={HANDLE_KINDS.find((kind) => lookup(handleCommand(kind))?.checked === true) ?? null}
+      blocked={blocked}
+      adds={(kind) => lookup(handleAddsCommand(kind))?.checked === true}
+      onChange={(kind) => lookup(handleCommand(kind ?? "none"))?.run?.()}
+      noneDisabled={none?.run == null}
+    />
   );
 }

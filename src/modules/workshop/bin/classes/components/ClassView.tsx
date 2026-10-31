@@ -54,6 +54,7 @@ import {
   Stack,
   VfxShell,
 } from "./ClassFrames";
+import { ClassMenubarOf } from "./ClassMenubars";
 import { AtlasShell, PreviewShell, ShellEditScope } from "./ObjectShells";
 
 /**
@@ -253,6 +254,7 @@ export function ClassView({
                                     document={document}
                                     entry={entry}
                                   >
+                                    <ClassMenubarOf layout={layout} classHash={classHash} />
                                     <ContextMenu.Root>
                                       <ContextMenu.Trigger
                                         ref={measure}

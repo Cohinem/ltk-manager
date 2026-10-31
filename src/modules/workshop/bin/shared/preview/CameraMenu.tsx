@@ -21,7 +21,6 @@ const PRESET_LABEL: Record<CameraPreset, () => string> = {
  */
 export function CameraMenu() {
   const camera = usePreviewCamera();
-  const setDisplay = useSetPreviewDisplay();
 
   return (
     <Menu.Root>
@@ -39,16 +38,24 @@ export function CameraMenu() {
         }
       />
       <Menu.Content align="end" data-ui="CameraMenu" className="w-36">
-        {CAMERA_PRESETS.map((preset) => (
-          <Menu.Item
-            key={preset}
-            icon={preset === camera && <CheckIcon weight="bold" className="size-4" />}
-            onClick={() => setDisplay({ previewCamera: preset })}
-          >
-            {PRESET_LABEL[preset]()}
-          </Menu.Item>
-        ))}
+        <CameraItems />
       </Menu.Content>
     </Menu.Root>
   );
+}
+
+/** The camera presets as menu items, with the current one checked. */
+export function CameraItems() {
+  const camera = usePreviewCamera();
+  const setDisplay = useSetPreviewDisplay();
+
+  return CAMERA_PRESETS.map((preset) => (
+    <Menu.Item
+      key={preset}
+      icon={preset === camera && <CheckIcon weight="bold" className="size-4" />}
+      onClick={() => setDisplay({ previewCamera: preset })}
+    >
+      {PRESET_LABEL[preset]()}
+    </Menu.Item>
+  ));
 }
