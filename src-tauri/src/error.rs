@@ -13,6 +13,7 @@ use specta::datatype::{DataType, Enum, Field, Variant};
 use ltk_manager_base::error::{message_with_sources, DomainError, ErrorKind};
 pub use ltk_manager_base::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_bin::bin_document::{BinDocumentError, EditRejection, ReadOnly};
+use ltk_manager_core::deep_link::DownloadError;
 use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
 use ltk_manager_runeforge::RuneforgeError;
 use ltk_manager_runtime::launcher::LauncherError;
@@ -136,6 +137,8 @@ pub enum AppErrorResponse {
     UntrustedDomain { domain: String },
     /// A call to RuneForge failed. The variant says which and carries what the dialog renders.
     Runeforge { error: RuneforgeError },
+    /// The download an install link starts was refused or failed. The variant says which.
+    Download { error: DownloadError },
     /// A file gives no WEM for a media replacement. The variant says why.
     AudioConvert {
         error: crate::services::audio::AudioConvertError,
@@ -267,19 +270,20 @@ impl<T> IpcResult<T> {
 /// where the diagnostics see one. The invoke handler cannot serve: its closure
 /// returns before the command resolves, so it never sees a result at all.
 fn report(error: &AppErrorResponse) {
-    let (code, message) = reported(error);
-    crate::telemetry::report_app_error(&code, &message);
+    let (code, kind, message) = reported(error);
+    crate::telemetry::report_app_error(&code, kind.as_deref(), &message);
 }
 
-/// The code an error groups under, and what it said beyond that code.
+/// The code an error groups under, its kind if the code has several, and what it said.
 ///
 /// Read off the serialized form rather than matched variant by variant, so a new
 /// variant reports under its own code without being added in a second place. The
+/// kind is the `kind` tag of the error, or of its domain error under `error`. The
 /// message is the fields the frontend draws as data, which are prose from
 /// outside the app and are scrubbed on the way to the wire.
-fn reported(error: &AppErrorResponse) -> (String, String) {
+fn reported(error: &AppErrorResponse) -> (String, Option<String>, String) {
     let Ok(serde_json::Value::Object(fields)) = serde_json::to_value(error) else {
-        return ("UNKNOWN".to_owned(), String::new());
+        return ("UNKNOWN".to_owned(), None, String::new());
     };
 
     let code = fields
@@ -287,6 +291,11 @@ fn reported(error: &AppErrorResponse) -> (String, String) {
         .and_then(serde_json::Value::as_str)
         .unwrap_or("UNKNOWN")
         .to_owned();
+    let kind = fields
+        .get("kind")
+        .or_else(|| fields.get("error").and_then(|error| error.get("kind")))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
     let message = fields
         .iter()
         .filter(|(key, _)| key.as_str() != "code")
@@ -294,7 +303,7 @@ fn reported(error: &AppErrorResponse) -> (String, String) {
         .collect::<Vec<_>>()
         .join(" ");
 
-    (code, message)
+    (code, kind, message)
 }
 
 impl<T, E: Into<AppErrorResponse>> From<Result<T, E>> for IpcResult<T> {
@@ -373,6 +382,7 @@ impl From<DomainError> for AppErrorResponse {
         let error = downcast_or!(error, LauncherError, error => Self::Launcher { error });
         let error = downcast_or!(error, WorkshopError, error => Self::Workshop { error });
         let error = downcast_or!(error, RuneforgeError, error => Self::Runeforge { error });
+        let error = downcast_or!(error, DownloadError, error => Self::Download { error });
         let error = downcast_or!(error, BinDocumentError, error => Self::from(error));
         let error = downcast_or!(
             error,

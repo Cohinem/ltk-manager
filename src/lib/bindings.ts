@@ -193,6 +193,8 @@ export type AppErrorResponse =
 { code: "UNTRUSTED_DOMAIN"; domain: string } | 
 /**  A call to RuneForge failed. The variant says which and carries what the dialog renders. */
 { code: "RUNEFORGE"; error: RuneforgeError } | 
+/**  The download an install link starts was refused or failed. The variant says which. */
+{ code: "DOWNLOAD"; error: DownloadError } | 
 /**  A file gives no WEM for a media replacement. The variant says why. */
 { code: "AUDIO_CONVERT"; error: AudioConvertError } | 
 /**
@@ -2077,6 +2079,36 @@ export type DefineSource =
 /**  Set by the engine for the maps that a skin names. */
 "skin";
 
+/**
+ *  The kind of a [`DeliveryError`], without its message.
+ * 
+ *  Crosses IPC as the reason of a refused start, which the frontend turns into copy, and
+ *  travels in a count.
+ */
+export type DeliveryFailure = 
+/**  A request failed, or its response body did not decode. */
+"NETWORK" | 
+/**  The service answered with an error status. */
+"REFUSED" | 
+/**  The service refused the install token twice. */
+"UNAUTHORIZED" | 
+/**  The registration challenge is above the supported difficulty. */
+"DIFFICULTY" | 
+/**  The manifest signature does not verify. */
+"SIGNATURE" | 
+/**  A manifest field is outside the contract. */
+"INVALID" | 
+/**  The offered manifest is older than the cached one. */
+"STALE" | 
+/**  The downloaded DLL does not match its release. */
+"INTEGRITY" | 
+/**  No cached manifest offers a build for this manager. */
+"NO_RELEASE" | 
+/**  The build has no attestation and no DLL is staged. */
+"UNATTESTED" | 
+/**  A read or write failed. */
+"IO";
+
 /**  One dependency a `PROP` names, as its path and its brex spelling. */
 export type Dependency = {
 	/**  The archive path as the file writes it. */
@@ -2160,6 +2192,27 @@ export type Doc = {
 	/**  Worked examples, one block each. */
 	examples: string[],
 };
+
+/**
+ *  Why the download an install link starts failed.
+ * 
+ *  Sent over IPC whole, as the `error` of the `DOWNLOAD` code, so the frontend switches on
+ *  `kind` and renders the data that a variant carries. The status variants follow the RuneForge
+ *  download routes, which give a file only for a link the site signed in the last 15 minutes.
+ */
+export type DownloadError = 
+/**  The server refused the link as unsigned, expired or tampered (403). */
+{ kind: "LINK_EXPIRED" } | 
+/**  The mod or the release is gone, or the mod is private (404). */
+{ kind: "UNAVAILABLE" } | 
+/**  The release's files were pruned (410). */
+{ kind: "FILES_REMOVED" } | 
+/**  The per-minute or the guest daily limit was reached (429). `retry_after` is in seconds. */
+{ kind: "RATE_LIMITED"; retryAfter: number | null } | 
+/**  The server answered with a `status` that has no variant of its own. */
+{ kind: "HTTP"; status: number } | 
+/**  The server was not reached, or the connection broke before the headers arrived. */
+{ kind: "OFFLINE"; detail: string };
 
 /**  Fields to change on a mod's metadata. `None` leaves a field untouched. */
 export type EditModMetadataArgs = {
@@ -2298,7 +2351,7 @@ export type EnginePass =
  *  the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
  *  a CLI could map the same names to exit codes.
  */
-export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN" | "RUNEFORGE";
+export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN" | "RUNEFORGE" | "DOWNLOAD";
 
 /**  One action of an event. */
 export type EventAction = {
@@ -6664,8 +6717,11 @@ export type PatcherError =
 { kind: "LEAGUE_ELEVATED" } | 
 /**  LTK Manager runs as administrator, and a session runs unelevated. */
 { kind: "MANAGER_ELEVATED" } | 
-/**  No patcher DLL could be selected for the session. `message` says why. */
-{ kind: "DLL_UNAVAILABLE"; message: string } | 
+/**
+ *  No patcher DLL could be selected for the session. `reason` is the delivery failure's
+ *  kind, which the frontend turns into copy.
+ */
+{ kind: "DLL_UNAVAILABLE"; reason: DeliveryFailure } | 
 /**
  *  One injection session failed. `stage` separates a host that never came up
  *  from a game that was never patched, since they call for different advice.

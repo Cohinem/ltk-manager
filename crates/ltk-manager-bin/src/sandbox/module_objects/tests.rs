@@ -1,5 +1,5 @@
 use fs_err as fs;
-use ltk_hash::{BinHash, WadHash};
+use ltk_hash::{BinHash, Hash as _, WadHash};
 
 use super::*;
 use crate::sandbox::SandboxRef;
@@ -135,6 +135,121 @@ modules:
             ),
         ]
     );
+}
+
+/// An install whose index reaches a chunk the tables name by its path alone, as `GameIndex` does.
+struct NamedInInstall;
+
+impl AssetLookup for NamedInInstall {
+    fn locate(&self, path: &str) -> Option<AssetRef> {
+        (path == CHUNK).then(|| AssetRef::GameChunk {
+            wad: "Champions/Teemo.wad.client".to_owned(),
+            path_hash: format!("{:016x}", WadHash::hash_str(path).0),
+        })
+    }
+}
+
+#[test]
+fn module_objects_lists_a_creation_in_a_chunk_the_tables_name() {
+    let objects = module_objects(
+        &format!(
+            "version: 1\nmodules:\n  - target: {CHUNK}\n    objects:\n      Mods/jade/Clone:\n        clone: {SKIN}\n"
+        ),
+        &NamedInInstall,
+    );
+
+    assert_eq!(objects.len(), 1);
+    assert_eq!(objects[0].path, "Mods/jade/Clone");
+    assert!(matches!(
+        objects[0].action,
+        ModuleObjectAction::Create { .. }
+    ));
+}
+
+/// A one-layer project whose `base` manifest is `manifest`, kept beside its directory.
+fn project(manifest: &str) -> (tempfile::TempDir, Sandbox) {
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("content/base")).unwrap();
+    fs::write(dir.path().join("content/base/game_data.yaml"), manifest).unwrap();
+    let config = serde_json::json!({
+        "name": "probe",
+        "display_name": "Probe",
+        "version": "1.0.0",
+        "description": "",
+        "authors": [],
+        "layers": [{ "name": "base", "priority": 0 }],
+    });
+    fs::write(dir.path().join("mod.config.json"), config.to_string()).unwrap();
+
+    let sandbox = Sandbox::open(SandboxRef::Project {
+        project: dir.path().to_string_lossy().into_owned(),
+    });
+    (dir, sandbox)
+}
+
+#[test]
+fn join_created_declares_a_creation_in_its_target_chunk() {
+    let (_dir, sandbox) = project(&format!(
+        "version: 1\nmodules:\n  - target: {CHUNK}\n    objects:\n      Mods/jade/Made:\n        class: VfxSystemDefinitionData\n"
+    ));
+    let made = hex(BinHash::from("Mods/jade/Made"));
+    let skin = hex(BinHash::from(SKIN));
+
+    let mut objects = HashMap::new();
+    sandbox.join_created(
+        &[made.clone(), skin.clone()],
+        &(),
+        &InTeemo,
+        &|_| None,
+        &mut objects,
+    );
+
+    assert_eq!(objects.len(), 1);
+    let declared = &objects[&made];
+    assert_eq!(declared.path, "Mods/jade/Made");
+    assert_eq!(declared.declarations.len(), 1);
+    assert_eq!(declared.declarations[0].class, "VfxSystemDefinitionData");
+    assert!(matches!(
+        declared.declarations[0].asset,
+        AssetRef::GameChunk { .. }
+    ));
+}
+
+#[test]
+fn join_created_keeps_a_declaration_the_objects_hold() {
+    let (_dir, sandbox) = project(&format!(
+        "version: 1\nmodules:\n  - target: {CHUNK}\n    objects:\n      Mods/jade/Made:\n        class: VfxSystemDefinitionData\n"
+    ));
+    let made = hex(BinHash::from("Mods/jade/Made"));
+    let layer = ObjectDeclaration {
+        asset: AssetRef::Layer {
+            project: "probe".to_owned(),
+            layer: "base".to_owned(),
+            path: "Teemo.wad.client/data/jade.bin".to_owned(),
+        },
+        file: "Teemo.wad.client/data/jade.bin".to_owned(),
+        class_hash: hex(BinHash::from("VfxSystemDefinitionData")),
+        class: "VfxSystemDefinitionData".to_owned(),
+    };
+    let mut objects = HashMap::from([(
+        made.clone(),
+        DeclaredObject {
+            path: "Mods/jade/Made".to_owned(),
+            declarations: vec![layer.clone()],
+        },
+    )]);
+
+    sandbox.join_created(
+        std::slice::from_ref(&made),
+        &(),
+        &InTeemo,
+        &|_| None,
+        &mut objects,
+    );
+
+    let declarations = &objects[&made].declarations;
+    assert_eq!(declarations.len(), 2);
+    assert_eq!(declarations[0], layer);
 }
 
 #[test]

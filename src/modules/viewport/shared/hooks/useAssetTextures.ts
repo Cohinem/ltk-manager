@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   type ColorSpace,
   type CompressedPixelFormat,
@@ -23,6 +23,7 @@ import type { AssetRef } from "@/lib/tauri";
 import { type MipLevel, readMipBuffer } from "../../assets/parsing/mipBuffer";
 import { TEXTURE_COLOR_SPACE } from "../../scene/utils/world";
 import { createRetainedCache, useRetained } from "../utils/retainedCache";
+import { sameTextures, texturesOverHeld } from "../utils/texturesOverHeld";
 
 const NONE: ReadonlyMap<string, Texture> = new Map();
 
@@ -84,11 +85,18 @@ export interface TextureLoad {
    * material sampler narrows it where it names another.
    */
   readonly wrap?: Wrapping;
+  /**
+   * A changed set keeps answering each key with the texture it last had until that key lands.
+   * The other keys of the set do not go blank when one asset changes.
+   */
+  readonly holdWhileLoading?: boolean;
   readonly report?: (load: TextureProgress) => void;
 }
 
-/** What a set loads with: every option of `TextureLoad` but the report, defaults applied. */
-type TextureSettings = Required<Omit<TextureLoad, "previewWidth" | "fullWidth" | "report">> &
+/** What a set loads with: the options that change the textures, defaults applied. */
+type TextureSettings = Required<
+  Omit<TextureLoad, "previewWidth" | "fullWidth" | "holdWhileLoading" | "report">
+> &
   Pick<TextureLoad, "previewWidth" | "fullWidth">;
 
 /**
@@ -149,6 +157,10 @@ const IMAGES = createRetainedCache<string, ImageLoad>(closeImage);
    fetching and decoding the set again. */
 const TEXTURE_SETS = createRetainedCache<string, TextureSet>((set) => set.dispose());
 
+/* Keyed by the file, its version, the width and the sampling, so a set that changes one asset
+   keeps the uploads of the rest. Three uploads a `Texture` once per object. */
+const UPLOADS = createRetainedCache<string, Texture>((texture) => texture.dispose());
+
 /**
  * Each asset as a texture the viewport draws with, under the key it was asked by.
  *
@@ -157,8 +169,8 @@ const TEXTURE_SETS = createRetainedCache<string, TextureSet>((set) => set.dispos
  * texture. Callers asking for the same assets with the same options share one load and
  * one set of textures, which outlives the last of them by a grace period.
  *
- * A layer file saved on disk starts a new set, which decodes that file again and takes the
- * rest from the pixels already decoded.
+ * A changed asset or a layer file saved on disk starts a new set, which decodes that file again.
+ * The rest keep their `Texture` objects, identified by file, version, width and sampling.
  */
 export function useAssetTextures(
   assets: ReadonlyMap<string, AssetRef>,
@@ -169,6 +181,7 @@ export function useAssetTextures(
     mips = false,
     colorSpace = TEXTURE_COLOR_SPACE,
     wrap = RepeatWrapping,
+    holdWhileLoading = false,
     report,
   }: TextureLoad = {},
 ): ReadonlyMap<string, Texture> {
@@ -197,7 +210,15 @@ export function useAssetTextures(
 
   useEffect(() => (report === undefined ? undefined : set.watch(report)), [set, report]);
 
-  return textures;
+  const [held, setHeld] = useState(NONE);
+  useEffect(() => {
+    if (holdWhileLoading) setHeld((before) => texturesOverHeld(assets, before, textures));
+  }, [holdWhileLoading, assets, textures]);
+
+  return useMemo(
+    () => (holdWhileLoading ? texturesOverHeld(assets, held, textures) : textures),
+    [holdWhileLoading, assets, held, textures],
+  );
 }
 
 function createTextureSet(
@@ -212,10 +233,8 @@ function createTextureSet(
   const reports = new Set<(load: TextureProgress) => void>();
 
   const loaded = new Map<string, Texture>();
-  /* What the first wave landed, which says whether the second would answer the same
-     bytes, and what the second replaced, which nothing draws once it has. */
+  /* What the first wave landed, which says whether the second would answer the same bytes. */
   const widths = new Map<string, number>();
-  const superseded: Texture[] = [];
   /* Keys whose first wave found the whole texture already decoded, so the second has
      nothing to add. */
   const whole = new Set<string>();
@@ -235,23 +254,31 @@ function createTextureSet(
     if (frame !== 0 || !live) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
-      if (!live) return;
+      if (!live || sameTextures(loaded, published)) return;
 
       published = new Map(loaded);
       for (const listener of listeners) listener();
     });
   };
 
+  const upload = (at: string, pixels: Pixels): Texture => {
+    const uploaded = JSON.stringify([at, colorSpace, wrap]);
+    const texture = UPLOADS.get(uploaded, () => {
+      const created = textureOf(pixels);
+      created.colorSpace = colorSpace;
+      created.wrapS = wrap;
+      created.wrapT = wrap;
+      /* The first row is `v = 0`, as DirectX samples it and the game unwraps. */
+      created.flipY = false;
+      return created;
+    });
+    releases.push(UPLOADS.hold(uploaded));
+    return texture;
+  };
+
+  /* A texture this set replaces keeps its hold until the set is disposed: a material draws the
+     one it was bound to until the map naming its replacement reaches the scene. */
   const take = (key: string, texture: Texture) => {
-    texture.colorSpace = colorSpace;
-    texture.wrapS = wrap;
-    texture.wrapT = wrap;
-    /* The first row is `v = 0`, as DirectX samples it and the game unwraps. */
-    texture.flipY = false;
-    /* Kept rather than let go here: a material draws the one it was bound to until the
-       map naming its replacement reaches the scene, which is a frame away. */
-    const replaced = loaded.get(key);
-    if (replaced !== undefined) superseded.push(replaced);
     loaded.set(key, texture);
     /* The decoded image, which ThreeJS types as whatever a loader put there. */
     const source = texture.image as { width?: number } | null | undefined;
@@ -295,7 +322,7 @@ function createTextureSet(
     image.pixels.then(
       (pixels) => {
         if (!live || settled) return;
-        take(key, textureOf(pixels));
+        take(key, upload(at, pixels));
         finish(true);
       },
       (error: unknown) => {
@@ -394,8 +421,6 @@ function createTextureSet(
       live = false;
       if (frame !== 0) cancelAnimationFrame(frame);
       for (const timer of timers) clearTimeout(timer);
-      for (const texture of loaded.values()) texture.dispose();
-      for (const texture of superseded) texture.dispose();
       for (const release of releases) release();
       listeners.clear();
       reports.clear();

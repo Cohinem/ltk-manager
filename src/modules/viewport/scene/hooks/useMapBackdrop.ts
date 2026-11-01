@@ -1,5 +1,5 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { queryOptions, replaceEqualDeep, useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ClampToEdgeWrapping, NoColorSpace, type Texture } from "three";
 
 import {
@@ -117,7 +117,10 @@ export interface BackdropSource {
 const NOT_EDITED: EditedGeometry = { document: -1 };
 
 /** Who answers a map's reads through a document, which is what two sources share them by. */
-type ReadScope = { readonly project: string | null } | { readonly document: BinDocumentId | null };
+type ReadScope =
+  | { readonly project: string | null }
+  | { readonly document: BinDocumentId | null }
+  | { readonly sandbox: SandboxRef };
 
 /** The sandbox a source's files are located in: its project's, else the game's. ADR-0056. */
 function sourceSandbox(source: BackdropSource | null): SandboxRef {
@@ -130,6 +133,7 @@ function sourceSandbox(source: BackdropSource | null): SandboxRef {
 }
 
 function readScope(source: BackdropSource | null): ReadScope {
+  if (source?.sandbox !== undefined) return { sandbox: source.sandbox };
   if (source?.project !== undefined) return { project: source.project };
   return { document: source?.document ?? null };
 }
@@ -258,6 +262,9 @@ export const backdropQueries = {
         if (!answer.ok) throw answer.error;
         return answer.value;
       },
+      /* The same geometry under another scope, so a change of chosen layers keeps drawing. */
+      placeholderData: (previous, query) =>
+        query?.queryKey.at(-1) === paths ? previous : undefined,
       enabled: map !== null && paths !== null,
       staleTime: Infinity,
       retry: false,
@@ -282,6 +289,8 @@ export const backdropQueries = {
         if (!answer.ok) throw answer.error;
         return answer.value;
       },
+      placeholderData: (previous, query) =>
+        query?.queryKey.at(-1) === paths ? previous : undefined,
       enabled: map !== null && paths !== null,
       staleTime: Infinity,
       retry: false,
@@ -298,6 +307,8 @@ export const backdropQueries = {
         if (!answer.ok) throw answer.error;
         return new Map(Object.entries(answer.value));
       },
+      placeholderData: (previous, query) =>
+        query?.queryKey.at(-1) === paths ? previous : undefined,
       enabled: sandbox !== null && paths !== null,
       staleTime: Infinity,
       retry: false,
@@ -368,6 +379,17 @@ const EMPTY: Backdrop = {
   failure: null,
 };
 
+/** Returns `source`, or the last source of `map` while a scene has none to offer yet. */
+export function useHeldBackdropSource<S extends BackdropSource>(
+  source: S | null,
+  map: MapPath | null,
+): S | null {
+  const last = useRef<S | null>(null);
+  if (source !== null) last.current = source;
+
+  return source ?? (last.current?.map === map ? last.current : null);
+}
+
 /** Every map this install can draw a backdrop from, in map order. */
 export function useBackdropMaps() {
   return useQuery(backdropQueries.maps());
@@ -416,6 +438,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   const tintTextures = useAssetTextures(tintAssets, {
     fullWidth: FULL_WIDTH,
     concurrency: CONCURRENT,
+    holdWhileLoading: true,
     mips: true,
     colorSpace: NoColorSpace,
     wrap: ClampToEdgeWrapping,
@@ -436,6 +459,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     previewWidth: PREVIEW_WIDTH,
     fullWidth: FULL_WIDTH,
     concurrency: CONCURRENT,
+    holdWhileLoading: true,
     mips: true,
   });
   const shaders = source?.shaders === true;
@@ -447,7 +471,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       geometry.data?.materials ?? null,
     ),
   );
-  const programs = programsRead.data ?? NO_PROGRAMS;
+  const programs = useSharedParts(programsRead.data) ?? NO_PROGRAMS;
   const lightmapAssets = useQuery(
     backdropQueries.lightmaps(
       shaders ? sourceSandbox(source) : null,
@@ -457,6 +481,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   const lightmaps = useAssetTextures(lightmapAssets ?? NO_ASSETS, {
     fullWidth: FULL_WIDTH,
     concurrency: CONCURRENT,
+    holdWhileLoading: true,
     mips: true,
     colorSpace: NoColorSpace,
     /* An atlas, whose edges must not bleed into one another. */
@@ -467,6 +492,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     previewWidth: PREVIEW_WIDTH,
     fullWidth: FULL_WIDTH,
     concurrency: CONCURRENT,
+    holdWhileLoading: true,
     mips: true,
     colorSpace: NoColorSpace,
   });
@@ -529,12 +555,30 @@ function useBackdropGeometry(source: BackdropSource | null) {
     ...viewportQueries.editedMap(asset, edited ?? NOT_EDITED),
     enabled: edited !== null,
   });
-  return { given, located, asset, geometry: edited === null ? geometry : editedGeometry };
+  const read = edited === null ? geometry : editedGeometry;
+
+  /* The last buffer of this map draws until a change of file or of edited document lands. */
+  const map = source?.map ?? null;
+  const drawn = useRef<{ readonly map: MapPath | null; readonly data: MapGeometry } | null>(null);
+  if (read.data !== undefined) drawn.current = { map, data: read.data };
+  const held =
+    read.data === undefined && drawn.current?.map === map ? drawn.current?.data : undefined;
+
+  return {
+    given,
+    located,
+    asset,
+    geometry: {
+      data: read.data ?? held,
+      error: read.error,
+      isPending: read.isPending && held === undefined,
+    },
+  };
 }
 
 /** The materials, sun and screen effects of `source`'s map, asked for once `geometry` lands. */
 function useBackdropModel(source: BackdropSource | null, geometry: MapGeometry | undefined) {
-  return useQuery(
+  const read = useQuery(
     backdropQueries.model(
       source?.map ?? null,
       source?.document ?? null,
@@ -542,6 +586,22 @@ function useBackdropModel(source: BackdropSource | null, geometry: MapGeometry |
       geometry?.materials ?? null,
     ),
   );
+
+  return { data: useSharedParts(read.data) };
+}
+
+/**
+ * Returns `value` with each part equal to its last value kept as the same object.
+ *
+ * A query shares equal parts with its own last answer only, and a change of chosen layers is
+ * another query. A material that did not change keeps its identity, so nothing rebuilds it.
+ */
+function useSharedParts<T>(value: T): T {
+  const last = useRef(value);
+  const shared = useMemo(() => replaceEqualDeep(last.current, value), [value]);
+  last.current = shared;
+
+  return shared;
 }
 
 /**
