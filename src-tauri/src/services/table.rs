@@ -259,6 +259,7 @@ services! {
     }
     diagnostics("diagnostics") {
         run_diagnostics,
+        league_admin_fix_command,
         open_elevated_terminal,
         list_incidents,
         dismiss_incident,

@@ -38,7 +38,6 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     telemetryEnabled: true,
     telemetrySecret: null,
     hasSeenDiagnosticsNotice: true,
-    elevateInjector: false,
     autoCategorizationEnabled: true,
     autoHealthCheckEnabled: true,
     promoteEnabledMods: false,

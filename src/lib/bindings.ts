@@ -1276,15 +1276,6 @@ export type Config_Deserialize = {
 	/**  Additional WAD files to exclude from overlay building. */
 	wadBlocklist?: WadBlocklistEntry[],
 	/**
-	 *  Run the injection host elevated (UAC). An elevated game can only be
-	 *  injected by an equally elevated host, so this is required when League
-	 *  runs as administrator. Off by default: when off, non-elevated users
-	 *  avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
-	 *  when League is detected configured to run as admin, regardless of this
-	 *  flag (see `services::patcher::start_patcher_inner`).
-	 */
-	elevateInjector?: boolean,
-	/**
 	 *  Whether to automatically categorize mods from their content (champions,
 	 *  maps and content tags derived from the WAD/chunk footprint, surfaced as
 	 *  "auto" suggestions and library filters). When off, only the categories
@@ -1398,15 +1389,6 @@ export type Config_Serialize = {
 	blockScriptsWad: boolean,
 	/**  Additional WAD files to exclude from overlay building. */
 	wadBlocklist: WadBlocklistEntry[],
-	/**
-	 *  Run the injection host elevated (UAC). An elevated game can only be
-	 *  injected by an equally elevated host, so this is required when League
-	 *  runs as administrator. Off by default: when off, non-elevated users
-	 *  avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
-	 *  when League is detected configured to run as admin, regardless of this
-	 *  flag (see `services::patcher::start_patcher_inner`).
-	 */
-	elevateInjector: boolean,
 	/**
 	 *  Whether to automatically categorize mods from their content (champions,
 	 *  maps and content tags derived from the WAD/chunk footprint, surfaced as
@@ -3914,8 +3896,8 @@ export type IndexResponse<T> =
 export type InjectionStage = 
 /**
  *  The host process never came up - it could not be spawned, configured, or
- *  told to start. Antivirus, a missing binary or a declined UAC prompt are
- *  the usual causes, so diagnostics are the useful response.
+ *  told to start. Antivirus or a missing binary are the usual causes, so
+ *  diagnostics are the useful response.
  */
 "HOST" | 
 /**  The host ran, but the game was never patched. */
@@ -6678,6 +6660,12 @@ export type PatcherError =
 { kind: "ALREADY_RUNNING" } | 
 /**  A stop was requested while nothing was running. */
 { kind: "NOT_RUNNING" } | { kind: "UNSUPPORTED_PLATFORM" } | 
+/**  League is set to run as administrator, and a session runs unelevated. */
+{ kind: "LEAGUE_ELEVATED" } | 
+/**  LTK Manager runs as administrator, and a session runs unelevated. */
+{ kind: "MANAGER_ELEVATED" } | 
+/**  No patcher DLL could be selected for the session. `message` says why. */
+{ kind: "DLL_UNAVAILABLE"; message: string } | 
 /**
  *  One injection session failed. `stage` separates a host that never came up
  *  from a game that was never patched, since they call for different advice.
@@ -7373,7 +7361,9 @@ export type ReadOnly =
 /**  A game chunk inside a project whose game data declarations are off. ADR-0042. */
 "declarationsOff" | 
 /**  A document in the game sandbox, which is the installed game alone. ADR-0056. */
-"gameSandbox";
+"gameSandbox" | 
+/**  A game chunk in a layer subset, whose edits have no layer to land in. */
+"layerSubset";
 
 /**  The objects one file declares, as a reference query groups them. */
 export type ReferenceGroup = {
@@ -8041,12 +8031,12 @@ export type SandboxRef =
 { kind: "project"; 
 /**  The project directory. */
 project: string } | 
-/**  One layer of a project over the game. Reserved: nothing opens one yet. */
-{ kind: "layer"; 
+/**  The chosen layers of a project over the game, as a build of those layers alone writes it. */
+{ kind: "layers"; 
 /**  The project directory. */
 project: string; 
-/**  The layer's name. */
-layer: string };
+/**  The chosen layers' names. */
+layers: string[] };
 
 /**  One `CurveScaledFloat`. */
 export type ScaledCurve = {

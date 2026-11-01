@@ -107,7 +107,6 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   applyStringOverridesToAllLocales: onOff,
 
   patchTft: onOff,
-  elevateInjector: onOff,
   blockScriptsWad: onOff,
   enforceSkinhackScan: onOff,
   fullWadScan: onOff,
