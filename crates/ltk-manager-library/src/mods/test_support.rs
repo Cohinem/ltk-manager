@@ -133,6 +133,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
         harvest: None,
         source: ModSource::Import,
         source_sha256: None,
+        origin: None,
     }
 }
 

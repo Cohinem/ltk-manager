@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-11-02 | Dock every viewport's controls on a rail across its top edge             |
 | 2026-10-31 | Add a menu bar to every object tab, in place of the kebab and Panes      |
 | 2026-10-15 | Draw the sprite sheet in the Texture group, and pick its frames on it    |
 | 2026-10-15 | Duplicate an object as a new one from its own tab                        |
@@ -20,7 +21,6 @@
 | 2026-09-27 | Select an emitter by a click on its particles in the viewer              |
 | 2026-09-26 | Walk the rows by key, and keep a refused edit's text                     |
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws                    |
-| 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects                |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -458,6 +458,11 @@ row had not already said. An optional holding a struct or a container keeps its 
 those rows have to hang off something. The tag stays `option[...]` either way, so the row still
 says it is an option.
 
+A row that holds an option's value carries Unset, an eraser shown on hover and focus, which
+empties the option as one undo step. The row then reads Not set and the game reads the class
+default. It is the same edit as the row menu's Reset to default on an option, and the one way
+back from a value that has no default to type, such as a `period` of 0.
+
 **A kind with no widget still has a row.** It shows its name and its kind, says that this
 viewer does not draw it, and offers the file in VS Code. It is never hidden, because a row a
 user cannot see is a row a user believes is absent.
@@ -757,6 +762,9 @@ Reset to default puts a property back to its class default. It is one undo step.
   colour
 - a value class (`ValueFloat`, `ValueVector3`, `ValueColor` and the rest) resets its constant
   the same way and drops its curve
+- an option (`period`, `lifetime` and every other `Option<f32>`) is emptied, since an empty
+  option is what the game reads its default from. An option that is already empty disables
+  the item
 - in a declared document, a list, a map, an embed or a pointer has no single default to write,
   so the item is disabled with the reason as its title
 
@@ -1875,12 +1883,16 @@ and the value reads beside the edge during the drag.
   release writes all of them as one edit. A bar without the dragged edge stays as it is: an
   endless bar on an end or a linger drag, and a simple emitter's bar on a linger drag
 
-**A double click opens the exact times.** A double click on the bar opens a popover with the
-start delay, the lifetime, Emits until the system stops, the emitter linger, the particle linger
-and its mode, Repeats in cycles with the period and its active part, the single burst switch and
+**A double click opens the exact times.** A double click on the bar opens a popover in three
+bands: the window, which is the start delay, the lifetime, Emits until the system stops, the
+emitter linger, and the particle linger and its mode; the cycle, which is Repeats in cycles with
+the period and its active part; and the flags, the single burst switch and
 `HasVariableStartTime`. Each field commits on its own. Emits until the system stops clears
-`lifetime`, which no drag can do. A line under the emitter's name states how long the emitter
-emits for, because `lifetime` is an end time counted from the system's start and not a duration.
+`lifetime`, which no drag can do. Repeats in cycles writes `period` and `timeActiveDuringPeriod`
+together, a second with half of it active, and off empties both, each as one undo step, so a
+cycle never leaves its active part behind. The cycle strip beside it draws two cycles as the bar
+does. A line under the emitter's name states how long the emitter emits for, because `lifetime`
+is an end time counted from the system's start and not a duration.
 
 **Bursts and cycles are marked.** An `isSingleParticle` emitter's whole output is one burst,
 drawn as a diamond at its start, and its bar has no end edge. An emitter with a `period` and a
@@ -2015,11 +2027,29 @@ Loop toggle and the chance pin, with the timeline closed or the preview maximize
 the mini transport, and its Emitters section keeps the strip. Its scrub is a rail filled up to the
 playhead, which is a line over it, and both it and the time follow the clock every frame.
 
+### The viewport rails
+
+Every viewport of a class view docks its controls on a rail across its top edge, outside the drawn
+frame, as the header of a Blender or Maya viewport is. A rail is a filled strip of the pane's
+own surface rather than a glass bar over the scene, so no control covers what the camera draws
+and a capture holds the whole frame. The map's viewport adds a tool rail down its left edge, per
+"Tools" in docs/ux/MAP_EDITOR.md.
+
+A top rail reads left to right by one rule. The left holds what the viewport draws and edits:
+the subject's switches, the tool's options, the handle and the rig. The right holds how the
+scene is viewed: the Show menu, the shaders switch, the view mode, the camera menu, Frame and
+Capture. A rule parts each group. The rail wraps to a second line in a pane too narrow for one.
+
+Frame is a pill, named Frame on every rail, whose hover names the subject it frames: the
+character, the system, the shape or the map. A readout that belongs to the scene, such as the
+held socket's name and gizmo mode, sits on a glass plate over the bottom left corner.
+
 ### The viewer
 
 The preview pane draws the run on the particle renderer of `docs/plans/vfx-particle-renderer.md`.
-Its controls sit at its top right: the Show menu, the view mode menu, the camera menu, Fit and the
-rig.
+Its controls sit on the rail across its top edge, per "The viewport rails": the handle menu and
+the rig on the left, and the Show menu, the shaders switch, the view mode menu, the camera menu
+and Frame on the right.
 
 **The Show menu** ticks Ground, Midlane, Gizmo, Stencil masks and Stats, and stays open while they
 are set. Its trigger counts the ones on. Midlane draws on the ground alone, so it is off while
@@ -2154,9 +2184,9 @@ drag while the run plays, and the camera does not reframe. The drag changes the 
 one, and Reset to auto returns the target the system picks. The rig's target is a preview
 setting, so a drag writes nothing to the file.
 
-**The controls** over the viewport's top right corner are grouped by a rule: what is drawn
-(Show, the shaders switch, the view mode), the camera and Frame the system, the handle menu,
-and the rig. The bar wraps to a second line in a pane too narrow for one.
+**The controls** on the viewport's rail are grouped by the rule of "The viewport rails": the
+handle menu and the rig on the left, then what is drawn (Show, the shaders switch, the sound
+switch, the view mode), and the camera and Frame the system on the right.
 
 **Background color and Capture image** are on the skin and map viewports. The background color
 replaces the sky and the theme's color, is exact in a capture, and persists until it is reset. The
@@ -2483,6 +2513,7 @@ from.
 | Emission | Warning | The rate is zero and nothing else makes the emitter emit                   |
 | Emission | Warning | The end time is at or before the start delay                               |
 | Emission | Warning | A period has no active time                                                |
+| Emission | Info    | An active time has no period, so emission ends at it for good              |
 | Emission | Info    | A single burst has a period                                                |
 | Emission | Info    | `rateByVelocityFunction` replaces `rate` and `flexRate`                    |
 | Source   | Warning | A simple emitter names an emission mesh or a surface                       |
@@ -2500,6 +2531,14 @@ from.
 the emitter's phase and the most one step spawns at that rate, which is the rate times 0.33 plus
 one, and at most 1000. A single burst shows its count and its time. Outside the emitter's window
 the line shows Not emitting at the playhead.
+
+**Repeats is the Emission group's cycle.** The row stands where `period` is listed and reads
+the cycle back as the timeline's bar does: a checkbox, the cycle strip, and the period and its
+active part in a line, or No cycle. The `period` and `timeActiveDuringPeriod` rows draw under
+it, one step in, while the emitter writes either, and are the rows the values are typed in.
+Checking Repeats writes a cycle of a second with half of it active, and unchecking it empties
+both options, each as one undo step - the same edit as the bar's popover. An active time with no
+period is kept and noted, since the game reads it as an end of emission.
 
 **What the preview does not model.** The spawn generator's offset and its rate factor, `flexRate`
 and `flexParticleLifetime`, and a linked mesh, which only a superward region links.

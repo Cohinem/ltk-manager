@@ -192,6 +192,7 @@ fn adopt_mod_directory(storage_dir: &Path, path: &Path, dir_name: &str) -> Optio
         harvest: None,
         source: ModSource::Import,
         source_sha256: None,
+        origin: None,
     })
 }
 
