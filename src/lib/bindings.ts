@@ -2424,6 +2424,22 @@ export type EffectSystem = {
 	name: string | null,
 };
 
+/**
+ *  Counts of the chunk names an import embedded in a mod's archive.
+ * 
+ *  Recorded on the entry so that a mod whose names were embedded completely is told apart
+ *  from one that arrived without some names, after the import log rotates.
+ */
+export type EmbeddedNames = {
+	/**
+	 *  Names the archive gained at import. Zero if every readable name was already declared
+	 *  or the community tables resolve it.
+	 */
+	embedded: number,
+	/**  Chunks with no readable name: hex-named, and named by no bin in the archive. */
+	unnamed: number,
+};
+
 /**  How the game ended, as far as anything said. */
 export type Ending = {
 	/**
@@ -3454,26 +3470,6 @@ export type GraphClip = {
 };
 
 /**
- *  What preserving a mod's names at import found.
- * 
- *  Recorded on the entry rather than only logged: `unharvestable` is what
- *  tells a mod that preserved cleanly from one that arrived already lossy,
- *  and that distinction should outlive a log rotation.
- */
-export type HarvestSummary = {
-	/**
-	 *  Names the archive gained on the way in. Zero means every recoverable
-	 *  name was already declared or covered by the community tables.
-	 */
-	namesAdded: number,
-	/**
-	 *  Chunks with no recoverable name: hex-named, and named by nothing the
-	 *  harvest could read.
-	 */
-	unharvestable: number,
-};
-
-/**
  *  A hash a bin names something outside the graph by, such as a submesh or a joint.
  * 
  *  The tables name a few of them. A viewport matches the hash against the names the `.skn`
@@ -4356,10 +4352,10 @@ export type InstalledMod_Deserialize = {
 	 */
 	slug?: string | null,
 	/**
-	 *  What preserving the mod's names at import found. `None` for a modpkg
-	 *  and for mods installed before the preserve existed.
+	 *  The chunk names the import embedded. `None` for a modpkg and for mods installed
+	 *  before the embedding.
 	 */
-	harvest?: HarvestSummary | null,
+	embeddedNames?: EmbeddedNames | null,
 	/**
 	 *  The site and the listing this mod was installed from. `None` for a mod
 	 *  that arrived as a file or through a single install link.
@@ -4404,10 +4400,10 @@ export type InstalledMod_Serialize = {
 	 */
 	slug?: string | null,
 	/**
-	 *  What preserving the mod's names at import found. `None` for a modpkg
-	 *  and for mods installed before the preserve existed.
+	 *  The chunk names the import embedded. `None` for a modpkg and for mods installed
+	 *  before the embedding.
 	 */
-	harvest?: HarvestSummary | null,
+	embeddedNames?: EmbeddedNames | null,
 	/**
 	 *  The site and the listing this mod was installed from. `None` for a mod
 	 *  that arrived as a file or through a single install link.
@@ -6948,10 +6944,17 @@ export type OverlayProgress = {
 	currentFile: string | null,
 	current: number,
 	total: number,
+	/**  The step under [`OverlayStage::Preparing`], `None` under every other stage. */
+	step: PrepareStep | null,
 };
 
 /**  Stage of an overlay build. */
-export type OverlayStage = "indexing" | "collecting" | "patching" | "strings" | "complete";
+export type OverlayStage = 
+/**
+ *  Resolving the build inputs before the builder runs. `OverlayProgress::step` names the
+ *  step.
+ */
+"preparing" | "indexing" | "collecting" | "patching" | "strings" | "complete";
 
 /**  One post of `GET /api/v1/me/mods`, with its newest release. */
 export type OwnedModPost = {
@@ -7249,6 +7252,11 @@ export type PatcherStatus = {
 	 *  overlay is rebuilt.
 	 */
 	changesAfterGame: boolean,
+	/**
+	 *  The last progress the build phase reported. `null` outside the build phase, and
+	 *  until the first report of one.
+	 */
+	overlayProgress: OverlayProgress | null,
 };
 
 /**  A release newer than the running build. */
@@ -7541,6 +7549,22 @@ export type PrefillSources = {
 	/**  The sources of the release fields. */
 	release: ReleaseSources,
 };
+
+/**
+ *  A step of the work before the overlay builder runs, reported under
+ *  [`OverlayStage::Preparing`].
+ */
+export type PrepareStep = 
+/**  The patcher DLL is being delivered. */
+{ kind: "patcher" } | 
+/**  The last game's process is closing. */
+{ kind: "gameExit" } | 
+/**  The library index and the enabled mods are being read. */
+{ kind: "library" } | 
+/**  A built-in mod's project is being generated. `name` is the mod's display name. */
+{ kind: "builtinMod"; name: string } | 
+/**  The game install is being read. */
+{ kind: "game" };
 
 /**  A `StaticMaterialDef` that a shader def's preview draws the def through. */
 export type PreviewMaterial = {
