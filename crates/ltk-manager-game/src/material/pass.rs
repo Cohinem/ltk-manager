@@ -7,7 +7,7 @@
 //! per section 11 stages 3 to 7 of docs/research/static-material-studio-rendering.md.
 //! An absent field reads as the class default, rule 1 of that note.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
@@ -38,6 +38,14 @@ const DEPTH_COMPARE_FUNC: BinHash = named("depthCompareFunc");
 const DEPTH_LESS_EQUAL: u32 = 3;
 /// The `writeMask` the class defaults to, colour and depth.
 const WRITE_ALL: u32 = 31;
+/// `DynamicMaterialDef.parameters`.
+const DYNAMIC_PARAMETERS: BinHash = named("parameters");
+/// `DynamicMaterialParameterDef.driver`.
+const DRIVER: BinHash = named("driver");
+/// `DynamicMaterialParameterDef.Enabled`, true where the field is absent.
+const ENABLED: BinHash = named("Enabled");
+/// The driver class whose value is the character's world position.
+const PLAYER_POSITION_DRIVER: BinHash = named("PlayerPositionDynamicMaterialDriver");
 
 /// One `StaticMaterialDef` as the engine builds it: every pass of its `normal` technique
 /// with everything the pass shader is bound with.
@@ -54,6 +62,9 @@ pub struct ResolvedMaterial {
     pub animated: bool,
     /// `type`, which decides the global defines the engine adds.
     pub kind: MaterialKind,
+    /// The index in `techniques` of the technique `passes` come from, and none where the
+    /// material has none or the read is of a shader def's defaults.
+    pub technique: Option<u32>,
     /// The passes of the `normal` technique, in draw order.
     pub passes: Vec<ResolvedPass>,
     /// Every drop, miss and fallback the read made, in the order it made them.
@@ -126,6 +137,9 @@ pub struct ResolvedPass {
     pub textures: Vec<PassTexture>,
     /// Every physical parameter in declaration order, each a `$Globals` member.
     pub params: Vec<PassParam>,
+    /// The parameters a `dynamicMaterial` driver writes on every frame that a preview can
+    /// compute. `params` holds their static values.
+    pub drivers: Vec<PassDriver>,
     pub state: PassState,
     /// What the pass shader declares, and none where the defs were not opened.
     pub schema: Option<ShaderSchema>,
@@ -310,6 +324,29 @@ pub enum ParamSource {
     Pass,
 }
 
+/// A physical parameter that a `dynamicMaterial` driver writes on every frame.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct PassDriver {
+    /// The physical name, which the `$Globals` member carries.
+    pub param: String,
+    /// The components the driver's value fills, in order, bit `i` for component `i`.
+    pub fields: u32,
+    pub kind: ParamDriverKind,
+}
+
+/// What a [`PassDriver`] writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[non_exhaustive]
+pub enum ParamDriverKind {
+    /// `PlayerPositionDynamicMaterialDriver`: the character's position in the world, `x`, `y`
+    /// and `z`.
+    PlayerPosition,
+}
+
 /// The pass's render state, field by field, with the class defaults filled in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -453,6 +490,7 @@ pub fn resolve_shader_pass(
         name: names.entry_name(entry),
         animated: false,
         kind,
+        technique: None,
         passes: vec![pass],
         warnings: reader.warnings,
     })
@@ -460,15 +498,27 @@ pub fn resolve_shader_pass(
 
 impl<'a> Reader<'a> {
     fn resolved(mut self) -> ResolvedMaterial {
-        let passes = self
+        let technique = self
+            .technique_at()
+            .and_then(|(at, _)| u32::try_from(at).ok());
+        let passes: Vec<ResolvedPass> = self
             .passes()
             .into_iter()
             .map(|pass| self.resolved_pass(pass))
             .collect();
 
+        /* Every pass reads the material's entries by name, so an entry that one pass shader
+        does not declare is undeclared only if no pass shader declares it. */
+        let declared = declared_names(&passes);
         let mut warnings = Vec::new();
         for warning in self.warnings {
-            if !warnings.contains(&warning) {
+            let elsewhere = match &warning {
+                MaterialWarning::UndeclaredParam { name }
+                | MaterialWarning::UndeclaredSampler { name }
+                | MaterialWarning::UndeclaredSwitch { name } => declared.contains(name.as_str()),
+                _ => false,
+            };
+            if !elsewhere && !warnings.contains(&warning) {
                 warnings.push(warning);
             }
         }
@@ -478,6 +528,7 @@ impl<'a> Reader<'a> {
             name: self.locator.names.entry_name(self.hash),
             animated: struct_of(self.material.get(&DYNAMIC_MATERIAL)).is_some(),
             kind: MaterialKind::of(self.material.get(&MATERIAL_TYPE)),
+            technique,
             passes,
             warnings,
         }
@@ -517,6 +568,7 @@ impl<'a> Reader<'a> {
             .collect();
         let textures = self.pass_textures(&shader);
         let params = self.pass_params(pass, &shader);
+        let drivers = self.pass_drivers(&shader, &params);
 
         let schema = shader.declared.then(|| shader.schema());
 
@@ -526,9 +578,54 @@ impl<'a> Reader<'a> {
             runtime_switches,
             textures,
             params,
+            drivers,
             state: pass_state(pass),
             schema,
         }
+    }
+
+    /// The parameters of `params` that an enabled `dynamicMaterial` driver of a known kind
+    /// writes. A parameter the pass shader does not declare is skipped.
+    fn pass_drivers(&self, shader: &ShaderDef, params: &[PassParam]) -> Vec<PassDriver> {
+        let parameters = struct_of(self.material.get(&DYNAMIC_MATERIAL))
+            .map_or(&[][..], |(_, dynamic)| {
+                items(dynamic.get(&DYNAMIC_PARAMETERS))
+            });
+
+        let mut drivers = Vec::new();
+        for fields in parameters.iter().filter_map(|item| fields_of(Some(item))) {
+            if boolean(fields.get(&ENABLED)) == Some(false) {
+                continue;
+            }
+            let Some(name) = text(fields.get(&NAME)) else {
+                continue;
+            };
+            let kind = match struct_of(fields.get(&DRIVER)) {
+                Some((class, _)) if class == PLAYER_POSITION_DRIVER => {
+                    ParamDriverKind::PlayerPosition
+                }
+                _ => continue,
+            };
+
+            let target = if shader.declared {
+                shader
+                    .logical_target(name)
+                    .map(|(at, mask)| (shader.physical[at].name.clone(), mask))
+            } else {
+                params
+                    .iter()
+                    .any(|param| param.name == name)
+                    .then(|| (name.to_owned(), 0b1111))
+            };
+            if let Some((param, fields)) = target {
+                drivers.push(PassDriver {
+                    param,
+                    fields,
+                    kind,
+                });
+            }
+        }
+        drivers
     }
 
     /// The define list of section 2.2: the material's macros, the shader's feature
@@ -743,6 +840,20 @@ impl ShaderDef {
                     .map(|at| (at, 0b1111))
             })
     }
+}
+
+/// Every parameter, texture and switch name that the shader of any of `passes` declares.
+fn declared_names(passes: &[ResolvedPass]) -> HashSet<&str> {
+    passes
+        .iter()
+        .filter_map(|pass| pass.schema.as_ref())
+        .flat_map(|schema| {
+            let params = schema.params.iter().map(|param| param.name.as_str());
+            let textures = schema.textures.iter().map(|texture| texture.name.as_str());
+            let switches = schema.switches.iter().map(|switch| switch.name.as_str());
+            params.chain(textures).chain(switches)
+        })
+        .collect()
 }
 
 /// `input` written into the components of `target` that `mask` selects, in order, as

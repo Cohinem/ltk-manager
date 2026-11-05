@@ -600,6 +600,7 @@ describe("submeshOutline", () => {
     name: null,
     animated: true,
     kind: "skinnedMesh",
+    technique: 0,
     passes: [
       {
         pass: {
@@ -620,6 +621,7 @@ describe("submeshOutline", () => {
             depthCompareFunc: 3,
             writeMask: 31,
           },
+          drivers: [],
           schema: null,
         },
         program: { kind: "ready", defines: [], vertex: stage, pixel: stage },

@@ -121,6 +121,7 @@ function ready(textures: readonly (readonly [string, AssetRef | null])[]): PassP
         depthCompareFunc: 3,
         writeMask: 31,
       },
+      drivers: [],
       schema: null,
     },
     program: { kind: "ready", defines: [], vertex: STAGE, pixel: STAGE },
@@ -132,7 +133,15 @@ function failed(): PassProgram {
 }
 
 function program(hash: string, passes: PassProgram[]): MaterialProgram {
-  return { hash, name: null, animated: false, kind: "skinnedMesh", passes, warnings: [] };
+  return {
+    hash,
+    name: null,
+    animated: false,
+    kind: "skinnedMesh",
+    technique: 0,
+    passes,
+    warnings: [],
+  };
 }
 
 describe("materialHashes", () => {

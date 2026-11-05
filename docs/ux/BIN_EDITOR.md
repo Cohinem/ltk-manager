@@ -1689,6 +1689,37 @@ answer, so it never draws the old value between. A parameter named `Color` or `T
 or more components carries a swatch that opens a colour picker, held live the same way and written
 when the picker closes.
 
+**Pass values.** Each pass of a technique holds a `paramValues` list of its own, which only that
+pass reads. A parameter reads the shader's default, then the pass's entry, then the material's
+entry, so the material's value wins. A material of more than one pass puts tabs over Params: All
+passes, then one tab per pass of the drawn technique, numbered in draw order, its tooltip naming
+the pass's shader. All passes is the material's own list, as above. A pass's tab lists every
+parameter that the pass's shader declares. A row with the pass's own entry edits that entry, and
+its drag draws on that pass alone. A row the material sets reads the material's value, muted,
+because an entry of the pass would not change what the game draws. Set per pass, on that row and
+in the row menu of All passes, moves the value: the material's entry goes, and every pass whose
+shader declares the parameter and holds no entry of its own takes one holding the same value, as
+one undo step. Nothing draws differently until a pass's value is edited. All passes notes a row
+that a pass sets for itself, and warns where the material's value wins over a pass's own entry.
+
+**Passes.** A section above Techniques lists the passes of the technique the material draws
+with, in draw order, one row each. Line one shows the pass's number, its `shader` link as the
+link's own editor, a mark where the pass's shader did not build, and a menu: Move up, Move down,
+Duplicate and Remove pass. Line two shows Blend, Cull, Depth test and Depth write. These read the
+pass as the engine reads it, with the class defaults filled in, so a field the pass leaves
+unwritten shows its default. Blend picks one of Opaque, Alpha, Additive, Premultiplied and
+Multiply. Each pick writes `blendEnable` and the four factors, the alpha pair the same as the
+colour pair, as one undo step. A pair of factors that no pick writes reads Custom. Cull picks Back
+faces, Front faces or None, through `cullEnable` and `windingToCull`. Depth write sets bit 16 of
+`writeMask` and keeps the colour bits. Add pass adds a pass with the class defaults at the end. A
+material with no technique gets a `normal` technique that holds the new pass. Every other field
+of a pass, and every technique the material does not draw, stays in the Techniques tree.
+
+**A material's name reads as its path.** Since 16.21 `StaticMaterialDef.name` is an 8-byte
+`hash`, the XXH3 of the lowercased path. No shared table names an 8-byte hash, so a read names one
+by hashing the paths it already names: the object's own and the objects it links. Typing a path
+into an 8-byte hash writes its hash, and `0x` with sixteen hex digits writes those digits.
+
 The particle system's, the skin's and the material's layouts take edits in place, the skin's
 Material pane with them. The map's layout and a read-only document draw the same values as text,
 with no field to hover.

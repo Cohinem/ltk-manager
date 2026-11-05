@@ -47,6 +47,7 @@ function pass(tint: [number, number, number, number]): ResolvedPass {
       depthCompareFunc: 3,
       writeMask: 31,
     },
+    drivers: [],
     schema: null,
   };
 }
@@ -122,7 +123,7 @@ describe("scatter", () => {
 
 describe("withHeld", () => {
   it("scatters a held value into its physical parameter", () => {
-    const held = withHeld(pass([1, 1, 1, 1]), MATERIAL, HELD);
+    const held = withHeld(pass([1, 1, 1, 1]), MATERIAL, HELD, 0);
 
     expect(held.params[0]?.value).toEqual([9, 8, 7, 1]);
   });
@@ -130,7 +131,15 @@ describe("withHeld", () => {
   it("leaves a pass of another material alone", () => {
     const own = pass([1, 1, 1, 1]);
 
-    expect(withHeld(own, "0x0badf00d", HELD)).toBe(own);
+    expect(withHeld(own, "0x0badf00d", HELD, 0)).toBe(own);
+  });
+
+  it("scatters a value held for one pass into that pass alone", () => {
+    const own = pass([1, 1, 1, 1]);
+    const held: HeldValue = { ...HELD, pass: 2 };
+
+    expect(withHeld(own, MATERIAL, held, 2).params[0]?.value).toEqual([9, 8, 7, 1]);
+    expect(withHeld(own, MATERIAL, held, 0)).toBe(own);
   });
 });
 
@@ -182,4 +191,46 @@ describe("ProgramMaterials", () => {
     expect(other).not.toBe(own);
     expect(globals(other, "Globals_ps").slice(4)).toEqual([1, 1, 1, 1]);
   });
+
+  it("returns null from glowOf for a pixel stage with one target", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+    const read = program([1, 1, 1, 1]);
+    materials.acquire(read);
+
+    expect(materials.glowOf(read)).toBeNull();
+  });
+
+  it("returns null from glowOf for a program that was not acquired", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+
+    expect(materials.glowOf(blooming())).toBeNull();
+  });
+
+  it("returns one glow copy per material that shares its uniforms", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+    const read = blooming();
+    const material = materials.acquire(read);
+
+    const glow = materials.glowOf(read);
+
+    expect(glow).not.toBeNull();
+    expect(glow?.uniforms).toBe(material.uniforms);
+    expect(materials.glowOf(read)).toBe(glow);
+  });
 });
+
+/** A program whose pixel stage writes the colour target and the bloom target. */
+function blooming(): SubmeshProgram {
+  const read = program([1, 1, 1, 1]);
+  const { pixel } = read.program;
+  const glsl = pixel.glsl.replace(
+    "void main() {}",
+    [
+      "layout(location = 0) out vec4 SV_Target;",
+      "layout(location = 1) out vec4 SV_Target1;",
+      "void main() {}",
+    ].join("\n"),
+  );
+
+  return { ...read, program: { ...read.program, pixel: { ...pixel, glsl } } };
+}

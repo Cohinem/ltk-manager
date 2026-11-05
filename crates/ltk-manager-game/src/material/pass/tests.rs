@@ -7,12 +7,12 @@ use super::*;
 use crate::material::tests::{
     BLACK, DIFFUSE, MASK, MATERIAL, Material, Placed, SHADER_PATH, Tables, body, document_of,
     embedded, file, h, list, param, pass, placed, sampler, shader_param, shader_switch,
-    shader_texture, shaders, string_map, switch,
+    shader_texture, shaders, string_map, switch, technique,
 };
 use crate::material::{
     ADDRESS_U, ADDRESS_W, DATA, FEATURE_DEFINES, FIELDS, FILTER_MIN, LOGICAL_PARAMETERS,
     OBJECT_PATH, ON_BY_DEFAULT, PARAMETERS, RUNTIME_SWITCH, SAMPLER_NAME, STATIC_SWITCHES,
-    SWITCHES, TEXTURE_NAME, TEXTURE_PATH, TEXTURES,
+    SWITCHED_SHADER, SWITCHED_SWITCH, SWITCHES, TECHNIQUES, TEXTURE_NAME, TEXTURE_PATH, TEXTURES,
 };
 
 fn shader_switch_runtime(name: &str, on_by_default: bool) -> values::Embedded {
@@ -79,6 +79,117 @@ fn define(name: &str, value: &str, source: DefineSource) -> Define {
         value: value.to_owned(),
         source,
     }
+}
+
+/// A `dynamicMaterial` parameter on `name` whose driver is of `class`, enabled unless `enabled`
+/// says otherwise.
+fn dynamic_param(name: &str, class: &str, enabled: Option<bool>) -> values::Embedded {
+    let mut fields = vec![
+        (NAME, values::String::from(name).into()),
+        (
+            DRIVER,
+            values::Struct {
+                class_hash: h(class),
+                properties: Default::default(),
+            }
+            .into(),
+        ),
+    ];
+    if let Some(enabled) = enabled {
+        fields.push((ENABLED, values::Bool::new(enabled).into()));
+    }
+    embedded("DynamicMaterialParameterDef", fields)
+}
+
+/// `material` with a `dynamicMaterial` holding `parameters`.
+fn animated(material: Material, parameters: Vec<values::Embedded>) -> Material {
+    material.with(
+        DYNAMIC_MATERIAL,
+        values::Struct {
+            class_hash: h("DynamicMaterialDef"),
+            properties: [(DYNAMIC_PARAMETERS, list(parameters))].into(),
+        }
+        .into(),
+    )
+}
+
+#[test]
+fn a_player_position_driver_marks_its_parameter() {
+    let material = animated(
+        body(),
+        vec![
+            dynamic_param("TintColor", "PlayerPositionDynamicMaterialDriver", None),
+            dynamic_param(
+                "Bloom_Intensity",
+                "PlayerPositionDynamicMaterialDriver",
+                Some(false),
+            ),
+            dynamic_param("Alpha", "LerpMaterialDriver", None),
+            dynamic_param("Undeclared", "PlayerPositionDynamicMaterialDriver", None),
+        ],
+    );
+
+    let resolved = resolve(material, Some(&shaders()));
+
+    assert_eq!(
+        only_pass(&resolved).drivers,
+        [PassDriver {
+            param: "TintColor".to_owned(),
+            fields: 0b1111,
+            kind: ParamDriverKind::PlayerPosition,
+        }]
+    );
+}
+
+#[test]
+fn a_player_position_driver_marks_a_parameter_without_shader_defs() {
+    let material = animated(
+        body(),
+        vec![dynamic_param(
+            "TintColor",
+            "PlayerPositionDynamicMaterialDriver",
+            None,
+        )],
+    );
+
+    let resolved = resolve(material, None);
+
+    assert_eq!(
+        only_pass(&resolved)
+            .drivers
+            .iter()
+            .map(|driver| driver.param.as_str())
+            .collect::<Vec<_>>(),
+        ["TintColor"]
+    );
+}
+
+#[test]
+fn an_entry_another_pass_declares_raises_no_warning() {
+    let material = Material::new()
+        .samplers(vec![
+            sampler("Diffuse_Texture", file(DIFFUSE), None),
+            sampler("Main_Texture", file(DIFFUSE), None),
+        ])
+        .params(vec![
+            param("TintColor", Some([1.0; 4])),
+            param("Nobody", Some([1.0; 4])),
+        ])
+        .switches(vec![switch(SWITCHED_SWITCH, None)])
+        .passes(vec![
+            pass(SHADER_PATH, vec![]),
+            pass(SWITCHED_SHADER, vec![]),
+        ]);
+
+    let resolved = resolve(material, Some(&shaders()));
+
+    assert_eq!(resolved.passes.len(), 2);
+    assert_eq!(
+        resolved.warnings,
+        [MaterialWarning::UndeclaredParam {
+            name: "Nobody".to_owned()
+        }]
+    );
 }
 
 #[test]
@@ -679,4 +790,19 @@ fn of_shader_path_returns_the_kind_of_the_namespace() {
         MaterialKind::of_shader_path("Unnamed"),
         MaterialKind::Unknown
     );
+}
+
+#[test]
+fn the_read_names_the_index_of_the_technique_it_draws() {
+    let normal_second = Material::new().with(
+        TECHNIQUES,
+        list(vec![
+            technique("transition", vec![pass(SHADER_PATH, vec![])]),
+            technique("normal", vec![pass(SHADER_PATH, vec![])]),
+        ]),
+    );
+    assert_eq!(resolve(normal_second, None).technique, Some(1));
+
+    assert_eq!(resolve(body(), None).technique, Some(0));
+    assert_eq!(resolve(Material::new(), None).technique, None);
 }

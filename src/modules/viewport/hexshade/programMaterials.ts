@@ -3,6 +3,7 @@ import type { RawShaderMaterial } from "three";
 import type { ResolvedPass } from "@/lib/tauri";
 
 import type { EngineEnvironment } from "./engineEnvironment";
+import { glowMaterial } from "./glowMaterial";
 import {
   applyPassState,
   bindProgramTextures,
@@ -23,6 +24,11 @@ export interface HeldValue {
   /** The logical parameter's component mask, which places the value's components. */
   readonly fields: number;
   readonly value: readonly number[];
+  /**
+   * The place in the technique of the one pass that takes the value, as a pass's own
+   * `paramValues` entry does. Absent for a value of the material, which every pass takes.
+   */
+  readonly pass?: number;
 }
 
 /**
@@ -44,13 +50,18 @@ export function scatter(
   return out;
 }
 
-/** `pass` with `held` scattered into its physical parameter, and `pass` itself where none applies. */
+/**
+ * `pass` with `held` scattered into its physical parameter, and `pass` itself where none applies.
+ * `index` is the pass's place in the technique, which a value held for one pass is matched by.
+ */
 export function withHeld(
   pass: ResolvedPass,
   material: string,
   held: HeldValue | null,
+  index: number,
 ): ResolvedPass {
   if (held === null || held.material !== material) return pass;
+  if (held.pass !== undefined && held.pass !== index) return pass;
   if (!pass.params.some((param) => param.name === held.physical)) return pass;
 
   return {
@@ -82,6 +93,8 @@ export function programKey(program: SubmeshProgram): string {
 interface Built {
   readonly material: RawShaderMaterial;
   program: SubmeshProgram;
+  /** The glow copy, null for a pass with one target, and undefined until it is first read. */
+  glow?: RawShaderMaterial | null;
 }
 
 /**
@@ -113,9 +126,22 @@ export class ProgramMaterials {
       found.program = program;
       bindProgramTextures(found.material, program);
       applyPassState(found.material, program.pass.state);
+      if (found.glow) applyPassState(found.glow, program.pass.state);
       this.write(found);
     }
     return found.material;
+  }
+
+  /**
+   * Returns the glow copy of the material `program` draws with, made on its first read.
+   * Returns null if `program` has not been acquired or if its pixel stage writes no bloom.
+   */
+  glowOf(program: SubmeshProgram): RawShaderMaterial | null {
+    const found = this.built.get(programKey(program));
+    if (found === undefined) return null;
+
+    found.glow ??= glowMaterial(found.material);
+    return found.glow;
   }
 
   /** Draw `held` in place of what its material's reads hold, or let the last one go. */
@@ -135,16 +161,24 @@ export class ProgramMaterials {
     for (const [key, entry] of this.built) {
       if (used.has(entry.material)) continue;
       entry.material.dispose();
+      entry.glow?.dispose();
       this.built.delete(key);
     }
   }
 
   dispose(): void {
-    for (const entry of this.built.values()) entry.material.dispose();
+    for (const entry of this.built.values()) {
+      entry.material.dispose();
+      entry.glow?.dispose();
+    }
     this.built.clear();
   }
 
   private write({ material, program }: Built): void {
-    writeProgramGlobals(material, program, withHeld(program.pass, program.material, this.held));
+    writeProgramGlobals(
+      material,
+      program,
+      withHeld(program.pass, program.material, this.held, program.index),
+    );
   }
 }
