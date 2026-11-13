@@ -6935,6 +6935,8 @@ export type OverlayOutcome =
 "disabled" | 
 /**  A hook did not take. */
 "hook-failed" | 
+/**  The DLL refused the overlay after `init done`. */
+"refused" | 
 /**  The DLL never attached, or said nothing. */
 "none";
 
