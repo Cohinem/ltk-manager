@@ -27,6 +27,7 @@ ltk-manager-workshop = { workspace = true }
 
 chrono = { workspace = true }
 fs-err = { workspace = true }
+ltk-redact = { workspace = true }
 ltk-telemetry = { workspace = true }
 ltk_overlay = { workspace = true }
 parking_lot = { workspace = true }
@@ -39,8 +40,10 @@ specta = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+zip = { workspace = true }
 
 [dev-dependencies]
+ltk-manager-assets = { workspace = true, features = ["test-util"] }
 ltk-manager-bin = { workspace = true }
 ltk-manager-problems = { workspace = true }
 
@@ -49,3 +52,4 @@ indexmap = { workspace = true }
 ltk_hash = { workspace = true }
 ltk_meta = { workspace = true }
 tempfile = { workspace = true }
+tracing-subscriber = "0.3"

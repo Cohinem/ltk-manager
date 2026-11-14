@@ -3403,6 +3403,7 @@ dependencies = [
  "ltk-manager-runeforge",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
+ "ltk-redact",
  "ltk-telemetry",
  "ltk_file",
  "ltk_game_data",
@@ -3612,6 +3613,7 @@ dependencies = [
  "ltk-manager-problems",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
+ "ltk-redact",
  "ltk-telemetry",
  "ltk_hash",
  "ltk_meta",
@@ -3626,7 +3628,9 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
+ "tracing-subscriber",
  "uuid",
+ "zip 2.4.2",
 ]
 
 [[package]]
@@ -3769,6 +3773,7 @@ dependencies = [
  "chrono",
  "fs-err",
  "ltk-manager-base",
+ "ltk-redact",
  "ltk-telemetry",
  "minisign-verify",
  "parking_lot",
@@ -3849,11 +3854,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ltk-redact"
+version = "0.1.0"
+dependencies = [
+ "parking_lot",
+ "regex",
+]
+
+[[package]]
 name = "ltk-telemetry"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "fs-err",
+ "ltk-redact",
  "parking_lot",
  "reqwest 0.12.28",
  "serde",

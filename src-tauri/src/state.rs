@@ -33,6 +33,18 @@ pub fn get_settings_file_path(app_handle: &AppHandle) -> Option<PathBuf> {
     get_app_data_dir(app_handle).map(|p| p.join("settings.json"))
 }
 
+/// Registers the paths and the secret of `settings` with the shared redactor, so that the
+/// log file and every report replace them.
+fn register_private_values(settings: &Settings) {
+    use ltk_redact::{register, Placeholder};
+
+    let config = &settings.config;
+    register(Placeholder::League, &config.league_path);
+    register(Placeholder::Data, &config.mod_storage_path);
+    register(Placeholder::Workshop, &config.workshop_path);
+    register(Placeholder::Secret, &settings.telemetry_secret);
+}
+
 /// Load settings from disk, returning defaults if the file doesn't exist.
 pub fn load_settings(settings_path: &Path) -> Settings {
     if !settings_path.exists() {
@@ -44,6 +56,7 @@ pub fn load_settings(settings_path: &Path) -> Settings {
         Ok(contents) => match serde_json::from_str(&contents) {
             Ok(settings) => {
                 tracing::info!("Loaded settings from {:?}", settings_path);
+                register_private_values(&settings);
                 settings
             }
             Err(e) => {
@@ -67,6 +80,7 @@ pub fn save_settings_to_disk(
         fs::create_dir_all(parent)?;
     }
 
+    register_private_values(settings);
     let contents = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
@@ -351,6 +365,30 @@ impl Default for Settings {
 mod tests {
     use super::*;
     use ltk_manager_base::config::WadBlocklistEntry;
+
+    #[test]
+    fn load_settings_registers_the_league_path_with_the_redactor() {
+        let dir = tempfile::tempdir().unwrap();
+        let league = dir.path().join("Registered League");
+        let settings = Settings {
+            config: Config {
+                league_path: Some(league.clone()),
+                ..Config::default()
+            },
+            ..Settings::default()
+        };
+        let path = dir.path().join("settings.json");
+        fs::write(&path, serde_json::to_string(&settings).unwrap()).unwrap();
+
+        load_settings(&path);
+
+        let logged = format!("reading {}", league.join("Game").display());
+        let separator = std::path::MAIN_SEPARATOR;
+        assert_eq!(
+            ltk_redact::redact(&logged),
+            format!("reading <league>{separator}Game")
+        );
+    }
 
     #[test]
     fn settings_default_values() {

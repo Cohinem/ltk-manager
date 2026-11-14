@@ -1,14 +1,14 @@
 use fs_err as fs;
-use std::path::{Path, PathBuf};
+use ltk_manager_core::log_dir::LogDir;
+use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
-use std::time::{Duration, SystemTime};
 use tracing_appender::{non_blocking, non_blocking::WorkerGuard, rolling};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Return value from logging initialization, holding guards that must live for the app lifetime.
 pub struct LoggingGuards {
     pub _file_guard: Option<WorkerGuard>,
-    pub log_path: Option<PathBuf>,
+    pub log_dir: Option<LogDir>,
     #[cfg(debug_assertions)]
     pub app_handle_holder: Arc<OnceLock<tauri::AppHandle>>,
 }
@@ -24,7 +24,7 @@ pub fn init() -> LoggingGuards {
         .unwrap_or_else(|_| DEFAULT_FILTER.into());
 
     let stdout_layer = tracing_subscriber::fmt::layer();
-    let (file_guard, writer, log_path) = build_file_writer();
+    let (file_guard, writer, log_dir) = build_file_writer();
 
     let app_handle_holder = Arc::new(OnceLock::new());
     let tauri_log_layer = crate::log_layer::TauriLogLayer::new(app_handle_holder.clone());
@@ -45,7 +45,7 @@ pub fn init() -> LoggingGuards {
 
     LoggingGuards {
         _file_guard: file_guard,
-        log_path,
+        log_dir,
         app_handle_holder,
     }
 }
@@ -56,7 +56,7 @@ pub fn init() -> LoggingGuards {
         .unwrap_or_else(|_| DEFAULT_FILTER.into());
 
     let stdout_layer = tracing_subscriber::fmt::layer();
-    let (file_guard, writer, log_path) = build_file_writer();
+    let (file_guard, writer, log_dir) = build_file_writer();
 
     let registry = tracing_subscriber::registry()
         .with(env_filter)
@@ -73,110 +73,72 @@ pub fn init() -> LoggingGuards {
 
     LoggingGuards {
         _file_guard: file_guard,
-        log_path,
+        log_dir,
     }
 }
 
 fn build_file_writer() -> (
     Option<WorkerGuard>,
     Option<non_blocking::NonBlocking>,
-    Option<PathBuf>,
+    Option<LogDir>,
 ) {
     let log_dir = match default_log_dir() {
         Some(d) => d,
         None => return (None, None, None),
     };
 
-    if let Err(e) = fs::create_dir_all(&log_dir) {
+    if let Err(e) = fs::create_dir_all(log_dir.path()) {
         eprintln!(
             "Failed to create log directory {}: {}",
-            log_dir.display(),
+            log_dir.path().display(),
             e
         );
         return (None, None, None);
     }
 
+    // Before the appender opens today's file, so that the rewrite can replace it.
+    log_dir.redact_existing();
+
     let file_appender = rolling::RollingFileAppender::builder()
         .rotation(rolling::Rotation::DAILY)
-        .filename_prefix("ltk-manager")
-        .filename_suffix("log")
-        .build(&log_dir)
+        .filename_prefix(LogDir::FILE_PREFIX)
+        .filename_suffix(LogDir::FILE_SUFFIX)
+        .build(log_dir.path())
         .expect("failed to create log file appender");
-    let (writer, guard) = non_blocking(file_appender);
+    let (writer, guard) = non_blocking(ltk_redact::RedactingWriter::new(file_appender));
     (Some(guard), Some(writer), Some(log_dir))
 }
 
-/// Delete log files older than `max_age_days` from the log directory.
-pub fn cleanup_old_logs(log_dir: &Path, max_age_days: u64) {
-    let max_age = Duration::from_secs(max_age_days * 24 * 60 * 60);
-
-    let entries = match fs::read_dir(log_dir) {
-        Ok(e) => e,
-        Err(e) => {
-            tracing::warn!("Failed to read log directory for cleanup: {}", e);
-            return;
-        }
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let file_name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-
-        if !file_name.starts_with("ltk-manager.") || !file_name.ends_with(".log") {
-            continue;
-        }
-
-        let modified = match entry.metadata().and_then(|m| m.modified()) {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-
-        let age = match SystemTime::now().duration_since(modified) {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
-
-        if age > max_age {
-            if let Err(e) = fs::remove_file(&path) {
-                tracing::warn!("Failed to delete old log file {}: {}", path.display(), e);
-            } else {
-                tracing::info!("Deleted old log file: {}", path.display());
-            }
-        }
-    }
-}
-
-pub(crate) fn default_log_dir() -> Option<PathBuf> {
+pub(crate) fn default_log_dir() -> Option<LogDir> {
     const IDENTIFIER: &str = "dev.leaguetoolkit.manager";
 
     #[cfg(target_os = "windows")]
     if let Ok(appdata) = std::env::var("APPDATA") {
-        return Some(PathBuf::from(appdata).join(IDENTIFIER).join("logs"));
+        return Some(LogDir::new(
+            PathBuf::from(appdata).join(IDENTIFIER).join("logs"),
+        ));
     }
 
     #[cfg(target_os = "macos")]
     if let Ok(home) = std::env::var("HOME") {
-        return Some(
+        return Some(LogDir::new(
             PathBuf::from(home)
                 .join("Library")
                 .join("Logs")
                 .join(IDENTIFIER),
-        );
+        ));
     }
 
     #[cfg(target_os = "linux")]
     if let Ok(home) = std::env::var("HOME") {
-        return Some(
+        return Some(LogDir::new(
             PathBuf::from(home)
                 .join(".local")
                 .join("share")
                 .join(IDENTIFIER)
                 .join("logs"),
-        );
+        ));
     }
 
-    Some(std::env::temp_dir().join("ltk-manager"))
+    Some(LogDir::new(std::env::temp_dir().join("ltk-manager")))
 }
