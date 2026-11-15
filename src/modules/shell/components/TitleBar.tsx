@@ -311,7 +311,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             </Link>
           </Tooltip>
 
-          <AppMenu appInfo={appInfo} />
+          <AppMenu />
         </div>
 
         {!isMacOS && (
