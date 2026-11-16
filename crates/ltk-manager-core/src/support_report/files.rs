@@ -1,5 +1,6 @@
-//! The builders of the files that state what the machine, the library and the last games
-//! hold: the System checks, the mod list, the incidents, the game log and the patcher build.
+//! The builders of the files that state what the machine, the library, the last games and
+//! the start hold: the System checks, the mod list, the incidents, the game log, the patcher
+//! build and the start without a window.
 
 use std::path::Path;
 
@@ -16,11 +17,12 @@ use ltk_manager_runtime::{
 };
 use serde_json::{Value, json};
 
-use super::{Finding, SupportReport};
+use super::{Finding, Startup, SupportReport};
 
 const SYSTEM_JSON: &str = "system.json";
 const LIBRARY_JSON: &str = "library.json";
 const PATCHER_JSON: &str = "patcher.json";
+const STARTUP_JSON: &str = "startup.json";
 const GAME_LOG: &str = "game-log/r3dlog.txt";
 
 /// The number of incidents that a report holds, newest first.
@@ -139,12 +141,18 @@ impl SupportReport {
         }
 
         let subject = incidents.into_iter().nth(subject)?;
+        let suspect = match subject.suspects.as_slice() {
+            [only] if only.mod_id.is_some() => Some(only.display_name.clone()),
+            _ => None,
+        };
         self.found = Some(Finding {
             title: subject.verdict.title.clone(),
             consequence: subject.verdict.consequence.to_string(),
             cause: subject.verdict.cause.clone(),
             incident_id: subject.id.clone(),
             token: subject.token(&version),
+            suspect,
+            game_version: subject.game.as_ref().map(|game| game.version.clone()),
         });
         Some(subject)
     }
@@ -170,8 +178,13 @@ impl SupportReport {
     /// Adds `patcher.json`: the delivery channel, and the build that a session on it runs.
     ///
     /// `staged` is the build that the delivery cache holds for `channel`, or `None` if no
-    /// build is staged.
+    /// build is staged. The first line of `report.md` states the version of a staged build
+    /// that is past its end of life at the time of the report.
     pub fn add_patcher(&mut self, channel: Channel, staged: Option<&StagedPatcher>) {
+        let now = u64::try_from(self.created_at.timestamp()).unwrap_or(0);
+        self.outdated.patcher = staged
+            .filter(|staged| staged.is_expired(now))
+            .map(|staged| staged.version.clone());
         let patcher = json!({
             "channel": channel.as_str(),
             "staged": staged.map(|staged| {
@@ -185,6 +198,36 @@ impl SupportReport {
             }),
         });
         self.add(PATCHER_JSON, &pretty(&patcher));
+    }
+
+    /// Adds `startup.json`: the version of the webview runtime, and the error that stopped
+    /// the start. `report.md` states both under `Startup`.
+    pub fn add_startup(&mut self, startup: Startup) {
+        let (version, error) = match &startup.webview {
+            Ok(version) => (Some(version), None),
+            Err(error) => (None, Some(error)),
+        };
+        let json = json!({
+            "webview": { "version": version, "error": error },
+            "failure": startup.failure,
+        });
+        self.add(STARTUP_JSON, &pretty(&json));
+        self.startup = Some(startup);
+    }
+}
+
+impl Startup {
+    /// Returns the start as the lines of the `Startup` section of `report.md`.
+    pub(super) fn lines(&self) -> String {
+        let start = match &self.failure {
+            Some(failure) => format!("The manager did not start: {failure}"),
+            None => "The report was built by `--report`, without a window.".to_owned(),
+        };
+        let webview = match &self.webview {
+            Ok(version) => format!("Webview runtime: {version}"),
+            Err(error) => format!("Webview runtime: not found ({error})"),
+        };
+        format!("- {start}\n- {webview}\n")
     }
 }
 
