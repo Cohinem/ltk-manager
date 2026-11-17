@@ -1,10 +1,10 @@
 //! The redaction canary.
 //!
 //! The test registers a set of private values, then runs an install, a patcher session that
-//! fails and a patcher start that fails. It searches every output for each private value: the
-//! log as the log file writer writes it, the incident report text, the incident token, the
-//! telemetry events and every file of a support report. One private value in one output fails
-//! the test.
+//! fails, a patcher start that fails and a game that the recorder follows. It searches every
+//! output for each private value: the log as the log file writer writes it, the incident
+//! report text, the incident token, the telemetry events, the game records and every file of
+//! a support report. One private value in one output fails the test.
 //!
 //! The binary holds one test, because the tracing subscriber and the redactor are
 //! process-wide.
@@ -24,6 +24,7 @@ use ltk_manager_assets::{
     test_util::{make_named_fantome_zip, place_game_wad, point_at_installed_build},
 };
 use ltk_manager_base::{
+    advisory::{Advisories, Advisory, AdvisoryCode},
     config::Config,
     error::AppError,
     events::{NullEventSink, OverlayProgress},
@@ -31,7 +32,9 @@ use ltk_manager_base::{
 use ltk_manager_core::{
     deep_link::parse_deep_link_url,
     log_dir::LogDir,
-    patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
+    patching::{
+        IncidentPipeline, PatcherThread, PrepareHost, PreparedHost, SessionParams, SessionStores,
+    },
     support_report::{
         AppIdentity, ReportDescription, ReportOrigin, ReportProblem, ShownError, Startup,
         SupportReport,
@@ -42,14 +45,19 @@ use ltk_manager_runtime::{
     diagnostics::{
         CheckCtx,
         binary_id::PatcherBinaries,
-        incident::{GameInfo, Incident, OverlayOutcome},
+        games::GameStore,
+        ids::LogIds,
+        incident::{EvidenceSource, GameInfo, Incident, OverlayOutcome},
         store::IncidentStore,
         token::IncidentToken,
     },
     patcher::{
+        SessionOrigin,
         delivery::{Channel, StagedPatcher},
         events::PatcherEvents,
-        injector::WadScanFailure,
+        injector::{InjectorEvent, WadScanFailure},
+        recorder::GameRecorder,
+        session::SessionObserver,
         state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig},
     },
 };
@@ -99,12 +107,25 @@ fn no_output_holds_a_private_value() {
             support_report.contains("%USERPROFILE"),
             "the support report of the `{username}` run holds no replaced path"
         );
+        assert!(
+            outputs.games.contains("<league>") && outputs.games.contains("<data>"),
+            "the game record of the `{username}` run holds no replaced path:\n{}",
+            outputs.games
+        );
+        let run = LogIds::global().run().expect("the session started the run");
+        assert!(
+            outputs.games.contains(&format!("\"run\": \"{run}\"")),
+            "the game record of the `{username}` run does not name its run:\n{}",
+            outputs.games
+        );
         for file in [
             "log/ltk-manager.log",
             "settings.json",
             "system.json",
             "library.json",
+            "overlay.json",
             "incidents/",
+            "games/",
             "game-log/r3dlog.txt",
             "patcher.json",
             "startup.json",
@@ -112,6 +133,13 @@ fn no_output_holds_a_private_value() {
             assert!(
                 support_report.contains(file),
                 "the support report of the `{username}` run holds no {file}"
+            );
+        }
+        // A line of the `Advisories` section of `report.md` is `- <origin>: [<code>] ...`.
+        for code in ["dll-unattested", "archive-not-served", "patcher-uncoded"] {
+            assert!(
+                support_report.contains(&format!(": [{code}]")),
+                "the support report of the `{username}` run lists no {code} advisory"
             );
         }
 
@@ -123,6 +151,7 @@ fn no_output_holds_a_private_value() {
         assert_clean("incident token", username, &outputs.token, &all);
         // Telemetry replaces the profile directory only, so the other paths are not searched.
         assert_clean("telemetry", username, &outputs.telemetry, &everywhere);
+        assert_clean("game records", username, &outputs.games, &all);
         assert_clean("support report", username, &support_report, &all);
     }
 }
@@ -134,6 +163,8 @@ struct Outputs {
     token: String,
     /// The spool files and the events that the sink received.
     telemetry: String,
+    /// The files of the game store.
+    games: String,
 }
 
 /// The private values of one run, in a directory tree of their own.
@@ -215,9 +246,18 @@ impl Fixture {
         );
 
         // The host of the first session does not exist, so the session fails after the
-        // overlay build. The second start fails before the build.
+        // overlay build. The second start fails before the build. The advisory of the
+        // host holds the path of the host in its detail.
         let host_exe = self.app_data.join("patcher").join("ltk_patcher_host.exe");
         let exe = host_exe.clone();
+        let mut advisories = Advisories::default();
+        advisories.raise(
+            Advisory::new(AdvisoryCode::DllUnattested, chrono::Utc::now()).with_detail(format!(
+                "{} holds no attestation for {}",
+                self.username,
+                host_exe.display()
+            )),
+        );
         let incident = self
             .run_session(
                 &library,
@@ -226,6 +266,7 @@ impl Fixture {
                     Ok(PreparedHost {
                         exe,
                         binaries: PatcherBinaries::default(),
+                        advisories,
                     })
                 }),
                 true,
@@ -237,6 +278,7 @@ impl Fixture {
             Box::new(move || Err(AppError::from(fs::read(&host_exe).unwrap_err()))),
             false,
         );
+        self.follow_game(&library, &telemetry);
 
         let token = incident.token(MANAGER_VERSION);
         let decoded = IncidentToken::decode(&token)
@@ -254,7 +296,85 @@ impl Fixture {
             report: incident.report_text(MANAGER_VERSION, Some(&token), &[]),
             token: serde_json::to_string(&decoded).expect("the decoded token serializes"),
             telemetry: events,
+            games: read_files(&self.app_data.join("games")),
         }
+    }
+
+    /// The stores that the sessions of the fixture write.
+    fn stores(&self) -> SessionStores {
+        SessionStores {
+            incidents: Arc::new(IncidentStore::new(self.app_data.join("incidents"))),
+            games: Arc::new(GameStore::new(self.app_data.join("games"))),
+        }
+    }
+
+    /// Follows one game through the recorder and the pipeline of a session.
+    ///
+    /// The events are the ones that the injector emits for the lines of a host, because
+    /// the test has no host process. The records of the DLL hold the username, the League
+    /// path and the storage path. Two of them raise an advisory with a detail.
+    fn follow_game(&self, library: &ModLibrary, telemetry: &Telemetry) {
+        let league = self.config.league_path.as_deref().expect("a League path");
+        let storage = self
+            .config
+            .mod_storage_path
+            .as_deref()
+            .expect("a storage path");
+        let (phases, _phase_changes) = mpsc::channel();
+        let (incidents, _recorded) = mpsc::channel();
+        let events: Arc<dyn PatcherEvents> = Arc::new(Events { phases, incidents });
+        let pipeline = IncidentPipeline::new(
+            self.config.clone(),
+            0,
+            library.clone(),
+            Vec::new(),
+            self.stores(),
+            Arc::clone(&events),
+            telemetry.clone(),
+        );
+        let scope = LogIds::global().begin_session();
+        let observer = SessionObserver::new(
+            events,
+            GameRecorder::new(SessionOrigin::Library, scope.ids()),
+            Arc::new(move |record| {
+                pipeline.run(record);
+            }),
+        );
+
+        observer.observe(InjectorEvent::GameFound);
+        assert!(
+            LogIds::global().game().is_some(),
+            "the open game is not the game of the log lines"
+        );
+        observer.observe(InjectorEvent::GameAttached { pid: Some(4321) });
+        observer.observe(InjectorEvent::Overlay {
+            outcome: OverlayOutcome::Live,
+            detail: None,
+        });
+        observer.observe(InjectorEvent::WadRedirected {
+            wad: "Ashe.wad.client".to_owned(),
+        });
+        observer.observe(InjectorEvent::WadSkipped {
+            wad: "Ahri.wad.client".to_owned(),
+            why: format!(
+                "open modded file {}: not found",
+                storage.join("overlay").join("Ahri.wad.client").display()
+            ),
+        });
+        observer.observe(InjectorEvent::Problem {
+            source: EvidenceSource::Dll,
+            level: tracing::Level::ERROR,
+            coded: false,
+            text: format!(
+                "{} cannot read {}",
+                self.username,
+                league.join("Game").join("DATA").display()
+            ),
+        });
+        // A record that spans no time is not a game.
+        std::thread::sleep(Duration::from_millis(5));
+        observer.observe(InjectorEvent::GameExited);
+        assert_eq!(LogIds::global().game(), None);
     }
 
     /// The mod library of the fixture.
@@ -358,9 +478,11 @@ impl Fixture {
             manager_exe: Some(self.profile.join("ltk-manager.exe")),
         });
         report.add_library(&self.library(), &self.config);
+        report.add_overlay(&self.library(), &self.config);
         let store = IncidentStore::new(self.app_data.join("incidents"));
         report.add_incidents(&store, None);
         report.add_game_log(&self.incident_with_game_log(&store), &self.config);
+        report.add_games(&GameStore::new(self.app_data.join("games")));
         let staged = StagedPatcher {
             dir: self.app_data.join("patcher"),
             version: "1.0.0".to_owned(),
@@ -432,7 +554,7 @@ impl Fixture {
             library: library.clone(),
             workshop_projects: Vec::new(),
             host_flags: 0,
-            incident_store: Arc::new(IncidentStore::new(self.app_data.join("incidents"))),
+            stores: self.stores(),
             force_rebuild: false,
             telemetry: telemetry.clone(),
         };
@@ -482,6 +604,7 @@ impl PatcherEvents for Events {
     fn incident_recorded(&self, incident: Incident) {
         let _ = self.incidents.send(incident);
     }
+    fn game_recorded(&self) {}
 }
 
 /// The log of the process, unredacted and as the log file writer writes it.

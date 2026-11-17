@@ -3446,6 +3446,7 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "tracing-appender",
+ "tracing-log",
  "tracing-subscriber",
  "url",
  "uuid",
@@ -3536,6 +3537,7 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "camino",
+ "chrono",
  "fs-err",
  "image",
  "ltk_fantome",
